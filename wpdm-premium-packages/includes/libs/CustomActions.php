@@ -63,7 +63,7 @@ class CustomActions {
      */
     function addRefund(){
         global $wpdb;
-        if(!current_user_can(WPDMPP_MENU_ACCESS_CAP)) return;
+        __::isAuthentic('wpdmpparnonnce', WPDM_PRI_NONCE, WPDM_ADMIN_CAP, true);
         $refund_amount = wpdm_query_var('refund', 'double');
         $order = new Order(wpdm_query_var('order_id'));
         $refund = (double)$order->refund + (double)$refund_amount;
@@ -138,7 +138,8 @@ class CustomActions {
      */
     function updateOrderExpiryDate(){
         global $wpdb;
-        if(!current_user_can(WPDMPP_MENU_ACCESS_CAP)) return;
+
+	    __::isAuthentic('wpdmppuednonnce', WPDM_PRI_NONCE, WPDM_ADMIN_CAP, true);
 
         $order_id = wpdm_query_var('order_id', 'txt');
 

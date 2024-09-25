@@ -559,6 +559,7 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
         <div class="modal-dialog modal-sm" role="document">
             <div class="modal-content">
                 <form method="post" id="refundform">
+                    <input type="hidden" name="wpdmpparnonnce" value="<?php echo wp_create_nonce(WPDM_PRI_NONCE) ?>"/>
                     <input type="hidden" name="action" value="wpdmpp_async_request"/>
                     <input type="hidden" name="execute" value="addRefund"/>
                     <input type="hidden" name="order_id" value="<?php echo wpdm_query_var( 'id' ); ?>"/>
@@ -612,6 +613,7 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
         <div class="modal-dialog modal-sm" role="document">
             <div class="modal-content">
                 <form method="post" id="changeexpireform">
+                    <input type="hidden" name="wpdmppuednonnce" value="<?php echo wp_create_nonce(WPDM_PRI_NONCE);  ?>">
                     <input type="hidden" name="action" value="wpdmpp_updateOrderExpiryDate">
                     <input type="hidden" name="order_id" value="<?php echo wpdm_query_var( 'id' ); ?>"/>
                     <div class="modal-header">
