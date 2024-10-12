@@ -299,12 +299,13 @@ class CustomActions {
             $billing['email'] = isset( $billing['email'] ) ? $billing['email'] : $current_user->user_email;
         }
 
+	    $checkout_page = get_wpdmpp_option( 'checkout_page_style', '-2col', 'username' );
         if (get_wpdmpp_option('billing_address') == 1 || wpdmpp_tax_active() || $billing_required) {
             // Ask Billing Address When Checkout
-            include \WPDM\__\Template::locate('checkout-cart/checkout-billing-info.php', dirname(__FILE__) . '/templates'.WPDM()->bsversion."/", WPDMPP_TPL_FALLBACK);
+            include \WPDM\__\Template::locate("checkout-cart{$checkout_page}/checkout-billing-info.php", dirname(__FILE__) . '/templates'.WPDM()->bsversion."/", WPDMPP_TPL_FALLBACK);
         } else {
             // Ask only Name and Email When Checkout
-            include \WPDM\__\Template::locate('checkout-cart/checkout-name-email.php', dirname(__FILE__) . '/templates'.WPDM()->bsversion."/", WPDMPP_TPL_FALLBACK);
+            include \WPDM\__\Template::locate("checkout-cart{$checkout_page}/checkout-name-email.php", dirname(__FILE__) . '/templates'.WPDM()->bsversion."/", WPDMPP_TPL_FALLBACK);
         }
         $billing_form = ob_get_clean();
 

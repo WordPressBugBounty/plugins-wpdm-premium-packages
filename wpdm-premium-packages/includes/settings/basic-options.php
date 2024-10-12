@@ -107,6 +107,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 );
             wp_dropdown_pages($args);
             ?>
+            <div class="form-group">
+                <br/>
+                <label><?php _e("Checkout Layout:", "wpdm-premium-packages"); ?></label><br>
+                <div style="display: flex">
+                    <label class="mr-3"><input type="radio" <?php checked(get_wpdmpp_option('checkout_page_style'), '') ?> name="_wpdmpp_settings[checkout_page_style]" value=""> <?php _e("Single Column", "wpdm-premium-packages"); ?></label>
+                    <label><input type="radio" name="_wpdmpp_settings[checkout_page_style]" <?php checked(get_wpdmpp_option('checkout_page_style'), '-2col') ?> value="-2col"> <?php _e("2 Columns Extended", "wpdm-premium-packages"); ?></label>
+                </div>
+            </div>
             <hr/>
 
             <label><?php _e("Orders Page :", "wpdm-premium-packages"); ?></label><br>

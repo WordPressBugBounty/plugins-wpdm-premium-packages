@@ -712,6 +712,8 @@ if (!class_exists('Paypal')) {
             $current_user = wp_get_current_user();
             if($this->client_id == '' || $this->client_id_sandbox == '') return '';
 
+	        if(!WPDMPP()->payment->isPaymentMethodActive(get_class($this))) return '';
+
             $product = new Product($product_id);
 
             $price = $product->getLicensePrice($license);

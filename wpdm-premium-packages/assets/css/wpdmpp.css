@@ -493,3 +493,11 @@ span.required{
     display: block;
     margin-top: 5px !important;
 }
+
+.w3eden .nowrap *,
+.w3eden .nowrap{
+    white-space: nowrap !important;
+}
+.w3eden .bg-transparent {
+    background: transparent !important;
+}

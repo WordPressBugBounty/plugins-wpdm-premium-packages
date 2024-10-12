@@ -615,7 +615,9 @@ class Cart {
 		$Template->assign( 'settings', $settings );
 		$Template->assign( 'cart_coupon_discount', $cart_coupon_discount );
 
-		return $Template->fetch( 'checkout-cart/cart.php', WPDMPP_TPL_DIR, WPDMPP_TPL_FALLBACK );
+		$checkout_page = get_wpdmpp_option( 'checkout_page_style', '-2col', 'username' );
+
+		return $Template->fetch( "checkout-cart{$checkout_page}/cart.php", WPDMPP_TPL_DIR, WPDMPP_TPL_FALLBACK );
 	}
 
 	function clear() {

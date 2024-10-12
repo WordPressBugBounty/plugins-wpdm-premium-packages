@@ -329,6 +329,7 @@ jQuery(function ($) {
 
     if ($('#payment_form input[name="payment_method"]:checked').val() != undefined) {
         set_payment_method(selected_payment_method())
+        $('#__PM_'+selected_payment_method()).addClass('active');
     }
 
     /* Execute on change */

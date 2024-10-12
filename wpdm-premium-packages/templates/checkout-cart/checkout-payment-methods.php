@@ -41,8 +41,10 @@ global $payment_methods;
                 $pg_item_class = "payment-gateway-item payment-gateway-{$payment_method_lc} index-$index";
                 $pg_item_class = apply_filters("wpdmpp_payment_gateway_item_class", $pg_item_class);
                 $row_id = "__PM_{$payment_method}";
+	            $logo = "<img class='float-right' width='24' src='" . WPDMPP()->payment->getLogo($payment_method) . "' alt='{$payment_method}' />";
                 // If you are editing this file, keep the radio input field name same as no, "payment_method"
-                echo '<label class="list-group-item '.$pg_item_class.'" id="'.$row_id.'"><input class="wpdm-radio mr-3" type="radio" name="payment_method" '.checked($payment_methods[0], $payment_method, false).' value="' . $payment_method . '" > <span class="grateway-name">' . $name . '</span></label>';
+                echo '<label class="list-group-item '.$pg_item_class.'" id="'.$row_id.'"><input class="wpdm-radio mr-3" type="radio" name="payment_method" '.checked($payment_methods[0], $payment_method, false).' value="' . $payment_method . '" > <span class="grateway-name">' . $name . '</span> '.$logo.'</label>';
+
             }
         }
     }

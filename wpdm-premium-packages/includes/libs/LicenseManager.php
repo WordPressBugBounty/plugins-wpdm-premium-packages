@@ -75,21 +75,22 @@ if( ! class_exists( 'LicenseManager' ) ):
 
                 $productId = wpdm_query_var('productId');
                 $license = $wpdb->get_row("select * from {$wpdb->prefix}ahm_licenses where licenseno = '$licenseKey'");
-                //wp_send_json($license);
-                $activation_date = $license->activation_date;
-                $activation_date = (int)$activation_date > 0 ? $activation_date : time();
+				//wp_send_json($license);
                 if ($license) {
+	                $activation_date = $license->activation_date;
+	                $activation_date = (int)$activation_date > 0 ? $activation_date : time();
                     $domains = maybe_unserialize($license->domain);
                     if (!is_array($domains)) $domains = array();
-                    if ($license->oid !== '') {
-                        $order = $wpdb->get_row("select * from {$wpdb->prefix}ahm_orders where order_id='$license->oid'");
 
-                        if (!$order || ($order->order_id != '' && !in_array($order->order_status, array('Completed', 'Expired', 'Gifted')))) {
+					if(!$license->oid)  wp_send_json(array('status' => 'INVALID', 'error' => 'ORDER_ISSUE', 'expire' => '', 'expire_date' => '', 'download_url' => ''));
 
-                            wp_send_json(array('status' => 'INVALID', 'error' => 'ORDER_ISSUE', 'expire' => $order->expire_date, 'expire_date' => $order->expire_date, 'download_url' => ''));
+	                $order = (new Order())->getOrder($license->oid);
 
-                        }
-                    }
+	                if (!$order || ($order->order_id != '' && !in_array($order->order_status, array('Completed', 'Expired', 'Gifted')))) {
+
+		                wp_send_json(array('status' => 'INVALID', 'error' => 'ORDER_ISSUE', 'expire' => $order->expire_date, 'expire_date' => $order->expire_date, 'download_url' => ''));
+
+	                }
 
 	                if($order->order_status === 'Expired' && !get_wpdmpp_option('license_key_validity', 0, 'int')) {
 		                wp_send_json(array('status' => 'INVALID', 'error' => 'ORDER_EXPIRED', 'download_url' => ''));
@@ -106,10 +107,10 @@ if( ! class_exists( 'LicenseManager' ) ):
                         $domains[] = $domain;
                         $wpdb->update("{$wpdb->prefix}ahm_licenses", array('domain' => serialize($domains), 'activation_date' => $activation_date), array('id' => $license->id));
 
-	                        $validity = array('status' => 'VALID', 'expire_date' => $license->expire_date, 'activation_date' => $license->activation_date, 'order_status' => $order->order_status, 'order_id' => $order->order_id);
+	                        $validity = array('status' => 'VALID', 'expire_date' => $license->expire_date, 'activation_date' => $license->activation_date, 'order_status' => $order->order_status, 'order_id' => $order->order_id, 'auto_renew' => (int)$order->auto_renew);
                     } else if (in_array($domain, $domains)) {
                         $status = ($license->expire_date > time() || $license->expire_date == 0) ? 'VALID' : 'EXPIRED';
-                        $validity = array('status' => $status, 'expire' => $license->expire_date, 'expire_date' => $license->expire_date, 'activation_date' => $license->activation_date, 'order_status' => $order->order_status, 'order_id' => $order->order_id);
+                        $validity = array('status' => $status, 'expire' => $license->expire_date, 'expire_date' => $license->expire_date, 'activation_date' => $license->activation_date, 'order_status' => $order->order_status, 'order_id' => $order->order_id, 'auto_renew' => (int)$order->auto_renew);
                     } else {
                         $validity = array('status' => 'INVALID', 'error' => 'USAGE_LIMIT_REACHED');
                     }

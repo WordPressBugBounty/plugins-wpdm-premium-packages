@@ -2,6 +2,8 @@
 namespace WPDMPP\Libs;
 
 // Exit if accessed directly
+use WPDM\AssetManager\AssetManager;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -37,20 +39,34 @@ class Payment{
 
     }
 
-    function listMethods() {
+    function getPaymentMethods($activeOnly = false) {
 	    global $payment_methods;
 	    $settings           = maybe_unserialize(get_option('_wpdmpp_settings'));
 	    $payment_methods    = apply_filters('payment_method', $payment_methods);
 	    $payment_methods    = isset($settings['pmorders']) && count($settings['pmorders']) == count($payment_methods) ? $settings['pmorders'] : $payment_methods;
+		if($activeOnly) {
+			$active_pms = [];
+			foreach($payment_methods as $pm) {
+				$enabled = wpdm_valueof($settings, "{$pm}/enabled", 0, "int");
+				if($enabled) $active_pms[] = $pm;
+			}
+			$payment_methods = $active_pms;
+		}
 		return $payment_methods;
     }
 
+	function isPaymentMethodActive( $name ) {
+		$activeMethods = $this->getPaymentMethods(true);
+		$name = str_replace("WPDMPP\\Libs\\PaymentMethods\\", "", $name);
+		return in_array($name, $activeMethods);
+	}
+
     function countMethods(){
-         return count($this->listMethods());
+         return count($this->getPaymentMethods());
     }
 
     function PaymentMethodDropDown(){
-        $methods = $this->ListMethods();
+        $methods = $this->getPaymentMethods();
         $html = "";
         if(count($methods) > 1){
             foreach($methods as $method){
@@ -139,6 +155,14 @@ class Payment{
 
         return wpdm_option_page($options).$connection_tester;
     }
+
+	function getLogo( $name ) {
+		$name = str_replace(["wpdmpp_", "wpdm_"], "", strtolower($name));
+		if(file_exists(WPDMPP_BASE_DIR.'assets/images/'.$name.'.png')) {
+			return WPDMPP_BASE_URL.'assets/images/'.$name.'.png';
+		} else
+			return WPDMPP_BASE_URL.'assets/images/payment.png';
+	}
 
     function getMonthOptions(){
         return

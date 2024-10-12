@@ -158,6 +158,17 @@ class PayPalAPI
         return $data;
     }
 
+	function getSubscriptionPayments($subscriptionID) {
+		$start_time = date("Y-m-d\TH:i:s\Z", strtotime('-10 years'));
+		$end_time = date("Y-m-d\TH:i:s\Z", time());
+		$headers = array(
+			"Authorization" => "Bearer " . $this->accessToken,
+			"Content-Type" => "application/json",
+		);
+		$data = $this->_request("billing/subscriptions/{$subscriptionID}/transactions?start_time={$start_time}&end_time={$end_time}", array(), $headers, 'GET');
+		return $data->transactions;
+	}
+
     function _request($action, $params, $headers, $method = 'POST')
     {
 		$apiv = $action === 'oauth2/token' ? 1 : 2;

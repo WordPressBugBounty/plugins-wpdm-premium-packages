@@ -6,7 +6,6 @@
  * Version: 1.2
  */
 if (!defined('ABSPATH')) die();
-
 if((int)get_wpdmpp_option('show_buynow') === 1){
     if(!isset($params)) $params = array();
 	$_buynow_html = '';
