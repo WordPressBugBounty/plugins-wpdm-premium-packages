@@ -16,8 +16,35 @@ class Payment{
 	public $GatewayName = '';
 
     function __construct(){
-
     }
+
+	function actions() {
+		add_action("init", [$this, 'webHookListener']);
+		add_action("wp_ajax_wpdmpp_create_pmwebhook", [$this, 'createWebHook']);
+	}
+
+	function webHookListener(){
+		if(isset($_REQUEST['pmwebhook'])) {
+			$payload = file_get_contents('php://input');
+			$payload = json_decode($payload, true);
+			$class = "\\WPDMPP\\Libs\\PaymentMethods\\".wpdm_query_var('pmwebhook', 'username');
+			if(class_exists($class) && method_exists($class, "handleWebHook")) {
+				(new $class())->handleWebHook($payload);
+			}
+		}
+	}
+
+	function createWebHook(){
+		if(isset($_REQUEST['pm'])) {
+			$class = "\\WPDMPP\\Libs\\PaymentMethods\\".wpdm_query_var('pm', 'username');
+			if(class_exists($class) && method_exists($class, "createWebHook")) {
+				$response = (new $class())->createWebHook();
+				if($response['success'] ) {
+					die('<i class="fa fa-check-double"></i> '. __('WebHook Created Successfully', WPDMPP_TEXT_DOMAIN));
+				}
+			}
+		}
+	}
 
     function initiateProcessor($methodID){
         //$MethodClass = $MethodID;

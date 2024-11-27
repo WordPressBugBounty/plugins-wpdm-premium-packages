@@ -417,11 +417,15 @@ function wpdmpp_cart_page($params = array())
     if (!$wpdmpp_settings)
         $wpdmpp_settings = get_option('_wpdmpp_settings');
 
+    if(!(int)wpdm_valueof($wpdmpp_settings, 'page_id')) return '';
+
     $url = get_permalink($wpdmpp_settings['page_id']);
+
+    if(!$url) return '';
 
     $url = add_query_arg($params, $url);
 
-    return $url;
+    return esc_url($url);
 }
 
 function wpdmpp_cart_url($params = array())
@@ -431,7 +435,9 @@ function wpdmpp_cart_url($params = array())
 
 function wpdmpp_checkout_link($label = 'Checkout', $class = 'btn btn-info' ,$params = array())
 {
-    return "<a href='".wpdmpp_cart_page($params)."' class='{$class}'>{$label}</a>";
+    $cart_page = wpdmpp_cart_page($params);
+    if(!$cart_page) return '';
+    return "<a href='".$cart_page."' class='{$class}'>{$label}</a>";
 }
 
 function wpdmpp_is_cart_page($id = null)
@@ -444,8 +450,7 @@ function wpdmpp_is_cart_page($id = null)
 
 function wpdmpp_continue_shopping_url($args = [])
 {
-    $settings = get_option('_wpdmpp_settings');
-    return add_query_arg($args, get_wpdmpp_option('continue_shopping_url', home_url('/')));
+    return esc_url(add_query_arg($args, get_wpdmpp_option('continue_shopping_url', home_url('/'))));
 }
 
 

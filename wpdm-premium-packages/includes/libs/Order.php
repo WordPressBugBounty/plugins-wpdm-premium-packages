@@ -225,6 +225,12 @@ class Order {
 		return $res;
 	}
 
+	function cancel() {
+		global $wpdb;
+		$wpdb->update( "{$wpdb->prefix}ahm_orders", ['order_status' => 'Cancelled', 'auto_renew' => 0], array( 'order_id' => $this->order_id ) );
+		do_action( "wpdmpp_order_cencelled", $this);
+	}
+
 	function updateTax() {
 
 	}
@@ -988,6 +994,20 @@ class Order {
 		$order_data = apply_filters( "wpdmpp_get_order", $order_data );
 
 		return $order_data;
+	}
+
+	function getOrderByTID($tid) {
+		global $wpdb;
+		if(!$tid) return false;
+		$order = $wpdb->get_row( "select * from {$wpdb->prefix}ahm_orders where trans_id='$tid'" );
+		$order = (array) $order;
+		foreach ( $order as $key => $val ) {
+			$this->$key = maybe_unserialize( $val );
+			if ( $key != 'order_id' ) {
+				$this->orderData[ $key ] = maybe_unserialize( $val );
+			}
+		}
+		return $this;
 	}
 
 	function getOrders( $user_id, $completed_only = false ) {

@@ -129,11 +129,9 @@ class ShortCodes{
         if(!(double)__::valueof($params, 'price')) return '';
         ob_start();
         $args = [ 'addtocart' =>  'dynamic', 'price' => (double)__::valueof($params, 'price')];
-        if(__::valueof($params, 'name') !== '') $args['name'] = __::valueof($params, 'name', ['validate' => 'txt']);
-        if(__::valueof($params, 'desc') !== '') $args['desc'] = __::valueof($params, 'desc', ['validate' => 'txt']);
-        if(isset($params['recurring'])) $args['recurring'] = __::valueof($params, 'recurring', ['validate' => 'int']);
+        $args['recurring'] = __::valueof($params, 'recurring', 0, 'int');
         ?>
-        <div class="w3eden wpdmpp-pay-link"><a href="<?= add_query_arg($args, home_url('/?')); ?>" class="<?= __::valueof($params, 'cssclass', ['validate' => 'txt']); ?>"><?= __::valueof($params, 'label', 'Pay Now') ?></a></div>
+        <span class="w3eden wpdmpp-pay-link"><a href="<?= add_query_arg($args, home_url('/')); ?>" class="<?= __::valueof($params, 'cssclass', 'wpdm-pay-now-link', 'username'); ?>"><?= __::valueof($params, 'label', __('Pay Now', 'download-manager'), 'safetxt') ?></a></span>
         <?php
         return ob_get_clean();
     }

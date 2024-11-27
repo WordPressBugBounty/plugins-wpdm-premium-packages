@@ -77,7 +77,10 @@ if (!class_exists('Paypal')) {
         {
             if ($this->Enabled) $enabled = 'checked="checked"';
             else $enabled = "";
-
+            $webhook = get_option('wpdmpp_paypal_webhook');
+	        $webhook = json_decode($webhook);
+            $webhookExists = "<i class='fa fa-long-arrow-left'></i> Save PayPal api info, then click the button to create webhook";
+            if($webhook) $webhookExists = "<i class='fa fa-check-double'></i> WebHook is active ( ID: {$webhook->id} )";
             $options = array(
 
                 'Paypal_mode' => array(
@@ -138,6 +141,17 @@ if (!class_exists('Paypal')) {
                     'type' => 'media',
                     'placeholder' => '150x50 px',
                     'value' => $this->ImageURL
+                ),
+                'endpoint_label' => array(
+	                'label'       => __( "Webhook endpoint URL:", PPSTRIPE_TD ),
+	                'type'        => 'notice',
+	                'placeholder' => '',
+	                'notice'      => "
+	                <input onclick='WPDM.copyTxt(this.value)' type='text' value='" . home_url( "/?pmwebhook=Paypal" ) . "' readonly=readonly class='form-control' style='' />
+	                <br/><div class='panel panel-default'><div class='panel-body'>
+	                   <div class='media'><div class='pull-left'><button id='cpplwh' data-url='".admin_url('admin-ajax.php?action=wpdmpp_create_pmwebhook&pm=Paypal')."' data-rest='#pplwhm' type='button' class='btn btn-info exec-async'>".__('Create WebHook', WPDMPP_TEXT_DOMAIN)."</button></div><div id='pplwhm' class='media-body text-right text-success' style='line-height: 34px;'>{$webhookExists}</div></div> 	                   
+                    </div></div>
+	                "
                 ),
             );
 
@@ -302,7 +316,7 @@ if (!class_exists('Paypal')) {
 
             //print_r($_POST);
             $this->InvoiceNo = sanitize_text_field($_POST['invoice']);
-            $order = new \WPDMPP\Libs\Order();
+            $order = new Order();
             $orderdata = $order->GetOrder($this->InvoiceNo);
             $this->buyer_email = sanitize_email($_POST['payer_email']);
 
@@ -434,7 +448,7 @@ if (!class_exists('Paypal')) {
                             'billing_info' => $billing_info,
                         );
 
-                        $order = new \WPDMPP\Libs\Order();
+                        $order = new Order();
                         $od = $order->Update($data, $order_id);
 
                         if (is_user_logged_in()) {
@@ -726,7 +740,7 @@ if (!class_exists('Paypal')) {
 	        $recurring = 0;
 	        $order_validity_period = get_wpdmpp_option('order_validity_period', 365, 'int');
 	        $order_validity_period = !$order_validity_period ? 365 : $order_validity_period;
-
+	        $plan_id = null;
 	        if (WPDMPP()->cart->isRecurring()){
 		        $recurring = 1;
 		        if($env === 'sandbox')
@@ -1073,6 +1087,43 @@ if (!class_exists('Paypal')) {
 	        $data = json_decode($data);
             return $data;
 
+        }
+
+	    function handleWebHook($payload) {
+		    if($this->PayPalMode === 'sandbox')
+			    $paypalapi = new PayPalAPI($this->PayPalMode, $this->client_id_sandbox, $this->client_secret_sandbox);
+		    else
+			    $paypalapi = new PayPalAPI($this->PayPalMode, $this->client_id, $this->client_secret);
+		    if ( array_key_exists( "event_type", $payload ) ) {
+			    $event_type       = $payload['event_type'];
+			    $event_version    = $payload['event_version'];
+			    $resource         = $payload['resource'];
+			    $resource_version = $payload['resource_version'];
+			    $transection_id = wpdm_valueof( $payload, 'resource/billing_agreement_id' );
+
+			    switch ( $event_type ) {
+				    case 'BILLING.SUBSCRIPTION.CANCELLED':
+                        $order = (new Order())->getOrderByTID($transection_id);
+					    $order->cancel();
+					    break;
+
+				    case 'PAYMENT.SALE.COMPLETED':
+					    $order = (new Order())->getOrderByTID($transection_id);
+					    Order::renewOrder( $order->order_id, $transection_id );
+					    break;
+			    }
+		    }
+
+        }
+
+        function createWebHook() {
+	        if($this->PayPalMode === 'sandbox')
+		        $paypalapi = new PayPalAPI($this->PayPalMode, $this->client_id_sandbox, $this->client_secret_sandbox);
+	        else
+		        $paypalapi = new PayPalAPI($this->PayPalMode, $this->client_id, $this->client_secret);
+
+            $response = $paypalapi->createWebhook();
+            return ['success' => true, 'response' => $response];
         }
 
     }

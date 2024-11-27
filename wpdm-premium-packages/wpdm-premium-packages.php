@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 5.9.3
+ * Version: 5.9.5
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -40,7 +40,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '5.9.3' );
+	define( 'WPDMPP_VERSION', '5.9.5' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -305,6 +305,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 			include_once( dirname( __FILE__ ) . "/includes/libs/Payment.php" );
 			$this->payment = new Payment();
+            $this->payment->actions();
 
 			include_once( dirname( __FILE__ ) . "/includes/libs/CustomActions.php" );
 			include_once( dirname( __FILE__ ) . "/includes/libs/CustomColumns.php" );
@@ -1387,6 +1388,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function fetchTemplateTag( $vars ) {
 			global $wpdb, $wpdmpp_settings;
+
 
 			$effective_price           = wpdmpp_effective_price( $vars['ID'] );
 			$vars['effective_price']   = $effective_price;

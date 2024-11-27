@@ -1,5 +1,19 @@
 jQuery(function ($) {
 
+    $('body').on('click', '.exec-async', function (e) {
+       const $this = $(this)
+       const html = $this.html();
+       $this.html('<i class="fa fa-sun fa-spin"></i> Processing..');
+       $this.attr('disabled', true);
+       const target = $(this).data('rest');
+       $.get($(this).data('url'), function (response) {
+           $(target).html(response);
+           $this.html(html);
+           $this.removeAttr('disabled');
+       });
+    });
+
+
     /**
      * License
      */
