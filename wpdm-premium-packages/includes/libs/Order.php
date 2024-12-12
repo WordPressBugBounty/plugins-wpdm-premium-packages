@@ -1046,6 +1046,7 @@ class Order {
 		$purchased_items = $wpdb->get_results( "select oi.*, o.order_status, o.date as order_date from {$wpdb->prefix}ahm_order_items oi,{$wpdb->prefix}ahm_orders o where o.order_id = oi.oid and o.uid = {$uid} and o.order_status IN ('Expired', 'Completed') order by `order_date` desc" );
 		foreach ( $purchased_items as &$item ) {
 			$files = get_post_meta( $item->pid, '__wpdm_files', true );
+			$item->product_name = $item->product_name ?: get_the_title( $item->pid );
 			if ( is_array( $files ) ) {
 				foreach ( $files as $id => $index ) {
 					$index = basename( $index );
