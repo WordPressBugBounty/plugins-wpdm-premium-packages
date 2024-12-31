@@ -4,7 +4,7 @@ Donate link:
 Tags: shopping cart, digital store, online shop, sell digital product, WordPress ecommerce, products, product management, membership management
 Requires at least: 5.3
 Tested up to: 6.7
-Stable tag: 5.9.6
+Stable tag: 5.9.7
 
 
 Premium Packages is a free full-featured WordPress eCommerce Plugin to sell digital products easily.
@@ -110,6 +110,9 @@ We have made the tax calculation is easier for you. From premium package setting
 
 
 == Changelog ==
+
+= 5.9.7 - 2024.12.31 =
+* Fixed an issue with the `orderby` option on the admin orders page ( reported by patchstack )
 
 = 5.9.6 - 2024.12.12 =
 * Fixed an issue with the currency symbol on the customer profile page

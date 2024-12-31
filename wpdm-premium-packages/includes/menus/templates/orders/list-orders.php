@@ -45,7 +45,7 @@ if ( isset( $qry ) ) {
 }
 
 if ( wpdm_query_var( 'orderby' ) != '' ) {
-	$orderby = sanitize_text_field( wpdm_query_var( 'orderby' ) );
+	$orderby = wpdm_query_var( 'orderby', 'username' );
 	$_order  = wpdm_query_var( 'order' ) == 'asc' ? 'asc' : 'desc';
 	$qry     = $qry . " order by $orderby $_order";
 } else {
