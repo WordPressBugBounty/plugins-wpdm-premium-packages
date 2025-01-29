@@ -4,7 +4,7 @@ Donate link:
 Tags: shopping cart, digital store, online shop, sell digital product, WordPress ecommerce, products, product management, membership management
 Requires at least: 5.3
 Tested up to: 6.7
-Stable tag: 5.9.7
+Stable tag: 5.9.8
 
 
 Premium Packages is a free full-featured WordPress eCommerce Plugin to sell digital products easily.
@@ -110,6 +110,10 @@ We have made the tax calculation is easier for you. From premium package setting
 
 
 == Changelog ==
+
+= 5.9.8 - 2025.01.29 =
+* Fixed an issue with the payment settings
+* Added support for Open AI and Gemini ( Requires WPDM v6.7+ )
 
 = 5.9.7 - 2024.12.31 =
 * Fixed an issue with the `orderby` option on the admin orders page ( reported by patchstack )

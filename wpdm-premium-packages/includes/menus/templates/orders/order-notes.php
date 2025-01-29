@@ -176,6 +176,10 @@ if(isset($order_notes['messages'])){
             </div>
         </div>
         <div class="panel-footer text-right">
+            <button type='button' id="sgc" class='btn btn-sm btn-secondary ttip' title="<?php _e('Spell and Grammar Check', WPDMPP_TEXT_DOMAIN); ?>"><i class="fa-solid fa-spell-check"></i></button>
+            <button type='button' id="air" class='btn btn-sm btn-secondary ttip' title="<?php _e('Reply with AI', WPDMPP_TEXT_DOMAIN); ?>"><i class="fa-solid fa-robot"></i></button>
+            <button type='button' id="art" class='btn btn-sm btn-secondary ttip' title="<?php _e('Re-articulate', WPDMPP_TEXT_DOMAIN); ?>"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+
             <button data-toggle='modal' data-target='#ontmodal' type='button' class='btn btn-sm btn-info'><?php _e('Templates', WPDMPP_TEXT_DOMAIN); ?></button>
             <button class="btn btn-primary btn-sm" id="add-note-button" type="submit"><i class="fa fa-plus-circle"></i> <?php _e('Add Note','wpdm-premium-packages'); ?></button>
             <div class="pull-left">
@@ -284,6 +288,38 @@ if(isset($order_notes['messages'])){
     jQuery(function($){
 
         let $body = $('body');
+        <?php if(version_compare(WPDM_VERSION, '6.7.0', '>')) { ?>
+        $body.on('click', '#sgc', function () {
+            WPDM.blockUI('#post-order-note');
+            $.post(ajaxurl, {action: 'wpdm_aiassist', ainonce: '<?= wp_create_nonce(WPDM_PRI_NONCE) ?>', prompt: $('#order-note').val(), generate: 'grammarCheck'}, function (res) {
+                $('#order-note').val(res.data)
+                WPDM.unblockUI('#post-order-note');
+            });
+        });
+
+        $body.on('click', '#art', function () {
+            WPDM.blockUI('#post-order-note');
+            $.post(ajaxurl, {action: 'wpdm_aiassist', ainonce: '<?= wp_create_nonce(WPDM_PRI_NONCE) ?>', prompt: $('#order-note').val(), generate: 'reArticulate'}, function (res) {
+                $('#order-note').val(res.data)
+                WPDM.unblockUI('#post-order-note');
+            });
+        });
+
+        $body.on('click', '#air', function () {
+            let _prompt = prompt('What is this about?', 'Write a thank you note for a new customer.');
+            if(!_prompt) return;
+            WPDM.blockUI('#post-order-note');
+            $.post(ajaxurl, {action: 'wpdm_aiassist', ainonce: '<?= wp_create_nonce(WPDM_PRI_NONCE) ?>', prompt: _prompt, generate: 'aiReply'}, function (res) {
+                $('#order-note').val(res.data)
+                WPDM.unblockUI('#post-order-note');
+            });
+        });
+
+        <?php } else { ?>
+        $body.on('click', '#air, #art, #sgc', function () {
+            $('#order-note').val('Only available with WPDM v6.7.1 or greater!')
+        });
+        <?php } ?>
 
         $.get(ajaxurl, {action: 'wpdm_get_order_note_templates', __ontgnonce: '<?= wp_create_nonce(WPDM_PRI_NONCE) ?>'}, function (res) {
             __wpdm_onts.templates = res;

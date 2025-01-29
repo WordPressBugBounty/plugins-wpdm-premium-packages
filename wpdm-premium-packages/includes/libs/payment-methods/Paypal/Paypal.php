@@ -143,7 +143,7 @@ if (!class_exists('Paypal')) {
                     'value' => $this->ImageURL
                 ),
                 'endpoint_label' => array(
-	                'label'       => __( "Webhook endpoint URL:", PPSTRIPE_TD ),
+	                'label'       => __( "Webhook endpoint URL:", "wpdm-premium-packages" ),
 	                'type'        => 'notice',
 	                'placeholder' => '',
 	                'notice'      => "
