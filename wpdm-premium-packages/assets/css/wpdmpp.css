@@ -431,7 +431,7 @@ th.cart_item_subtotal{
 
 .w3eden .wpdm_cart.table{
     border: 0;
-    background: #ffffff;
+    background: transparent;
 }
 .w3eden .wpdm_cart.table th{
     border-bottom: 1px solid rgba(var(--color-secondary-rgb), 0.15) !important;
@@ -501,3 +501,4 @@ span.required{
 .w3eden .bg-transparent {
     background: transparent !important;
 }
+

@@ -87,7 +87,7 @@ if(!defined("ABSPATH")) die();
         <!-- Cart Coupon Discount  -->
         <tr id="cart-total">
             <td  class="text-right ">
-                <div class="input-group input-group-sm" style="max-width: 160px">
+                <div class="input-group input-group-sm" style="max-width: 160px;display: flex;">
                     <input type="text" name="coupon_code" class="form-control" value="<?php echo is_array($cart_coupon) && isset($cart_coupon['code'])?$cart_coupon['code']:''; ?>" placeholder="Coupon Code">
                     <span class="input-group-append"><button class="btn btn-secondary" type="submit"><?= esc_attr__( 'Apply', WPDMPP_TEXT_DOMAIN ) ?></button></span>
                 </div>
@@ -131,3 +131,13 @@ if(!defined("ABSPATH")) die();
 
 </form>
 
+<style>
+    .w3eden .input-group-sm .form-control{
+        border-radius: 4px 0 0 4px !important;
+    }
+    .w3eden .input-group-sm .btn{
+        min-height: 24px;
+        height: 28px;
+        border-radius: 0 4px 4px 0 !important;
+    }
+</style>
