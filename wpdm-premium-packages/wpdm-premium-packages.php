@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 5.9.9
+ * Version: 6.0.0
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -40,7 +40,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '5.9.9' );
+	define( 'WPDMPP_VERSION', '6.0.0' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -141,7 +141,6 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				$this->payment_notification();
 				$this->comeplete_buynow_action();
 				$this->wpdmpp_ajax_payfront();
-				$this->anync_execute();
 				$this->freeDownload();
 
 			} );
@@ -1147,6 +1146,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 * Dynamic function call using AJAX
 		 */
 		function wpdmpp_async_request() {
+
 			$CustomActions = new \WPDMPP\Libs\CustomActions();
 			if ( method_exists( $CustomActions, $_POST['execute'] ) ) {
 				$method = sanitize_text_field( $_POST['execute'] );
@@ -1155,21 +1155,6 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			} else {
 				die( "Function doesn't exist" );
 			}
-		}
-
-		/**
-		 * Execute Custom Action
-		 */
-		function anync_execute() {
-			$CustomActions = new \WPDMPP\Libs\CustomActions();
-			if ( isset( $_POST['action'] ) && $_POST['action'] == 'wpdmpp_anync_exec' ) {
-				if ( method_exists( $CustomActions, $_POST['execute'] ) ) {
-					$method = sanitize_text_field( $_POST['execute'] );
-					echo $CustomActions->$method();
-					die();
-				}
-			}
-
 		}
 
 		/**

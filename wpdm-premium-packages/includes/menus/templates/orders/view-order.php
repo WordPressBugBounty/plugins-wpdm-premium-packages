@@ -711,6 +711,7 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
             $.post(ajaxurl, {
                 action: 'wpdmpp_async_request',
                 execute: 'updateOS',
+                wpdmppasyncrequest: '<?php echo wp_create_nonce(WPDM_PRI_NONCE); ?>',
                 order_id: '<?php echo $oid; ?>',
                 status: $('#osv').val()
             }, function (res) {
@@ -766,6 +767,7 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
             $('#editpm').removeClass('fa-square-pen').addClass('fa-sun fa-spin');
             $.post(ajaxurl, {
                 action: 'wpdmpp_async_request',
+                wpdmppasyncrequest: '<?php echo wp_create_nonce(WPDM_PRI_NONCE); ?>',
                 execute: 'updatePM',
                 order_id: '<?php echo $oid; ?>',
                 pm: $(this).data('pm')
@@ -783,6 +785,7 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
             WPDM.blockUI('#orderbar');
             $.post(ajaxurl, {
                 action: 'wpdmpp_async_request',
+                wpdmppasyncrequest: '<?php echo wp_create_nonce(WPDM_PRI_NONCE); ?>',
                 execute: 'updatePS',
                 order_id: '<?php echo $oid; ?>',
                 status: $('#psv').val()

@@ -43,6 +43,8 @@ class CustomActions {
         //add_filter("wpdm_menu_page_content/templates/note_templates", [$this, 'noteTemplates']);
 
         add_action("wp_ajax_wpdmpp_edit_order", [$this, "editOrder"]);
+
+        add_action("wp_ajax_wpdmpp_payment_intent", [$this, "payNow"]);
     }
 
 	function orderConfirmationEmail() {
@@ -160,7 +162,7 @@ class CustomActions {
      */
     function updatePM(){
         global $wpdb;
-        if(!current_user_can(WPDMPP_MENU_ACCESS_CAP)) return;
+	    __::isAuthentic('wpdmppasyncrequest', WPDM_PRI_NONCE, WPDMPP_ADMIN_CAP);
 
         $wpdb->update("{$wpdb->prefix}ahm_orders",array('payment_method'=> sanitize_text_field($_POST['pm']) ),array('order_id'=> sanitize_text_field( $_POST['order_id']) ) );
 
@@ -174,8 +176,7 @@ class CustomActions {
      */
     function updatePS(){
         global $wpdb;
-        if(!current_user_can(WPDMPP_MENU_ACCESS_CAP)) return;
-
+	    __::isAuthentic('wpdmppasyncrequest', WPDM_PRI_NONCE, WPDMPP_ADMIN_CAP);
         $wpdb->update("{$wpdb->prefix}ahm_orders",array('payment_status'=> sanitize_text_field($_POST['status']) ),array('order_id'=> sanitize_text_field( $_POST['order_id']) ) );
 
         do_action("wpdmpp_admin_payment_status_updated", wpdm_query_var('order_id', 'txt'), wpdm_query_var('status', 'txt'));
@@ -201,7 +202,8 @@ class CustomActions {
      */
     function updateOS(){
         global $wpdb;
-        if(!current_user_can(WPDMPP_MENU_ACCESS_CAP)) return;
+
+	    __::isAuthentic('wpdmppasyncrequest', WPDM_PRI_NONCE, WPDMPP_ADMIN_CAP);
 
         $status = sanitize_text_field($_POST['status']);
         $order_id = sanitize_text_field($_POST['order_id']);
@@ -336,6 +338,7 @@ class CustomActions {
      * Add Order Note ( Called through wpdmpp_async_request function )
      */
     function addNote(){
+	    __::isAuthentic('wpdmppasyncrequest', WPDM_PUB_NONCE, WPDMPP_ADMIN_CAP);
         global $wpdb;
         $id = sanitize_text_field($_REQUEST['order_id']);
         $note = wp_kses($_REQUEST['note'], array('strong' => array(), 'b' => array(), 'br' => array(), 'p' => array(), 'hr' => array(), 'a' => array('href' => array(), 'title' => array())));

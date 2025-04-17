@@ -52,6 +52,7 @@ if((int)get_wpdmpp_option('disable_order_notes', 0) === 0) {
         ?>
     </div>
     <form method="post" id="post-order-note">
+	    <?php wp_nonce_field(WPDM_PUB_NONCE, 'wpdmppasyncrequest'); ?>
         <input type="hidden" name="execute" value="AddNote"/>
         <input type="hidden" name="order_id" value="<?php echo $order->order_id; ?>"/>
         <div class="card card-default dashboard-panel mt-3">
