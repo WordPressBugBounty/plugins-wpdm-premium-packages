@@ -43,7 +43,6 @@ class CustomActions {
         //add_filter("wpdm_menu_page_content/templates/note_templates", [$this, 'noteTemplates']);
 
         add_action("wp_ajax_wpdmpp_edit_order", [$this, "editOrder"]);
-
         add_action("wp_ajax_wpdmpp_payment_intent", [$this, "payNow"]);
     }
 
@@ -261,7 +260,7 @@ class CustomActions {
     function payNow($post_data = array()){
         global $wpdb, $current_user;
         $current_user = wp_get_current_user();
-        if(count($post_data) == 0) $post_data = wpdm_sanitize_array($_POST);
+        if(!$post_data || count($post_data) == 0) $post_data = wpdm_sanitize_array($_POST);
         $order = new Order();
         $corder = $order->getOrder(sanitize_text_field($post_data['order_id']));
         $payment = new Payment();
@@ -696,3 +695,4 @@ class CustomActions {
 
 $customActions = new CustomActions();
 $customActions->execute();
+

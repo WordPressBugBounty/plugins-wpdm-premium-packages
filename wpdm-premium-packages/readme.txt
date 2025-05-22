@@ -4,7 +4,7 @@ Donate link:
 Tags: shopping cart, digital store, online shop, sell digital product, WordPress ecommerce, products, product management, membership management
 Requires at least: 5.3
 Tested up to: 6.7
-Stable tag: 6.0.0
+Stable tag: 6.0.1
 
 
 Premium Packages is a free full-featured WordPress eCommerce Plugin to sell digital products easily.
@@ -103,6 +103,9 @@ We have made the tax calculation is easier for you. From premium package setting
 *   License Level Pricing
 *   Easy to implement license API for license system integration
 
+= Pay with Crypto =
+[WPDM – Crypto Connect](https://www.wpdownloadmanager.com/download/wpdm-crypto-connect/) to accept crypto payment directly.
+
 = Need More Features? =
 *   Full-featured Digital Products Marketplace with Front-end product submission & payout management ( This Feature Requires WPDM v4+ )
 *   Sell individual files ( like a single song from an album )  ( This Feature Requires WPDM v4+ )
@@ -110,6 +113,10 @@ We have made the tax calculation is easier for you. From premium package setting
 
 
 == Changelog ==
+
+= 6.0.1 - 2025.05.22 =
+* Fixed an issue with the manual order renewal option
+* Added a new action hook `wpdm_associate_invoice`
 
 = 6.0.0 - 2025.04.17 =
 * Fixed an issue with nonnce verification with order functions
@@ -119,7 +126,7 @@ We have made the tax calculation is easier for you. From premium package setting
 
 = 5.9.8 - 2025.01.29 =
 * Fixed an issue with the payment settings
-* Added support for Open AI and Gemini ( Requires WPDM v6.7+ )
+* Added support for OpenAI and Gemini ( Requires WPDM v6.7+ )
 
 = 5.9.7 - 2024.12.31 =
 * Fixed an issue with the `orderby` option on the admin orders page ( reported by patchstack )

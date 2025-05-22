@@ -339,7 +339,7 @@ SPEC;
         <script>
             function proceed2payment_<?php echo $order->order_id; ?>(ob){
                 jQuery('#proceed_<?php echo $order->order_id; ?>').html('Processing...');
-                jQuery.post('<?php echo $purl; ?>',{action:'wpdmpp_payment_intent', order_id:'<?php echo $order->order_id; ?>'},function(res){
+                jQuery.post(wpdm_url.ajax,{action:'wpdmpp_payment_intent', order_id:'<?php echo $order->order_id; ?>'},function(res){
                     jQuery('#proceed_<?php echo $order->order_id; ?>').html(res);
                 });
                 return false;

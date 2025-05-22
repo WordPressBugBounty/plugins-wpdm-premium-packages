@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 6.0.0
+ * Version: 6.0.1
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -40,7 +40,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '6.0.0' );
+	define( 'WPDMPP_VERSION', '6.0.1' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -1549,6 +1549,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				$orderdata = $order->getOrder( sanitize_text_field( $_POST['invoice'] ) );
 				if ( $orderdata && intval( $orderdata->uid ) == 0 ) {
 					Order::Update( array( 'uid' => $user->ID ), sanitize_text_field( $_POST['invoice'] ) );
+					do_action("wpdm_associate_invoice", $user->ID, $orderdata);
 				}
 			}
 		}
@@ -1565,6 +1566,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				if ( $orderdata && intval( $orderdata->uid ) == 0 ) {
 					Order::Update( array( 'uid' => $user_id ), sanitize_text_field( $_POST['invoice'] ) );
 					User::addCustomer( $user_id );
+					do_action("wpdm_associate_invoice", $user_id, $orderdata);
 				}
 			}
 		}
