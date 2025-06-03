@@ -337,7 +337,7 @@ class CustomActions {
      * Add Order Note ( Called through wpdmpp_async_request function )
      */
     function addNote(){
-	    __::isAuthentic('wpdmppasyncrequest', WPDM_PUB_NONCE, WPDMPP_ADMIN_CAP);
+	    __::isAuthentic('wpdmppasyncrequest', WPDM_PUB_NONCE, 'read');
         global $wpdb;
         $id = sanitize_text_field($_REQUEST['order_id']);
         $note = wp_kses($_REQUEST['note'], array('strong' => array(), 'b' => array(), 'br' => array(), 'p' => array(), 'hr' => array(), 'a' => array('href' => array(), 'title' => array())));
