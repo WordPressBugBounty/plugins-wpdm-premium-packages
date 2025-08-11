@@ -16,11 +16,11 @@ $currency_sign = wpdm_valueof($order, 'currency/sign');
 $download_button_label = esc_attr__( 'Download', 'download-manager' );
 
     if(\WPDM\__\Session::get('wpdm_global_msg_success')){
-        echo "<div class='alert alert-success'>".\WPDM\__\Session::get('wpdm_global_msg_success')."</div>";
+        echo "<div class='alert alert-success'>".esc_html(\WPDM\__\Session::get('wpdm_global_msg_success'))."</div>";
         \WPDM\__\Session::clear('wpdm_global_msg_success');
     }
     if(\WPDM\__\Session::get('wpdm_global_msg_error')){
-        echo "<div class='alert alert-danger'>".\WPDM\__\Session::get('wpdm_global_msg_error')."</div>";
+        echo "<div class='alert alert-danger'>".esc_html(\WPDM\__\Session::get('wpdm_global_msg_error'))."</div>";
         \WPDM\__\Session::clear('wpdm_global_msg_error');
     }
 

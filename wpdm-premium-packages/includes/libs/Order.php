@@ -573,7 +573,7 @@ class Order {
 	 *
 	 * @return void
 	 */
-	static function renewOrder( $id, $sub_id = '', $email_notify = true, $timestamp = null ) {
+	static function renewOrder( $id, $sub_id = '', $email_notify = true, $timestamp = null, $invoice = null ) {
 
 		global $wpdb;
 		$sub_id = sanitize_text_field( $sub_id );
@@ -598,12 +598,14 @@ class Order {
 			'expire_date'    => $expire_date
 		), $id );
 		$timestamp = $timestamp ? $timestamp : time();
-		$wpdb->insert( "{$wpdb->prefix}ahm_order_renews", array(
+		$renewEntry = [
 			'order_id'        => $order_det->order_id,
 			'total'        => $order_det->total,
 			'subscription_id' => $sub_id,
 			'date'            => $timestamp
-		) );
+		];
+		if($invoice) $renewEntry['ipn'] = $invoice;
+		$wpdb->insert( "{$wpdb->prefix}ahm_order_renews", $renewEntry );
 
 		do_action( 'wpdmpp_order_renewed', $id );
 

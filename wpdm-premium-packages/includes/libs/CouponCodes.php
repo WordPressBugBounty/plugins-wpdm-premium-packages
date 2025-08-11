@@ -129,6 +129,7 @@ if ( ! class_exists( 'CouponCodes' ) ):
 		}
 
 		function delete_coupon() {
+			__::isAuthentic( 'dcpnonce', WPDM_PRI_NONCE, WPDMPP_ADMIN_CAP );
 			if ( current_user_can( WPDMPP_ADMIN_CAP ) ) {
 				global $wpdb;
 				$wpdb->delete( "{$wpdb->prefix}ahm_coupons", array( 'ID' => absint( $_REQUEST['ID'] ) ) );

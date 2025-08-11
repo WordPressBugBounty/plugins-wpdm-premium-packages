@@ -151,7 +151,7 @@ $total_codes    = $wpdb->get_var("select count(*) from {$wpdb->prefix}ahm_coupon
                     callback: function () {
                         this.find(".modal-body").html('<p><i class="fas fa-sun fa-spin"></i> Deleting...</p>');
                         var modal = this;
-                        $.get(ajaxurl + '?action=wpdmpp_delete_coupon&ID=' + cpid, function () {
+                        $.get(ajaxurl + `?action=wpdmpp_delete_coupon&dcpnonce=<?php echo wp_create_nonce(WPDM_PRI_NONCE); ?>&ID=${cpid}`, function () {
                             row.slideUp();
                             modal.modal('hide');
                         });
@@ -187,7 +187,7 @@ $total_codes    = $wpdb->get_var("select count(*) from {$wpdb->prefix}ahm_coupon
         function delete_cc(id) {
             var row = $('#cr-'+id);
             $('#cr-'+id).addClass('color-red');
-            $.get(ajaxurl+'?action=wpdmpp_delete_coupon&ID='+id, function () {
+            $.get(ajaxurl+'?action=wpdmpp_delete_coupon&dcpnonce=<?php echo wp_create_nonce(WPDM_PRI_NONCE); ?>&ID='+id, function () {
                 row.slideUp();
             })
         }
