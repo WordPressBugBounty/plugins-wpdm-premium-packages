@@ -64,7 +64,7 @@ $download_button_label = esc_attr__( 'Download', 'download-manager' );
                     <th><?php _e("License","wpdm-premium-packages"); ?></th>
                     <th class='text-right' align='right'><?php _e("Total","wpdm-premium-packages"); ?></th>
                     <?php if ($order->order_status == 'Completed') { ?>
-                        <th class='text-right' align='right'><?php _e("Download","wpdm-premium-packages"); ?></th>
+                        <th class='text-right hidden-xs' align='right'><?php _e("Download","wpdm-premium-packages"); ?></th>
                     <?php } ?>
                 </tr>
                 </thead>
@@ -200,7 +200,7 @@ LIC;
 SPEC;
                         ?>
 
-                        <td class='text-right' align='right'>
+                        <td class='text-right hidden-xs'>
                             <div class="btn-group">
                                 <?php if ($show_download_button){ ?>
                                 <a href="<?php echo $download_link; ?>" class="btn btn-xs btn-success btn-group-item"><i class="fa fa-arrow-alt-circle-down white"></i> <?=$download_button_label ?></a>
@@ -208,6 +208,16 @@ SPEC;
                                 <?php echo $spec; ?>
                             </div>
                         </td>
+                        </tr>
+                        <tr class="hidden-md">
+                            <td class='text-center' colspan="3">
+
+                                    <?php if ($show_download_button){ ?>
+                                        <a href="<?php echo $download_link; ?>" class="btn btn-xs btn-success btn-group-item"><i class="fa fa-arrow-alt-circle-down white"></i> <?=$download_button_label ?></a>
+                                    <?php } ?>
+                                    <?php echo $spec; ?>
+
+                            </td>
                         </tr>
                     <?php } else { ?>
 

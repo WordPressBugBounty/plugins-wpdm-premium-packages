@@ -71,19 +71,23 @@ if ( is_array( $cart_data ) && count( $cart_data ) > 0 ) { ?>
                 border-radius: 0 !important;
                 background: #ffffff;
                 border-top: 1px solid #dadbdd;
-                bottom: -100%;
+                top: 105%;
                 transition: all 0.3s ease-in-out;
                 margin-bottom: -48px;
             }
             #cart-panel-bottom.open{
                 bottom: 0;
+                top: auto;
+                max-height: 90%;
+                overflow-y: auto;
                 margin-bottom: 0;
             }
             #cart-panel-bottom table{
                 margin: 0 !important;
             }
             #cart-panel-bottom #close-panel{
-                position: absolute;
+                position: fixed;
+                z-index: 99999999;
                 right: 4px;
                 border-radius: 500px;
                 height: 36px;
