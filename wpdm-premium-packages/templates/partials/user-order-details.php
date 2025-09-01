@@ -209,7 +209,7 @@ SPEC;
                             </div>
                         </td>
                         </tr>
-                        <tr class="hidden-md">
+                        <tr class="visible-xs">
                             <td class='text-center' colspan="3">
 
                                     <?php if ($show_download_button){ ?>

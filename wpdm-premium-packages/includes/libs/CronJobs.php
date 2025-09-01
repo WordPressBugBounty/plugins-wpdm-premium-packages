@@ -9,14 +9,18 @@ namespace WPDMPP\Libs;
 
 
 use WPDM\__\__;
+use WPDM\__\__MailUI;
 use WPDM\__\Email;
 use WPDM\__\Session;
+use WPDM\__\UI;
 
 class CronJobs {
 	function __construct() {
 
 		add_action("init", [$this, 'orderRenewalNotificationCron']);
+		add_action("init", [$this, 'runDailySalesSummery']);
 		add_filter( 'cron_schedules', [ $this, 'interval' ] );
+		add_action("wpdm_cron_job", [ $this, 'dailySalesSummery' ]);
 
 		if ( ! wp_next_scheduled( 'wpdmpp_notify_to_renew' ) ) {
 			wp_schedule_event( time() + 1800, 'six_hourly', 'wpdmpp_notify_to_renew' );
@@ -24,6 +28,10 @@ class CronJobs {
 
 		if ( ! wp_next_scheduled( 'wpdmpp_delete_incomplete_order' ) ) {
 			wp_schedule_event( time() + 3600, 'six_hourly', 'wpdmpp_delete_incomplete_order' );
+		}
+
+		if ( ! wp_next_scheduled( 'wpdmpp_daily_sales_summary' ) ) {
+			wp_schedule_event( time() + 3600, 'six_hourly', 'wpdmpp_daily_sales_summary' );
 		}
 
 		$this->schedule();
@@ -43,6 +51,7 @@ class CronJobs {
 	function schedule() {
 		add_action( 'wpdmpp_notify_to_renew', array( $this, 'notifyToRenew' ) );
 		add_action( 'wpdmpp_delete_incomplete_order', array( $this, 'deleteIncompleteOrders' ) );
+		add_action( 'wpdmpp_daily_sales_summary', array( $this, 'runDailySalesSummery' ) );
 	}
 
 	function orderRenewalNotificationCron()
@@ -157,6 +166,60 @@ class CronJobs {
 			$wpdb->delete( $wpdb->wpdmpp_order_items, [ 'oid' => $order->order_id ] );
 		}
 
+	}
+
+	function runDailySalesSummery() {
+		if(defined('WPDM_CRON_KEY') && wpdm_query_var('wpdmppcron') === WPDM_CRON_KEY) {
+			$this->dailySalesSummery();
+		}
+	}
+
+	function dailySalesSummery() {
+			global $wpdb;
+
+			$mail_sent = get_option( '__wpdmpp_ssm_sent' );
+			if( date("Ymd", $mail_sent) === date("Ymd", time())  ) return;
+
+			$yesterdayStart = strtotime( "yesterday 00:00:00" );
+			$yesterdayEnd   = strtotime( "yesterday 23:59:59" );
+			$new_orders     = $wpdb->get_results( "select * from {$wpdb->prefix}`ahm_orders` where date <= {$yesterdayEnd} and date >= {$yesterdayStart} and order_status = 'Completed' and payment_status = 'Completed'" );
+			$renewed_orders = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews where date <= {$yesterdayEnd} and date >= {$yesterdayStart}" );
+			$data        = [];
+			$totalSales  = 0;
+			$orderCount  = count( $new_orders );
+			$orderRenews = count( $renewed_orders );
+			foreach ( $new_orders as $order ) {
+				$data[]     = [ 'New', $order->order_id, wpdmpp_price_format( $order->total ) ];
+				$totalSales += $order->total;
+			}
+			foreach ( $renewed_orders as $order ) {
+				$data[]     = [ 'Renew', $order->order_id, wpdmpp_price_format( $order->total ) ];
+				$totalSales += $order->total;
+			}
+			$totalSales = wpdmpp_price_format( $totalSales );
+			$table      = __MailUI::table( [
+				'Type',
+				'Order ID',
+				'Amount'
+			], $data, [
+				'th' => 'background: #f5f5f5;padding: 10px 5px;text-align:left;',
+				'td' => 'border-bottom: 1px solid #f5f5f5;padding:8px 5px'
+			] );
+
+			$tscard     = __MailUI::panel( "Total Sales", [ "<h1 style='margin: 0'>{$totalSales}</h1>" ] );
+			$tocard     = __MailUI::panel( "New Purchases", [ "<h1 style='margin: 0'>{$orderCount}</h1>" ] );
+			$trcard     = __MailUI::panel( "Renewals", [ "<h1 style='margin: 0'>{$orderRenews}</h1>" ] );
+
+			// Notify admin
+			$msg    = "Here’s a quick snapshot of today’s sales performance:<br/><br/><table style='width:100%;'><tr><td>{$tscard}</td><td>{$tocard}</td><td>{$trcard}</td></tr></table><br/>{$table}";
+			$params = array(
+				'subject'  => sprintf( __( "[%s] Daily Sales Overview - %s", "wpdm-premium-packages" ), get_bloginfo( 'name' ), date( get_option( 'date_format' ), strtotime( 'yesterday' ) ) ),
+				'to_email' => get_option( 'admin_email' ),
+				'message'  => $msg
+			);
+			Email::send( 'default', $params );
+
+			update_option( "__wpdmpp_ssm_sent", time(), false );
 	}
 
 

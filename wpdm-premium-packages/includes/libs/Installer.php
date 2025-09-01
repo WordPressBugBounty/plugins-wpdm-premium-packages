@@ -507,6 +507,7 @@ if (!defined('ABSPATH')) {
                 $caps = isset($sub, $sub->capabilities) ? $sub->capabilities : array();
                 add_role('wpdmpp_customer', 'Customer', $caps);
             }
+			\WPDM\__\CronJob::create("\WPDM\__\EmailCron", $data, $execute_at);
         }
 
 
