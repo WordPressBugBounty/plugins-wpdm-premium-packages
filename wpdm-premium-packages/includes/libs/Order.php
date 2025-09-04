@@ -992,7 +992,6 @@ class Order {
 		$id         = sanitize_text_field( $id );
 		$id         = esc_sql( $id );
 		$order_data = $wpdb->get_row( "select * from {$wpdb->prefix}ahm_orders where order_id='$id' or trans_id='$id'" );
-
 		$order_data = apply_filters( "wpdmpp_get_order", $order_data );
 
 		return $order_data;

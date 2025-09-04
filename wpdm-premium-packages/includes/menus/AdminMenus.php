@@ -142,13 +142,14 @@ if ( ! class_exists( 'WPDMPPAdminMenus' ) ):
 			} else if ( isset( $_GET['task'] ) && $_GET['task'] == 'editlicense' ) {
 				$lid = intval( $_GET['id'] );
 				if ( isset( $_POST['do'] ) && $_POST['do'] == 'updatelicense' && current_user_can( 'manage_options' ) ) {
+					\WPDM\__\__::isAuthentic('__suc', NONCE_KEY, 'manage_options', false);
 					$license = sanitize_text_field( $_POST['license'] );
 					if ( trim( $license['domain'] ) != '' ) {
 						$license['domain'] = explode( "\n", $license['domain'] );
 						$license['domain'] = maybe_serialize( $license['domain'] );
 					}
 					$license['activation_date'] = strtotime( $license['activation_date'] );
-					$wpdb->update( "{$wpdb->prefix}ahm_licenses", $license, array( 'id' => sanitize_text_field( $_POST['lid'] ) ) );
+					$wpdb->update( "{$wpdb->prefix}ahm_licenses", $license, array( 'id' => (int) $_POST['lid']  ) );
 				}
 				$license = $wpdb->get_row( "select * from {$wpdb->prefix}ahm_licenses where id='{$lid}'" );
 				include( 'templates/edit-license.php' );

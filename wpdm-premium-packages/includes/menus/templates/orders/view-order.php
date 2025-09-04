@@ -7,6 +7,9 @@ global $wpdb;
 
 $order = $orderObj->getOrder( $order_id );
 
+$billing_info = maybe_unserialize($order->billing_info);
+
+
 if($order) {
 $order->items = unserialize( $order->items );
 $oitems       = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_items where oid='{$order->order_id}'" );

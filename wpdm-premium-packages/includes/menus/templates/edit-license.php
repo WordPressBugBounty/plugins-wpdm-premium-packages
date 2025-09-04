@@ -29,7 +29,7 @@ global $wpdb;
             <div class="container">
                 <div class="row">
                     <div class="col-md-8 col-md-offset-2">
-                        <form method="post" action="" id="edit-license-form">
+                        <form method="post" action="" id="edit-license-form" onsubmit="WPDM.blockUI('#edit-license-form');">
                             <input type="hidden" name="do" value="updatelicense">
                             <?php wp_nonce_field(NONCE_KEY, '__suc'); ?>
                             <div class="form-group">

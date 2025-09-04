@@ -21,7 +21,7 @@ global $wpdb;
 
     <div class="panel-body">
 
-    <form method="get" id="search-license-form" action="edit.php">
+    <form method="get" id="search-license-form" action="<?php echo admin_url('edit.php') ?>">
         <input type="hidden" name="post_type" value="wpdmpro">
         <input type="hidden" name="page" value="pp-license">
         <input type="hidden" name="task" value="search_license">
@@ -51,6 +51,7 @@ global $wpdb;
         <input type="hidden" name="post_type" value="wpdmpro">
         <input type="hidden" name="page" value="pp-license">
         <input type="hidden" name="task" value="delete_selected">
+        <?php wp_nonce_field( NONCE_KEY, '__suc' ); ?>
         <div class="clear"></div>
         <div class="panel panel-default">
         <table cellspacing="0" class="table table-striped table-hover table-wpdmpp">
