@@ -26,7 +26,7 @@ class AbandonedOrderRecovery {
 
 	function abandonedOrderRecovery() {
 
-		if ( wpdm_query_var( 'acre_key' ) !== WPDM_CRON_KEY ) {
+		if ( wpdm_query_var( 'acre_key' ) !== WPDM()->cronJob->cronKey() ) {
 			return;
 		}
 
@@ -104,7 +104,7 @@ class AbandonedOrderRecovery {
 	// Call this function once a day
 	function abandonedOrderQueue() {
 
-		if ( wpdm_query_var( 'acrq_key' ) !== WPDM_CRON_KEY ) {
+		if ( wpdm_query_var( 'acrq_key' ) !== WPDM()->cronJob->cronKey() ) {
 			return;
 		}
 

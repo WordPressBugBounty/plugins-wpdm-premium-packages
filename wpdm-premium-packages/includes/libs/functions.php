@@ -23,7 +23,14 @@ function wpdmpp_total_purchase($pid = '')
 {
     global $wpdb;
     if (!$pid) $pid = get_the_ID();
-    $sales = $wpdb->get_var("select count(*) from {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi where oi.oid=o.order_id and oi.pid='$pid' and  ( o.payment_status='Completed' or o.payment_status='Expired' )");
+    $pid = (int) $pid;
+
+    $sales = $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$wpdb->prefix}ahm_orders o
+         INNER JOIN {$wpdb->prefix}ahm_order_items oi ON oi.oid = o.order_id
+         WHERE oi.pid = %d AND o.payment_status IN ('Completed', 'Expired')",
+        $pid
+    ));
 
     return $sales;
 }
@@ -34,18 +41,42 @@ function wpdmpp_total_sales($uid = '', $pid = '', $sdate = '', $edate = '')
 {
     global $wpdb;
 
-    $pid_cond = ($pid > 0) ? "and oi.pid='$pid'" : "";
-    $uid_cond = ($uid > 0) ? "and oi.sid='$uid'" : "";
+    $pid = (int) $pid;
+    $uid = (int) $uid;
 
     $sdate = $sdate == '' ? wp_date("Y-m-01") : $sdate;
     $edate = $edate == '' ? wp_date("Y-m-d", strtotime("last day of this month")) : $edate;
-    $sdate_cond = $sdate != '' ? " and o.date >= '" . strtotime($sdate) . "'" : "and o.date >= '" . strtotime(wp_date("Y-m-01")) . "'";
-    $edate_cond = $sdate != '' ? " and o.date <= '" . strtotime($edate) . "'" : "and o.date <= '" . strtotime(wp_date("Y-m-d", strtotime("last day of this month"))) . "'";
+    $sdate_ts = strtotime($sdate);
+    $edate_ts = strtotime($edate);
 
-    if ($pid_cond != '' || $uid_cond != '')
-        $sales = $wpdb->get_var("select sum(oi.price * oi.quantity) from {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi where oi.oid=o.order_id {$pid_cond} {$uid_cond} {$sdate_cond} {$edate_cond} and ( o.payment_status='Completed' or o.payment_status='Expired' )");
-    else
-        $sales = $wpdb->get_var("select sum(o.total) from {$wpdb->prefix}ahm_orders o where  ( o.payment_status='Completed' or o.payment_status='Expired' ) {$sdate_cond} {$edate_cond}");
+    if ($pid > 0 || $uid > 0) {
+        $conditions = ["oi.oid = o.order_id", "o.payment_status IN ('Completed', 'Expired')"];
+        $params = [];
+
+        if ($pid > 0) {
+            $conditions[] = "oi.pid = %d";
+            $params[] = $pid;
+        }
+        if ($uid > 0) {
+            $conditions[] = "oi.sid = %d";
+            $params[] = $uid;
+        }
+        $conditions[] = "o.date >= %d";
+        $params[] = $sdate_ts;
+        $conditions[] = "o.date <= %d";
+        $params[] = $edate_ts;
+
+        $where = implode(' AND ', $conditions);
+        $sql = "SELECT SUM(oi.price * oi.quantity) FROM {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi WHERE {$where}";
+        $sales = $wpdb->get_var($wpdb->prepare($sql, $params));
+    } else {
+        $sales = $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(o.total) FROM {$wpdb->prefix}ahm_orders o
+             WHERE o.payment_status IN ('Completed', 'Expired')
+             AND o.date >= %d AND o.date <= %d",
+            $sdate_ts, $edate_ts
+        ));
+    }
 
     return number_format($sales, 2, '.', '');
 }
@@ -55,23 +86,48 @@ function wpdmpp_daily_sales($uid = '', $pid = '', $sdate = '', $edate = '')
 {
     global $wpdb;
 
-    $pid_cond = ($pid > 0) ? "and oi.pid='$pid'" : "";
-    $uid_cond = ($uid > 0) ? "and oi.sid='$uid'" : "";
+    $pid = (int) $pid;
+    $uid = (int) $uid;
+
     $sdate = $sdate == '' ? wp_date("Y-m-01") : $sdate;
     $edate = $edate == '' ? wp_date("Y-m-d", strtotime("last day of this month")) : $edate;
-    $sdate_cond = $sdate != '' ? " and o.date >= '" . strtotime($sdate) . "'" : "and o.date >= '" . strtotime(wp_date("Y-m-01")) . "'";
-    $edate_cond = $sdate != '' ? " and o.date <= '" . strtotime($edate) . "'" : "and o.date <= '" . strtotime(wp_date("Y-m-d", strtotime("last day of this month"))) . "'";
+    $sdate_ts = strtotime($sdate);
+    $edate_ts = strtotime($edate);
 
-    $sales = $wpdb->get_results("select sum(oi.price * oi.quantity) as daily_sale,  sum(oi.quantity) as quantities, oi.date, oi.year, oi.month, oi.day from {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi where oi.oid=o.order_id {$pid_cond} {$uid_cond} {$sdate_cond} {$edate_cond} and  ( o.payment_status='Completed' or o.payment_status='Expired' ) group by oi.date");
+    $conditions = ["oi.oid = o.order_id", "o.payment_status IN ('Completed', 'Expired')"];
+    $params = [];
+
+    if ($pid > 0) {
+        $conditions[] = "oi.pid = %d";
+        $params[] = $pid;
+    }
+    if ($uid > 0) {
+        $conditions[] = "oi.sid = %d";
+        $params[] = $uid;
+    }
+    $conditions[] = "o.date >= %d";
+    $params[] = $sdate_ts;
+    $conditions[] = "o.date <= %d";
+    $params[] = $edate_ts;
+
+    $where = implode(' AND ', $conditions);
+    $sql = "SELECT SUM(oi.price * oi.quantity) AS daily_sale, SUM(oi.quantity) AS quantities,
+            oi.date, oi.year, oi.month, oi.day
+            FROM {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi
+            WHERE {$where}
+            GROUP BY oi.date";
+
+    $sales = $wpdb->get_results($wpdb->prepare($sql, $params));
 
     $diff = date_diff(date_create($edate), date_create($sdate))->days;
     $sdata = array();
     $i = 0;
+    $loop_date = $sdate;
     do {
         $i++;
-        $sdata['sales'][$sdate] = 0;
-        $sdata['quantities'][$sdate] = 0;
-        $sdate = wp_date('Y-m-d', strtotime('+1 day', strtotime($sdate)));
+        $sdata['sales'][$loop_date] = 0;
+        $sdata['quantities'][$loop_date] = 0;
+        $loop_date = wp_date('Y-m-d', strtotime('+1 day', strtotime($loop_date)));
     } while ($i <= $diff);
 
     foreach ($sales as $sale) {
@@ -86,13 +142,43 @@ function wpdmpp_top_sellings_products($uid = '', $sdate = '', $edate = '', $s = 
 {
     global $wpdb;
 
-    $uid_cond = ($uid > 0) ? "and oi.sid='$uid'" : "";
-    //$sdate = $sdate == ''?date("Y-m-01"):$sdate;
-    //$edate = $edate == ''?date("Y-m-31"):$edate;
-    $sdate_cond = $sdate != '' ? " and o.date >= '" . strtotime($sdate) . "'" : "";
-    $edate_cond = $sdate != '' ? " and o.date <= '" . strtotime($edate) . "'" : "";
+    // Build query with proper parameterization
+    $conditions = ["o.payment_status IN ('Completed', 'Expired')"];
+    $params = [];
 
-    $tsp = $wpdb->get_results("select oi.pid, sum(oi.price) as sales,  sum(oi.quantity) as quantities, oi.date, oi.year, oi.month, oi.day from {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi where oi.oid=o.order_id  {$uid_cond} {$sdate_cond} {$edate_cond} and  ( o.payment_status='Completed' or o.payment_status='Expired' ) group by oi.pid ORDER BY quantities DESC limit $s, $e");
+    // User condition
+    if ($uid > 0) {
+        $conditions[] = "oi.sid = %d";
+        $params[] = (int) $uid;
+    }
+
+    // Date range conditions
+    if ($sdate != '') {
+        $conditions[] = "o.date >= %d";
+        $params[] = strtotime($sdate);
+    }
+    if ($edate != '') {
+        $conditions[] = "o.date <= %d";
+        $params[] = strtotime($edate);
+    }
+
+    // Pagination params
+    $params[] = (int) $s;
+    $params[] = (int) $e;
+
+    $where_clause = implode(' AND ', $conditions);
+
+    $sql = "
+        SELECT oi.pid, SUM(oi.price) AS sales, SUM(oi.quantity) AS quantities
+        FROM {$wpdb->prefix}ahm_order_items oi
+        INNER JOIN {$wpdb->prefix}ahm_orders o ON o.order_id = oi.oid
+        WHERE {$where_clause}
+        GROUP BY oi.pid
+        ORDER BY quantities DESC
+        LIMIT %d, %d
+    ";
+
+    $tsp = $wpdb->get_results($wpdb->prepare($sql, $params));
     return $tsp;
 }
 
@@ -100,8 +186,40 @@ function wpdmpp_recent_sales($uid = '', $count = 10)
 {
     global $wpdb;
 
-    $uid_cond = ($uid > 0) ? "and {$wpdb->prefix}ahm_order_items.sid='$uid'" : "";
-    $tsp = $wpdb->get_results("select {$wpdb->prefix}ahm_order_items.pid as product_id,{$wpdb->prefix}ahm_order_items.price, ({$wpdb->prefix}ahm_order_items.price * {$wpdb->prefix}ahm_order_items.quantity) as total, {$wpdb->prefix}ahm_orders.date as time_stamp,  {$wpdb->prefix}ahm_order_items.date, {$wpdb->prefix}ahm_order_items.year, {$wpdb->prefix}ahm_order_items.month, {$wpdb->prefix}ahm_order_items.day from {$wpdb->prefix}ahm_order_items LEFT JOIN {$wpdb->prefix}ahm_orders on {$wpdb->prefix}ahm_order_items.oid={$wpdb->prefix}ahm_orders.order_id  {$uid_cond} and  ( {$wpdb->prefix}ahm_orders.payment_status='Completed' or {$wpdb->prefix}ahm_orders.payment_status='Expired' ) ORDER BY {$wpdb->prefix}ahm_orders.date DESC limit 0, $count");
+    $uid = (int) $uid;
+    $count = (int) $count;
+    $count = max(1, min($count, 100)); // Limit between 1 and 100
+
+    $oi = "{$wpdb->prefix}ahm_order_items";
+    $o = "{$wpdb->prefix}ahm_orders";
+
+    if ($uid > 0) {
+        $tsp = $wpdb->get_results($wpdb->prepare(
+            "SELECT {$oi}.pid AS product_id, {$oi}.price,
+             ({$oi}.price * {$oi}.quantity) AS total, {$o}.date AS time_stamp,
+             {$oi}.date, {$oi}.year, {$oi}.month, {$oi}.day
+             FROM {$oi}
+             LEFT JOIN {$o} ON {$oi}.oid = {$o}.order_id
+             WHERE {$oi}.sid = %d
+             AND {$o}.payment_status IN ('Completed', 'Expired')
+             ORDER BY {$o}.date DESC
+             LIMIT %d",
+            $uid, $count
+        ));
+    } else {
+        $tsp = $wpdb->get_results($wpdb->prepare(
+            "SELECT {$oi}.pid AS product_id, {$oi}.price,
+             ({$oi}.price * {$oi}.quantity) AS total, {$o}.date AS time_stamp,
+             {$oi}.date, {$oi}.year, {$oi}.month, {$oi}.day
+             FROM {$oi}
+             LEFT JOIN {$o} ON {$oi}.oid = {$o}.order_id
+             WHERE {$o}.payment_status IN ('Completed', 'Expired')
+             ORDER BY {$o}.date DESC
+             LIMIT %d",
+            $count
+        ));
+    }
+
     foreach ($tsp as &$_tsp) {
         $_tsp->post_title = get_the_title($_tsp->product_id);
     }
@@ -243,38 +361,50 @@ function wpdmpp_seller_balances()
 {
     global $wpdb, $current_user;
     $current_user = wp_get_current_user();
-    $uid = $current_user->ID;
-    $sql = "select sum(i.price*i.quantity) from {$wpdb->prefix}ahm_orders o,
-                          {$wpdb->prefix}ahm_order_items i,
-                          {$wpdb->prefix}posts p
-                          where p.post_author=$uid and
-                                i.oid=o.order_id and
-                                i.pid=p.ID and
-                                i.quantity > 0 and
-                                o.payment_status='Completed'";
+    $uid = (int) $current_user->ID;
 
-    $total_sales = $wpdb->get_var($sql);
+    $total_sales = $wpdb->get_var($wpdb->prepare(
+        "SELECT SUM(i.price * i.quantity)
+         FROM {$wpdb->prefix}ahm_orders o,
+              {$wpdb->prefix}ahm_order_items i,
+              {$wpdb->prefix}posts p
+         WHERE p.post_author = %d
+         AND i.oid = o.order_id
+         AND i.pid = p.ID
+         AND i.quantity > 0
+         AND o.payment_status = 'Completed'",
+        $uid
+    ));
+
     $commission = wpdmpp_site_commission();
     $total_commission = $total_sales * $commission / 100;
     $total_earning = $total_sales - $total_commission;
-    $sql = "select sum(amount) from {$wpdb->prefix}ahm_withdraws where uid=$uid";
-    $total_withdraws = $wpdb->get_var($sql);
+
+    $total_withdraws = $wpdb->get_var($wpdb->prepare(
+        "SELECT SUM(amount) FROM {$wpdb->prefix}ahm_withdraws WHERE uid = %d",
+        $uid
+    ));
     $balance = $total_earning - $total_withdraws;
 
     //finding matured balance
-    $payout_duration = get_option("wpdmpp_payout_duration");
+    $payout_duration = (int) get_option("wpdmpp_payout_duration");
     $dt = $payout_duration * 24 * 60 * 60;
-    $sqlm = "select sum(i.price*i.quantity) from {$wpdb->prefix}ahm_orders o,
-                          {$wpdb->prefix}ahm_order_items i,
-                          {$wpdb->prefix}posts p
-                          where p.post_author=$uid and
-                                i.oid=o.order_id and
-                                i.pid=p.ID and
-                                i.quantity > 0 and
-                                o.payment_status='Completed'
-                                and (o.date+($dt))<" . time() . "";
+    $matured_time = time() - $dt;
 
-    $tempbalance = $wpdb->get_var($sqlm);
+    $tempbalance = $wpdb->get_var($wpdb->prepare(
+        "SELECT SUM(i.price * i.quantity)
+         FROM {$wpdb->prefix}ahm_orders o,
+              {$wpdb->prefix}ahm_order_items i,
+              {$wpdb->prefix}posts p
+         WHERE p.post_author = %d
+         AND i.oid = o.order_id
+         AND i.pid = p.ID
+         AND i.quantity > 0
+         AND o.payment_status = 'Completed'
+         AND o.date < %d",
+        $uid, $matured_time
+    ));
+
     $tempbalance = $tempbalance - ($tempbalance * $commission / 100);
     $matured_balance = $tempbalance - $total_withdraws;
 
@@ -725,12 +855,19 @@ function wpdmpp_delete_frontend_order()
 
     $result['type'] = 'failed';
     global $wpdb;
-    $order_id = sanitize_text_field(esc_sql($_REQUEST['order_id']));
-    $uid = get_current_user_id();
-    $ret = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}ahm_orders WHERE order_id = %s and uid='$uid'", $order_id));
+    $order_id = sanitize_text_field($_REQUEST['order_id']);
+    $uid = (int) get_current_user_id();
+
+    $ret = $wpdb->query($wpdb->prepare(
+        "DELETE FROM {$wpdb->prefix}ahm_orders WHERE order_id = %s AND uid = %d",
+        $order_id, $uid
+    ));
 
     if ($ret) {
-        $ret = $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}ahm_order_items WHERE oid = %s", $order_id));
+        $ret = $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->prefix}ahm_order_items WHERE oid = %s",
+            $order_id
+        ));
 
         if ($ret) $result['type'] = 'success';
     }
@@ -779,9 +916,14 @@ function wpdmpp_recalculate_sales()
 {
     if (!isset($_POST['id'])) return;
     global $wpdb;
-    $id = (int)$_POST['id'];
-    $sql = "select sum(quantity*price) as sales_amount, sum(quantity) as sales_quantity from {$wpdb->prefix}ahm_order_items oi, {$wpdb->prefix}ahm_orders o where oi.oid = o.order_id and oi.pid = {$id} and o.order_status IN ('Completed', 'Expired')";
-    $data = $wpdb->get_row($sql);
+    $id = (int) $_POST['id'];
+
+    $data = $wpdb->get_row($wpdb->prepare(
+        "SELECT SUM(quantity * price) AS sales_amount, SUM(quantity) AS sales_quantity
+         FROM {$wpdb->prefix}ahm_order_items oi, {$wpdb->prefix}ahm_orders o
+         WHERE oi.oid = o.order_id AND oi.pid = %d AND o.order_status IN ('Completed', 'Expired')",
+        $id
+    ));
 
     header('Content-type: application/json');
     update_post_meta($id, '__wpdm_sales_amount', $data->sales_amount);

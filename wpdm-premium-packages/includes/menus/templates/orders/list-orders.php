@@ -82,44 +82,43 @@ foreach ($renews as $renew){
 ?>
 <div class="order summery row">
 <?php if(!wpdm_query_var('customer') && !wpdm_query_var('oid')) { ?>
-                <div class="col-sm-2">
+                <div class="col-lg-2 col-md-4">
                     <div class="panel panel-default text-center">
                         <div class="panel-heading"><?php echo __( "Completed Orders", WPDMPP_TEXT_DOMAIN ); ?></div>
-<div class="panel-body"><h3 class="color-green"><?php echo wpdmpp_price_format($completed->sales, true, true); ?> / <?php echo $completed->orders; ?></h3></div>
+<div class="panel-body"><h3 class="color-green"><?php echo wpdmpp_price_format($completed->sales, true, true); ?>/<?php echo $completed->orders; ?></h3></div>
 </div>
 </div>
-    <div class="col-sm-2">
+    <div class="col-lg-2 col-md-4">
         <div class="panel panel-default text-center">
             <div class="panel-heading"><?php echo __( "Renewed Orders", WPDMPP_TEXT_DOMAIN ) ?></div>
-            <div class="panel-body"><h3 class="color-blue"><?php echo wpdmpp_price_format($allrenews->sales, true, true); ?> / <?php echo $allrenews->orders; ?></h3></div>
+            <div class="panel-body"><h3 class="color-blue"><?php echo wpdmpp_price_format($allrenews->sales, true, true); ?>/<?php echo $allrenews->orders; ?></h3></div>
         </div>
     </div>
-    <div class="col-sm-2">
+    <div class="col-lg-2 col-md-4">
         <div class="panel panel-default text-center">
             <div class="panel-heading"><?php echo __( "New Orders Today", WPDMPP_TEXT_DOMAIN ) ?></div>
-            <div class="panel-body"><h3 class="color-blue"><?php echo wpdmpp_price_format($newtoday->sales, true, true); ?> / <?php echo $newtoday->orders; ?></h3></div>
+            <div class="panel-body"><h3 class="color-blue"><?php echo wpdmpp_price_format($newtoday->sales, true, true); ?>/<?php echo $newtoday->orders; ?></h3></div>
         </div>
     </div>
-    <div class="col-sm-2">
+    <div class="col-lg-2 col-md-4">
         <div class="panel panel-default text-center">
             <div class="panel-heading"><?php echo __( "Renewed Orders Today", WPDMPP_TEXT_DOMAIN ) ?></div>
-            <div class="panel-body"><h3 class="color-blue"><?php echo wpdmpp_price_format(@$renewtoday->sales, true, true); ?> / <?php echo (int)@$renewtoday->orders; ?></h3></div>
+            <div class="panel-body"><h3 class="color-blue"><?php echo wpdmpp_price_format(@$renewtoday->sales, true, true); ?>/<?php echo (int)@$renewtoday->orders; ?></h3></div>
         </div>
     </div>
-<div class="col-sm-2">
+<div class="col-lg-2 col-md-4">
 	<div class="panel panel-default text-center">
 		<div class="panel-heading"><?php echo __( "Refunded Orders", WPDMPP_TEXT_DOMAIN ); ?></div>
-		<div class="panel-body"><h3 class="color-red"><?php echo wpdmpp_price_format($refunded->sales, true, true); ?> / <?php echo $refunded->orders; ?></h3></div>
+		<div class="panel-body"><h3 class="color-red"><?php echo wpdmpp_price_format($refunded->sales, true, true); ?>/<?php echo $refunded->orders; ?></h3></div>
 	</div>
 </div>
-<div class="col-sm-2">
+<div class="col-lg-2 col-md-4">
 	<div class="panel panel-default text-center">
 		<div class="panel-heading"><?php echo __( "Expired Orders", WPDMPP_TEXT_DOMAIN ); ?></div>
 		<div class="panel-body">
 
 			<h3 class="color-purple">
-				<?php echo wpdmpp_price_format($expired->sales, true, true); ?> / <?php echo $expired->orders; ?>
-				&nbsp;
+				<?php echo wpdmpp_price_format($expired->sales, true, true); ?>/<?php echo $expired->orders; ?>
 			</h3>
 		</div>
 	</div>

@@ -109,12 +109,12 @@ class ShortCodes{
 
     function buyNowHTML($params = array()){
         ob_start();
-        if(!isset($params['id'])) {
+        if((int)__::valueof($params, 'id') <= 0) {
             _e('Product ID is missing!', 'wpdm-premium-packages');
             return ob_get_clean();
         }
-        $product_id = __::valueof($params, 'id');
-        $license = __::valueof($params, 'license');
+        $product_id = (int)__::valueof($params, 'id');
+        $license = __::valueof($params, 'license',[], 'safetxt');
         $product = new Product($product_id);
         $price = $product->getLicensePrice($license);
         $params = array('title' => __('Buy Now', WPDMPP_TEXT_DOMAIN));

@@ -198,10 +198,11 @@ if(isset($order_notes['messages'])){
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="pull-right">
-                    <a href="#" data-toggle="modal" data-target="#nontmodal" class="btn btn-success pull-right btn-xs"><i class="fa fa-plus-circle"></i> <?php _e( "Add New", "download-manager" ); ?></a>
-                </div>
                 <strong><?php _e( "Order note templates", "wpdm-premium-packages" ); ?></strong>
+                <div>
+                    <a href="#" data-toggle="modal" data-target="#nontmodal" class="btn btn-success btn-xs"><i class="fa fa-plus-circle"></i> <?php _e( "Add New", "download-manager" ); ?></a>
+                    <button type="button" data-dismiss="modal" class="btn btn-secondary btn-xs">Close</button>
+                </div>
             </div>
 
             <div class="modal-body" id="__wpdm_onts">
@@ -234,13 +235,13 @@ if(isset($order_notes['messages'])){
 				} */ ?>
                 <div v-for="(template, id) in templates">
                     <div class="panel panel-default" style="margin-bottom: 10px">
-                        <div class="panel-heading">
-                            <div class="pull-right" style="margin-top: -2px">
-                                <button type="button" class="btn btn-xs btn-info ont-edit" :data-ont="id" :data-row="'#row_'+id"><i class="fa fa-pencil"></i></button>
-                                <button type="button" class="btn btn-xs btn-danger ont-delete" :data-ont="id" :data-row="'#row_'+id"><i class="fa fa-trash"></i></button>
+                        <div class="panel-heading" style="display: flex;justify-content: space-between;">
+			                <div>{{ template.name }}</div>
+                            <div  style="display: flex;gap: 4px">
+                                <button type="button" class="btn btn-xs btn-info ont-edit" :data-ont="id" :data-row="'#row_'+id"><i class="fa fa-pencil m-0"></i></button>
+                                <button type="button" class="btn btn-xs btn-danger ont-delete" :data-ont="id" :data-row="'#row_'+id"><i class="fa fa-trash m-0"></i></button>
                                 <button type="button" class="btn btn-xs btn-primary insert-ont" :data-ont="'#ont_'+id"><?php _e('Insert', WPDMPP_TEXT_DOMAIN); ?></button>
                             </div>
-			                {{ template.name }}
                         </div>
                         <div :id="'ont_'+id" style="font-family: 'Courier', monospace;white-space: pre-wrap;padding: 0 15px;" readonly="readonly" class="panel-body">{{ template.content }}</div>
                     </div>
@@ -260,8 +261,8 @@ if(isset($order_notes['messages'])){
             <input type="hidden" name="__ontxnonce" value="<?php echo wp_create_nonce(NONCE_KEY); ?>">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
                     <h4 class="modal-title" id="myModalLabel"><?php _e( "New Template" , "download-manager" ); ?></h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
@@ -280,12 +281,13 @@ if(isset($order_notes['messages'])){
 </div>
 
 <script>
-    var __wpdm_onts = new Vue({
-        el: '#__wpdm_onts',
-        data: {
-            templates: []
+    var __wpdm_onts = Vue.createApp({
+        data() {
+            return {
+                templates: []
+            };
         }
-    });
+    }).mount('#__wpdm_onts');
     jQuery(function($){
 
         let $body = $('body');

@@ -24,15 +24,54 @@ class DashboardWidgets
         add_action('wp_ajax_loadTopSales', array($this, 'loadTopSales'));
     }
 
-    function salesOverview() {
+    /**
+     * Render loading placeholder with modern spinner
+     */
+    function renderPlaceholder($containerId, $action) {
         ?>
-        <div id="wpdmpp-sales-overview"><div style="padding: 50px;text-align: center"><i class="fas fa-sync fa-spin"></i> <?php _e('Loading....','wpdm-premium-packages'); ?></div></div>
+        <style>
+            .wpdmpp-widget-loading {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 40px 20px;
+                color: #64748b;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            .wpdmpp-widget-loading-spinner {
+                width: 32px;
+                height: 32px;
+                border: 3px solid #e2e8f0;
+                border-top-color: #6366f1;
+                border-radius: 50%;
+                animation: wpdmpp-spin 0.8s linear infinite;
+                margin-bottom: 12px;
+            }
+            .wpdmpp-widget-loading-text {
+                font-size: 13px;
+                color: #94a3b8;
+            }
+            @keyframes wpdmpp-spin {
+                to { transform: rotate(360deg); }
+            }
+        </style>
+        <div id="<?php echo esc_attr($containerId); ?>">
+            <div class="wpdmpp-widget-loading">
+                <div class="wpdmpp-widget-loading-spinner"></div>
+                <div class="wpdmpp-widget-loading-text"><?php _e('Loading...', 'wpdm-premium-packages'); ?></div>
+            </div>
+        </div>
         <script>
             jQuery(function ($) {
-                $('#wpdmpp-sales-overview').load(ajaxurl, {action: 'loadSalesOverview'});
+                $('#<?php echo esc_js($containerId); ?>').load(ajaxurl, {action: '<?php echo esc_js($action); ?>'});
             });
         </script>
         <?php
+    }
+
+    function salesOverview() {
+        $this->renderPlaceholder('wpdmpp-sales-overview', 'loadSalesOverview');
     }
 
     function loadSalesOverview() {
@@ -51,14 +90,7 @@ class DashboardWidgets
     }
 
     function latestOrders() {
-        ?>
-        <div id="wpdmpp-latestOrders"><div style="padding: 50px;text-align: center"><i class="fas fa-sync fa-spin"></i> <?php _e('Loading....','wpdm-premium-packages'); ?></div></div>
-        <script>
-            jQuery(function ($) {
-                $('#wpdmpp-latestOrders').load(ajaxurl, {action: 'loadLatestOrders'});
-            });
-        </script>
-        <?php
+        $this->renderPlaceholder('wpdmpp-latestOrders', 'loadLatestOrders');
     }
 
     function loadLatestOrders() {
@@ -76,14 +108,7 @@ class DashboardWidgets
     }
 
     function recentSales() {
-        ?>
-        <div id="wpdmpp-recentSales"><div style="padding: 50px;text-align: center"><i class="fas fa-sync fa-spin"></i> <?php _e('Loading....','wpdm-premium-packages'); ?></div></div>
-        <script>
-            jQuery(function ($) {
-                $('#wpdmpp-recentSales').load(ajaxurl, {action: 'loadRecentSales'});
-            });
-        </script>
-        <?php
+        $this->renderPlaceholder('wpdmpp-recentSales', 'loadRecentSales');
     }
 
     function loadRecentSales() {
@@ -101,22 +126,15 @@ class DashboardWidgets
     }
 
     function topSales() {
-        ?>
-        <div id="wpdmpp-topSales"><div style="padding: 50px;text-align: center"><i class="fas fa-sync fa-spin"></i> <?php _e('Loading....','wpdm-premium-packages'); ?></div></div>
-        <script>
-            jQuery(function ($) {
-                $('#wpdmpp-topSales').load(ajaxurl, {action: 'loadTopSales'});
-            });
-        </script>
-        <?php
+        $this->renderPlaceholder('wpdmpp-topSales', 'loadTopSales');
     }
 
     function loadTopSales() {
-        $data = Session::get('top_sales_html');
+        /*$data = Session::get('top_sales_html');
         if($data){
             echo $data;
             die();
-        }
+        }*/
         ob_start();
         include WPDMPP_TPL_DIR . 'dashboard-widgets/top-sales.php';
         $data = ob_get_clean();

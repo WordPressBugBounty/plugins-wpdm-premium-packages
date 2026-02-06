@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 6.0.6
+ * Version: 6.2.0
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -40,7 +40,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '6.0.6' );
+	define( 'WPDMPP_VERSION', '6.2.0' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -331,6 +331,12 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			// Cart Widget
 			include_once( dirname( __FILE__ ) . "/includes/widgets/widget-cart.php" );
 
+			// Mini Cart (Modern)
+			include_once( dirname( __FILE__ ) . "/includes/libs/MiniCartAPI.php" );
+			include_once( dirname( __FILE__ ) . "/includes/libs/MiniCart.php" );
+			\WPDMPP\Libs\MiniCartAPI::init();
+			\WPDMPP\Libs\MiniCart::init();
+
 			// Integrated payment mothods
 			include_once( dirname( __FILE__ ) . "/includes/libs/payment-methods/Cash/Cash.php" );
 			include_once( dirname( __FILE__ ) . "/includes/libs/payment-methods/Cheque/Cheque.php" );
@@ -383,16 +389,46 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 		function wpdmpp_meta_box_sales_overview_loader() {
 			?>
+			<style>
+				.wpdmpp-widget-loading {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					padding: 40px 20px;
+					color: #64748b;
+					font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+				}
+				.wpdmpp-widget-loading-spinner {
+					width: 32px;
+					height: 32px;
+					border: 3px solid #e2e8f0;
+					border-top-color: #6366f1;
+					border-radius: 50%;
+					animation: wpdmpp-spin 0.8s linear infinite;
+					margin-bottom: 12px;
+				}
+				.wpdmpp-widget-loading-text {
+					font-size: 13px;
+					color: #94a3b8;
+				}
+				@keyframes wpdmpp-spin {
+					to { transform: rotate(360deg); }
+				}
+			</style>
 			<div id="wpdmpp-sales-overview">
-				<div style="padding: 50px 10px;text-align: center"><i
-						class="fas fa-sync fa-spin"></i> <?php _e( 'Loading....', 'wpdm-premium-packages' ); ?></div>
+				<div class="wpdmpp-widget-loading">
+					<div class="wpdmpp-widget-loading-spinner"></div>
+					<div class="wpdmpp-widget-loading-text"><?php _e( 'Loading...', 'wpdm-premium-packages' ); ?></div>
+				</div>
 			</div>
 			<script>
-                jQuery(function ($) {
-                    $('#wpdmpp-sales-overview').load(ajaxurl, {
-                        action: 'product_sales_overview',
-                        post: <?php echo wpdm_query_var( 'post' ); ?>});
-                });
+				jQuery(function ($) {
+					$('#wpdmpp-sales-overview').load(ajaxurl, {
+						action: 'product_sales_overview',
+						post: <?php echo wpdm_query_var( 'post' ); ?>
+					});
+				});
 			</script>
 			<?php
 		}
@@ -455,6 +491,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		function wpdmpp_meta_boxes( $tabs ) {
 			if ( is_admin() ) {
 				$tabs['pricing'] = array(
+                        'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-dollar-sign-icon lucide-badge-dollar-sign"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
 					'name'     => __( 'Pricing & Discounts', "wpdm-premium-packages" ),
 					'callback' => array( $this, 'wpdmpp_meta_box_pricing' )
 				);
@@ -1295,8 +1332,16 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			if ( ! isset( $package['ID'] ) ) {
 				return $link;
 			}
-			$effective_price = wpdmpp_effective_price( $package['ID'] );
-			if ( $effective_price > 0 ) {
+
+			// Cache effective price per package - same for all files
+			static $price_cache = [];
+			$pid = $package['ID'];
+
+			if ( ! isset( $price_cache[ $pid ] ) ) {
+				$price_cache[ $pid ] = wpdmpp_effective_price( $pid );
+			}
+
+			if ( $price_cache[ $pid ] > 0 ) {
 				$link = '';
 			}
 

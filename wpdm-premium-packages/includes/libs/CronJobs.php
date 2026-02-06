@@ -56,7 +56,7 @@ class CronJobs {
 
 	function orderRenewalNotificationCron()
 	{
-		if(defined('WPDM_CRON_KEY') && wpdm_query_var('ornc') === WPDM_CRON_KEY) {
+		if(wpdm_query_var('ornc') === WPDM()->cronJob->cronKey()) {
 			$this->notifyToRenew();;
 		}
 	}
@@ -169,7 +169,7 @@ class CronJobs {
 	}
 
 	function runDailySalesSummery() {
-		if(defined('WPDM_CRON_KEY') && wpdm_query_var('wpdmppcron') === WPDM_CRON_KEY) {
+		if(wpdm_query_var('wpdmppcron') === WPDM()->cronJob->cronKey()) {
 			$this->dailySalesSummery();
 		}
 	}

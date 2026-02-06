@@ -95,8 +95,8 @@ $sbilling =  array
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                     <h4 class="modal-title" id="myModalLabel"><?php _e('Select Product','wpdm-premium-packages'); ?></h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="fa fa-times m-0"></i></button>
                 </div>
                 <div class="modal-body">
                     <input type="text" placeholder="<?php _e('Search Product...','wpdm-premium-packages'); ?>" class="form-control input-lg" id="srcp">

@@ -1,0 +1,1187 @@
+/**
+ * WPDM Premium Packages - Mini Cart Styles
+ *
+ * Modern, accessible mini cart with three display modes:
+ * - Dropdown: Classic dropdown on click
+ * - Slide Panel: Slides in from the side
+ * - Floating: Fixed position floating button
+ *
+ * @package WPDMPP
+ * @since 6.2.0
+ */
+
+/* CSS Variables */
+:root {
+    --wpdmpp-mc-primary: #6366f1;
+    --wpdmpp-mc-primary-hover: #4f46e5;
+    --wpdmpp-mc-text: #1e293b;
+    --wpdmpp-mc-text-muted: #64748b;
+    --wpdmpp-mc-bg: #ffffff;
+    --wpdmpp-mc-bg-secondary: #f8fafc;
+    --wpdmpp-mc-border: #e2e8f0;
+    --wpdmpp-mc-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15);
+    --wpdmpp-mc-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --wpdmpp-mc-radius: 12px;
+    --wpdmpp-mc-radius-sm: 8px;
+    --wpdmpp-mc-transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --wpdmpp-mc-panel-width: 380px;
+    --wpdmpp-mc-breakpoint: 768px;
+    --wpdmpp-mc-danger: #ef4444;
+    --wpdmpp-mc-success: #10b981;
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+
+.wpdmpp-mini-cart {
+    position: relative;
+    display: inline-flex;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    z-index: 9999;
+}
+
+.wpdmpp-mini-cart *,
+.wpdmpp-mini-cart *::before,
+.wpdmpp-mini-cart *::after {
+    box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Trigger Button
+   ========================================================================== */
+
+.wpdmpp-mc-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--wpdmpp-mc-bg);
+    border: 1px solid var(--wpdmpp-mc-border);
+    border-radius: var(--wpdmpp-mc-radius);
+    color: var(--wpdmpp-mc-text);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+    font-size: 14px;
+    font-weight: 500;
+    position: relative;
+}
+
+.wpdmpp-mc-trigger:hover {
+    border-color: var(--wpdmpp-mc-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.wpdmpp-mc-trigger:focus {
+    outline: none;
+    border-color: var(--wpdmpp-mc-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.wpdmpp-mc-trigger[aria-expanded="true"] {
+    border-color: var(--wpdmpp-mc-primary);
+}
+
+/* Icon */
+.wpdmpp-mc-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-mc-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* Count Badge */
+.wpdmpp-mc-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: var(--wpdmpp-mc-primary);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: all var(--wpdmpp-mc-transition);
+}
+
+.wpdmpp-mc-count--empty {
+    background: var(--wpdmpp-mc-text-muted);
+}
+
+/* Total Price */
+.wpdmpp-mc-total {
+    font-weight: 600;
+    color: var(--wpdmpp-mc-text);
+}
+
+/* ==========================================================================
+   Panel (Shared Styles)
+   ========================================================================== */
+
+.wpdmpp-mc-panel {
+    position: absolute;
+    width: var(--wpdmpp-mc-panel-width);
+    max-width: calc(100vw - 32px);
+    background: var(--wpdmpp-mc-bg);
+    border-radius: var(--wpdmpp-mc-radius);
+    box-shadow: var(--wpdmpp-mc-shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all var(--wpdmpp-mc-transition);
+    z-index: 10000;
+    overflow: hidden;
+    max-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+}
+
+.wpdmpp-mc-panel[aria-hidden="false"] {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Panel Header */
+.wpdmpp-mc-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--wpdmpp-mc-bg-secondary);
+    border-bottom: 1px solid var(--wpdmpp-mc-border);
+    flex-shrink: 0;
+}
+
+.wpdmpp-mc-panel-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-mc-panel-count {
+    font-weight: 400;
+    color: var(--wpdmpp-mc-text-muted);
+    margin-left: 4px;
+}
+
+.wpdmpp-mc-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    color: var(--wpdmpp-mc-text-muted);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+}
+
+.wpdmpp-mc-close:hover {
+    background: var(--wpdmpp-mc-border);
+    color: var(--wpdmpp-mc-text);
+}
+
+/* Panel Body */
+.wpdmpp-mc-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.wpdmpp-mc-items {
+    padding: 12px;
+}
+
+/* Panel Footer */
+.wpdmpp-mc-panel-footer {
+    padding: 16px 20px;
+    background: var(--wpdmpp-mc-bg-secondary);
+    border-top: 1px solid var(--wpdmpp-mc-border);
+    flex-shrink: 0;
+}
+
+.wpdmpp-mc-subtotal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.wpdmpp-mc-subtotal-label {
+    font-size: 14px;
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+.wpdmpp-mc-subtotal-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-mc-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* ==========================================================================
+   Cart Items
+   ========================================================================== */
+
+.wpdmpp-mc-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: var(--wpdmpp-mc-bg);
+    border: 1px solid var(--wpdmpp-mc-border);
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    margin-bottom: 8px;
+    transition: all var(--wpdmpp-mc-transition);
+}
+
+.wpdmpp-mc-item:last-child {
+    margin-bottom: 0;
+}
+
+.wpdmpp-mc-item:hover {
+    border-color: var(--wpdmpp-mc-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.wpdmpp-mc-item-thumb {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    overflow: hidden;
+    background: var(--wpdmpp-mc-bg-secondary);
+}
+
+.wpdmpp-mc-item-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.wpdmpp-mc-item-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.wpdmpp-mc-item-name {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--wpdmpp-mc-text);
+    text-decoration: none;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wpdmpp-mc-item-name:hover {
+    color: var(--wpdmpp-mc-primary);
+}
+
+.wpdmpp-mc-item-meta {
+    font-size: 13px;
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+.wpdmpp-mc-item-qty {
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+.wpdmpp-mc-item-price {
+    color: var(--wpdmpp-mc-text);
+    font-weight: 500;
+}
+
+.wpdmpp-mc-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.wpdmpp-mc-item-total {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-mc-item-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    color: var(--wpdmpp-mc-text-muted);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+    opacity: 0;
+}
+
+.wpdmpp-mc-item:hover .wpdmpp-mc-item-remove {
+    opacity: 1;
+}
+
+.wpdmpp-mc-item-remove:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--wpdmpp-mc-danger);
+    color: var(--wpdmpp-mc-danger);
+}
+
+/* Item being removed animation */
+.wpdmpp-mc-item--removing {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ==========================================================================
+   Empty State
+   ========================================================================== */
+
+.wpdmpp-mc-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.wpdmpp-mc-empty-icon {
+    color: var(--wpdmpp-mc-border);
+    margin-bottom: 16px;
+}
+
+.wpdmpp-mc-empty-text {
+    margin: 0 0 20px 0;
+    font-size: 15px;
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.wpdmpp-mc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+    border: none;
+}
+
+.wpdmpp-mc-btn--primary {
+    background: var(--wpdmpp-mc-primary);
+    color: #ffffff;
+}
+
+.wpdmpp-mc-btn--primary:hover {
+    background: var(--wpdmpp-mc-primary-hover);
+    color: #ffffff;
+}
+
+.wpdmpp-mc-btn--secondary {
+    background: var(--wpdmpp-mc-bg);
+    color: var(--wpdmpp-mc-text);
+    border: 1px solid var(--wpdmpp-mc-border);
+}
+
+.wpdmpp-mc-btn--secondary:hover {
+    background: var(--wpdmpp-mc-bg-secondary);
+    border-color: var(--wpdmpp-mc-text-muted);
+    color: var(--wpdmpp-mc-text);
+}
+
+/* ==========================================================================
+   Dropdown Style
+   ========================================================================== */
+
+.wpdmpp-mc-dropdown .wpdmpp-mc-panel {
+    top: calc(100% + 8px);
+    right: 0;
+}
+
+.wpdmpp-mc-dropdown.wpdmpp-mc-pos-top-left .wpdmpp-mc-panel,
+.wpdmpp-mc-dropdown.wpdmpp-mc-pos-bottom-left .wpdmpp-mc-panel {
+    right: auto;
+    left: 0;
+}
+
+/* ==========================================================================
+   Slide Panel Style
+   ========================================================================== */
+
+.wpdmpp-mc-slide_panel .wpdmpp-mc-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--wpdmpp-mc-panel-width);
+    max-width: 90vw;
+    max-height: none;
+    border-radius: 0;
+    transform: translateX(100%);
+}
+
+.wpdmpp-mc-slide_panel .wpdmpp-mc-panel[aria-hidden="false"] {
+    transform: translateX(0);
+}
+
+.wpdmpp-mc-slide_panel.wpdmpp-mc-pos-top-left .wpdmpp-mc-panel,
+.wpdmpp-mc-slide_panel.wpdmpp-mc-pos-bottom-left .wpdmpp-mc-panel {
+    right: auto;
+    left: 0;
+    transform: translateX(-100%);
+}
+
+.wpdmpp-mc-slide_panel.wpdmpp-mc-pos-top-left .wpdmpp-mc-panel[aria-hidden="false"],
+.wpdmpp-mc-slide_panel.wpdmpp-mc-pos-bottom-left .wpdmpp-mc-panel[aria-hidden="false"] {
+    transform: translateX(0);
+}
+
+/* ==========================================================================
+   Floating Style
+   ========================================================================== */
+
+.wpdmpp-mc-floating {
+    position: fixed;
+    z-index: 99999;
+}
+
+.wpdmpp-mc-floating.wpdmpp-mc-pos-bottom-right {
+    bottom: 24px;
+    right: 24px;
+}
+
+.wpdmpp-mc-floating.wpdmpp-mc-pos-bottom-left {
+    bottom: 24px;
+    left: 24px;
+}
+
+.wpdmpp-mc-floating.wpdmpp-mc-pos-top-right {
+    top: 80px;
+    right: 24px;
+}
+
+.wpdmpp-mc-floating.wpdmpp-mc-pos-top-left {
+    top: 80px;
+    left: 24px;
+}
+
+.wpdmpp-mc-floating .wpdmpp-mc-trigger {
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--wpdmpp-mc-primary);
+    border: none;
+    box-shadow: var(--wpdmpp-mc-shadow-lg);
+    color: #ffffff;
+}
+
+.wpdmpp-mc-floating .wpdmpp-mc-trigger:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+}
+
+.wpdmpp-mc-floating .wpdmpp-mc-icon {
+    color: #ffffff;
+}
+
+.wpdmpp-mc-floating .wpdmpp-mc-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 22px;
+    height: 22px;
+    background: var(--wpdmpp-mc-danger);
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.wpdmpp-mc-floating .wpdmpp-mc-total {
+    display: none;
+}
+
+.wpdmpp-mc-floating .wpdmpp-mc-panel {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+}
+
+.wpdmpp-mc-floating.wpdmpp-mc-pos-bottom-left .wpdmpp-mc-panel {
+    right: auto;
+    left: 24px;
+}
+
+.wpdmpp-mc-floating.wpdmpp-mc-pos-top-right .wpdmpp-mc-panel,
+.wpdmpp-mc-floating.wpdmpp-mc-pos-top-left .wpdmpp-mc-panel {
+    top: 140px;
+    bottom: auto;
+}
+
+/* ==========================================================================
+   Overlay
+   ========================================================================== */
+
+.wpdmpp-mc-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--wpdmpp-mc-transition);
+    z-index: 9998;
+    backdrop-filter: blur(2px);
+}
+
+.wpdmpp-mc-slide_panel .wpdmpp-mc-panel[aria-hidden="false"] ~ .wpdmpp-mc-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ==========================================================================
+   Auto-injected Positioning
+   ========================================================================== */
+
+.wpdmpp-mc-auto-injected.wpdmpp-mc-floating {
+    /* Floating is already positioned fixed */
+}
+
+.wpdmpp-mc-auto-injected:not(.wpdmpp-mc-floating) {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 99999;
+}
+
+.wpdmpp-mc-auto-injected:not(.wpdmpp-mc-floating).wpdmpp-mc-pos-top-left {
+    right: auto;
+    left: 24px;
+}
+
+/* ==========================================================================
+   Mobile / Full Screen Mode
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .wpdmpp-mc-mobile-fullscreen .wpdmpp-mc-panel[aria-hidden="false"] {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 0;
+        transform: none;
+    }
+
+    .wpdmpp-mc-mobile-fullscreen .wpdmpp-mc-panel[aria-hidden="false"] ~ .wpdmpp-mc-overlay {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .wpdmpp-mc-mobile-fullscreen.wpdmpp-mc-dropdown .wpdmpp-mc-panel {
+        transform: translateY(100%);
+    }
+
+    .wpdmpp-mc-mobile-fullscreen.wpdmpp-mc-dropdown .wpdmpp-mc-panel[aria-hidden="false"] {
+        transform: translateY(0);
+    }
+
+    .wpdmpp-mc-floating {
+        bottom: 16px;
+        right: 16px;
+    }
+
+    .wpdmpp-mc-floating.wpdmpp-mc-pos-bottom-left {
+        left: 16px;
+    }
+
+    .wpdmpp-mc-trigger {
+        padding: 8px 12px;
+    }
+
+    .wpdmpp-mc-total {
+        display: none;
+    }
+
+    .wpdmpp-mc-auto-injected:not(.wpdmpp-mc-floating) {
+        top: auto;
+        bottom: 16px;
+        right: 16px;
+    }
+}
+
+/* ==========================================================================
+   Loading State
+   ========================================================================== */
+
+.wpdmpp-mc-loading .wpdmpp-mc-panel-body {
+    position: relative;
+    min-height: 120px;
+}
+
+.wpdmpp-mc-loading .wpdmpp-mc-panel-body::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 32px;
+    height: 32px;
+    margin: -16px 0 0 -16px;
+    border: 3px solid var(--wpdmpp-mc-border);
+    border-top-color: var(--wpdmpp-mc-primary);
+    border-radius: 50%;
+    animation: wpdmpp-mc-spin 0.8s linear infinite;
+}
+
+@keyframes wpdmpp-mc-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ==========================================================================
+   Toast Notification
+   ========================================================================== */
+
+.wpdmpp-mc-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    padding: 12px 20px;
+    background: var(--wpdmpp-mc-text);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--wpdmpp-mc-radius);
+    box-shadow: var(--wpdmpp-mc-shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100000;
+}
+
+.wpdmpp-mc-toast.wpdmpp-mc-toast--visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.wpdmpp-mc-toast--success {
+    background: var(--wpdmpp-mc-success);
+}
+
+.wpdmpp-mc-toast--error {
+    background: var(--wpdmpp-mc-danger);
+}
+
+/* ==========================================================================
+   Animation Helpers
+   ========================================================================== */
+
+.wpdmpp-mc-count-updated {
+    animation: wpdmpp-mc-bounce 0.4s ease;
+}
+
+@keyframes wpdmpp-mc-bounce {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.3);
+    }
+}
+
+/* Shake animation for add to cart */
+.wpdmpp-mc-shake {
+    animation: wpdmpp-mc-shake 0.5s ease;
+}
+
+@keyframes wpdmpp-mc-shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+/* ==========================================================================
+   Dark Mode Support
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    .wpdmpp-mini-cart {
+        --wpdmpp-mc-text: #f1f5f9;
+        --wpdmpp-mc-text-muted: #94a3b8;
+        --wpdmpp-mc-bg: #1e293b;
+        --wpdmpp-mc-bg-secondary: #0f172a;
+        --wpdmpp-mc-border: #334155;
+    }
+}
+
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
+
+@media print {
+    .wpdmpp-mini-cart {
+        display: none !important;
+    }
+}
+
+/* ==========================================================================
+   Nav Menu Integration
+   CSS class: .wpdmpp-minicart on any nav menu item
+   ========================================================================== */
+
+/* Menu item container */
+.wpdmpp-minicart-container {
+    position: relative !important;
+}
+
+/* Reset menu item link styling */
+.wpdmpp-minicart-link {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+/* Trigger element inside nav menu */
+.wpdmpp-minicart-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: opacity var(--wpdmpp-mc-transition);
+}
+
+.wpdmpp-minicart-trigger:hover {
+    opacity: 0.8;
+}
+
+/* Cart icon in nav menu */
+.wpdmpp-minicart-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wpdmpp-minicart-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Count badge in nav menu */
+.wpdmpp-minicart-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--wpdmpp-mc-primary);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 9px;
+    line-height: 1;
+}
+
+.wpdmpp-minicart-count--empty {
+    background: var(--wpdmpp-mc-text-muted);
+}
+
+/* Total price in nav menu */
+.wpdmpp-minicart-total {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   Nav Menu Dropdown Panel
+   ========================================================================== */
+
+.wpdmpp-minicart-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    background: var(--wpdmpp-mc-bg);
+    border-radius: var(--wpdmpp-mc-radius);
+    box-shadow: var(--wpdmpp-mc-shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all var(--wpdmpp-mc-transition);
+    z-index: 99999;
+    overflow: hidden;
+    max-height: 400px;
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+}
+
+/* Open state */
+.wpdmpp-minicart-open .wpdmpp-minicart-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Left-aligned menus */
+.wpdmpp-minicart-container:first-child .wpdmpp-minicart-panel,
+.menu-item:first-child.wpdmpp-minicart-container .wpdmpp-minicart-panel {
+    right: auto;
+    left: 0;
+}
+
+/* Panel Header */
+.wpdmpp-minicart-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--wpdmpp-mc-bg-secondary);
+    border-bottom: 1px solid var(--wpdmpp-mc-border);
+    flex-shrink: 0;
+}
+
+.wpdmpp-minicart-panel-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-minicart-panel-count {
+    font-weight: 400;
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+.wpdmpp-minicart-panel-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    color: var(--wpdmpp-mc-text-muted);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+}
+
+.wpdmpp-minicart-panel-close:hover {
+    background: var(--wpdmpp-mc-border);
+    color: var(--wpdmpp-mc-text);
+}
+
+/* Panel Items */
+.wpdmpp-minicart-panel-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    max-height: 220px;
+}
+
+/* Panel Footer */
+.wpdmpp-minicart-panel-footer {
+    padding: 14px 16px;
+    background: var(--wpdmpp-mc-bg-secondary);
+    border-top: 1px solid var(--wpdmpp-mc-border);
+    flex-shrink: 0;
+}
+
+.wpdmpp-minicart-panel-subtotal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.wpdmpp-minicart-panel-subtotal-value {
+    font-weight: 700;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-minicart-panel-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* ==========================================================================
+   Nav Menu Cart Items
+   ========================================================================== */
+
+.wpdmpp-minicart-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    background: var(--wpdmpp-mc-bg);
+    border: 1px solid var(--wpdmpp-mc-border);
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    margin-bottom: 6px;
+    transition: all var(--wpdmpp-mc-transition);
+}
+
+.wpdmpp-minicart-item:last-child {
+    margin-bottom: 0;
+}
+
+.wpdmpp-minicart-item:hover {
+    border-color: var(--wpdmpp-mc-primary);
+}
+
+.wpdmpp-minicart-item-thumb {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--wpdmpp-mc-bg-secondary);
+}
+
+.wpdmpp-minicart-item-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.wpdmpp-minicart-item-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.wpdmpp-minicart-item-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--wpdmpp-mc-text);
+    text-decoration: none;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wpdmpp-minicart-item-name:hover {
+    color: var(--wpdmpp-mc-primary);
+}
+
+.wpdmpp-minicart-item-meta {
+    font-size: 12px;
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+.wpdmpp-minicart-item-qty {
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+.wpdmpp-minicart-item-price {
+    color: var(--wpdmpp-mc-text);
+    font-weight: 500;
+}
+
+.wpdmpp-minicart-item-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.wpdmpp-minicart-item-total {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--wpdmpp-mc-text);
+}
+
+.wpdmpp-minicart-item-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--wpdmpp-mc-text-muted);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+    opacity: 0;
+}
+
+.wpdmpp-minicart-item:hover .wpdmpp-minicart-item-remove {
+    opacity: 1;
+}
+
+.wpdmpp-minicart-item-remove:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--wpdmpp-mc-danger);
+    color: var(--wpdmpp-mc-danger);
+}
+
+.wpdmpp-minicart-item--removing {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ==========================================================================
+   Nav Menu Empty State
+   ========================================================================== */
+
+.wpdmpp-minicart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    text-align: center;
+}
+
+.wpdmpp-minicart-empty-icon {
+    color: var(--wpdmpp-mc-border);
+    margin-bottom: 12px;
+}
+
+.wpdmpp-minicart-empty p {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    color: var(--wpdmpp-mc-text-muted);
+}
+
+/* ==========================================================================
+   Nav Menu Buttons
+   ========================================================================== */
+
+.wpdmpp-minicart-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: var(--wpdmpp-mc-radius-sm);
+    cursor: pointer;
+    transition: all var(--wpdmpp-mc-transition);
+    border: none;
+}
+
+.wpdmpp-minicart-btn--primary {
+    background: var(--wpdmpp-mc-primary);
+    color: #ffffff;
+}
+
+.wpdmpp-minicart-btn--primary:hover {
+    background: var(--wpdmpp-mc-primary-hover);
+    color: #ffffff;
+}
+
+.wpdmpp-minicart-btn--secondary {
+    background: var(--wpdmpp-mc-bg);
+    color: var(--wpdmpp-mc-text);
+    border: 1px solid var(--wpdmpp-mc-border);
+}
+
+.wpdmpp-minicart-btn--secondary:hover {
+    background: var(--wpdmpp-mc-bg-secondary);
+    border-color: var(--wpdmpp-mc-text-muted);
+    color: var(--wpdmpp-mc-text);
+}
+
+/* ==========================================================================
+   Nav Menu Mobile Responsive
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .wpdmpp-minicart-panel {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        max-height: 80vh;
+        border-radius: var(--wpdmpp-mc-radius) var(--wpdmpp-mc-radius) 0 0;
+        margin-top: 0;
+        transform: translateY(100%);
+    }
+
+    .wpdmpp-minicart-open .wpdmpp-minicart-panel {
+        transform: translateY(0);
+    }
+
+    .wpdmpp-minicart-panel-items {
+        max-height: calc(80vh - 180px);
+    }
+
+    .wpdmpp-minicart-total {
+        display: none;
+    }
+}
+
+/* ==========================================================================
+   Nav Menu Dark Mode Support
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    .wpdmpp-minicart-container {
+        --wpdmpp-mc-text: #f1f5f9;
+        --wpdmpp-mc-text-muted: #94a3b8;
+        --wpdmpp-mc-bg: #1e293b;
+        --wpdmpp-mc-bg-secondary: #0f172a;
+        --wpdmpp-mc-border: #334155;
+    }
+}

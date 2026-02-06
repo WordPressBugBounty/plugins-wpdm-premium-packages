@@ -35,7 +35,7 @@ class Cart {
 		if ( is_user_logged_in() ) {
 			$cart_id = get_current_user_id() . "_cart";
 		} else {
-			$cart_id = Session::$deviceID . "_cart";
+			$cart_id = Session::deviceID() . "_cart";
 		}
 		$this->ID = $cart_id;
 
@@ -58,7 +58,7 @@ class Cart {
 
 		//Transfer cart data from guest id to user id
 		if ( is_user_logged_in() && ! $cart_data ) {
-			$cart_id   = Session::$deviceID . "_cart";
+			$cart_id   = Session::deviceID() . "_cart";
 			$cart_data = maybe_unserialize( get_option( $cart_id ) );
 			delete_option( $cart_id );
 			$cart_id = get_current_user_id() . "_cart";
@@ -642,7 +642,7 @@ class Cart {
 
 	function onUserLogin( $user_login, $user ) {
 		$user_cart_id  = $user->ID . "_cart";
-		$guest_cart_id = Session::$deviceID . "_cart";
+		$guest_cart_id = Session::deviceID() . "_cart";
 		$cart_data     = maybe_unserialize( get_option( $guest_cart_id ) );
 		update_option( $user_cart_id, $cart_data, false );
 		delete_option( $guest_cart_id );

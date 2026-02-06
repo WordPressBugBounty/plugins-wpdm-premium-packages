@@ -596,7 +596,7 @@ class Order {
 			'payment_status' => 'Completed',
 			'auto_renew'     => 1,
 			'expire_date'    => $expire_date
-		), $id );
+		), $order_det->order_id );
 		$timestamp = $timestamp ? $timestamp : time();
 		$renewEntry = [
 			'order_id'        => $order_det->order_id,

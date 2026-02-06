@@ -81,15 +81,42 @@ jQuery(function ($) {
         var licname = prompt("Enter License Name:");
         if (!licname) return false;
         var licid = licname.toLowerCase().replace(/[^a-z0-9]+/ig, "_");
-        var tpl = '<tr id="tr_##licid##"> <td><input class="form-control" disabled="disabled" value="##licid##" type="text"></td> <td><input class="form-control" name="_wpdmpp_settings[licenses][##licid##][name]" value="##licname##" type="text"></td><td><textarea class="form-control" name="_wpdmpp_settings[licenses][##licid##][description]">##licname## License</textarea></td><td><input class="form-control" name="_wpdmpp_settings[licenses][##licid##][use]" value="9" type="number"></td> <td><button type="button" data-rowid="#row_##licid##" class="btn btn-danger del-lic"><i class="fa fa-trash-o"></i></button></td> </tr>';
+        var tpl = '<tr id="tr_##licid##">' +
+            '<td><input type="text" class="form-control" disabled value="##licid##"></td>' +
+            '<td><input type="text" class="form-control" name="_wpdmpp_settings[licenses][##licid##][name]" value="##licname##"></td>' +
+            '<td><textarea class="form-control" rows="1" name="_wpdmpp_settings[licenses][##licid##][description]">##licname## License</textarea></td>' +
+            '<td><input type="number" class="form-control" name="_wpdmpp_settings[licenses][##licid##][use]" value="9"></td>' +
+            '<td><button type="button" data-rowid="#tr_##licid##" class="wpdmpp-btn-delete del-lic"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button></td>' +
+            '</tr>';
         tpl = tpl.replace(/##licid##/ig, licid).replace(/##licname##/ig, licname);
         $('#licenses').append(tpl);
-
     });
 
+    // Payment method status toggle
     $('.pm-status-select').on('change', function () {
-        let pmname = this.id.replace("enable_", "");
-        if (parseInt(this.value) !== 0) $('#pmstatus_'+pmname).html('<span class="color-green">Active <i class="far fa-check-square"></i></span>'); else $('#pmstatus_'+pmname).html('<span class="color-red">Inactive  <i class="far fa-minus-square"></i></span>');
+        var pmname = this.id.replace("enable_", "");
+        var $status = $('#pmstatus_' + pmname);
+        var isActive = parseInt(this.value) !== 0;
+
+        // Update classes
+        $status
+            .removeClass('wpdmpp-pm-item__status--active wpdmpp-pm-item__status--inactive')
+            .addClass(isActive ? 'wpdmpp-pm-item__status--active' : 'wpdmpp-pm-item__status--inactive');
+
+        // Update content with SVG icons
+        if (isActive) {
+            $status.html(
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />' +
+                '</svg> Active'
+            );
+        } else {
+            $status.html(
+                '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />' +
+                '</svg> Inactive'
+            );
+        }
     });
 
     /**

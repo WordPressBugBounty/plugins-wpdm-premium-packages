@@ -251,19 +251,46 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                         <input id="update_ps" type="button" class="btn btn-default" value="Update">
                     </div>
                     <div class="col-lg-2">
-                        <div class="dropdown pull-right">
-                            <button class="btn btn-info" id="dLabel" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class="fa fa-ellipsis-v"></i>
+                        <div class="wpdm-order-actions pull-right">
+                            <button class="wpdm-order-actions__trigger" type="button" id="orderActionsBtn" aria-haspopup="true" aria-expanded="false">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="1"></circle>
+                                    <circle cx="12" cy="5" r="1"></circle>
+                                    <circle cx="12" cy="19" r="1"></circle>
+                                </svg>
+                                <span><?php _e('Actions', 'wpdm-premium-packages'); ?></span>
+                                <svg class="wpdm-order-actions__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
                             </button>
-                            <ul class="dropdown-menu" aria-labelledby="dLabel">
-                                <li><a href="#" id="dlh"><?php _e( 'Download History', 'wpdm-premium-packages' ) ?></a></li>
-                                <li><a href="#" id="dlh" onclick="window.open('?id=<?php echo wpdm_query_var( 'id' ); ?>&wpdminvoice=1','Invoice','height=720, width = 750, toolbar=0'); return false;"><?php _e( 'View Invoice', 'wpdm-premium-packages' ) ?></a></li>
-                                <li><a href="#" id="oceml"><?php _e( 'Resend Confirmation Email', 'wpdm-premium-packages' ) ?></a></li>
+                            <div class="wpdm-order-actions__menu" id="orderActionsMenu">
+                                <a href="#" class="wpdm-order-actions__item" id="dlh">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 3v18h18"></path>
+                                        <path d="m19 9-5 5-4-4-3 3"></path>
+                                    </svg>
+                                    <?php _e('Download History', 'wpdm-premium-packages'); ?>
+                                </a>
+                                <a href="#" class="wpdm-order-actions__item" onclick="window.open('?id=<?php echo wpdm_query_var('id'); ?>&wpdminvoice=1','Invoice','height=720, width=750, toolbar=0'); return false;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10 9 9 9 8 9"></polyline>
+                                    </svg>
+                                    <?php _e('View Invoice', 'wpdm-premium-packages'); ?>
+                                </a>
+                                <a href="#" class="wpdm-order-actions__item" id="oceml">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                        <polyline points="22,6 12,13 2,6"></polyline>
+                                    </svg>
+                                    <?php _e('Resend Confirmation Email', 'wpdm-premium-packages'); ?>
+                                </a>
                                 <?php do_action("wpdmpp_order_action_menu_item", $order); ?>
-                            </ul>
+                            </div>
                         </div>
-
-
                     </div>
                 </div>
             </div>
@@ -292,9 +319,9 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                                 <div class="modal-dialog" role="document" style="width: 350px">
                                     <div class="modal-content">
                                         <div class="modal-header">
+                                            <h4 class="modal-title"><?php echo __( "Change Transection ID", "wpdm-premium-packages" ); ?></h4>
                                             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                                 <span aria-hidden="true">&times;</span></button>
-                                            <h4 class="modal-title"><?php echo __( "Change Transection ID", "wpdm-premium-packages" ); ?></h4>
                                         </div>
                                         <div class="modal-body">
                                             <input type="text"
@@ -347,34 +374,41 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6 col-sm-12">
-                    <div class="panel panel-default">
-                        <div class="panel-heading"><?php _e( "Order Total", "wpdm-premium-packages" ); ?></div>
-                        <div class="panel-body">
-
-                            <div class="dropdown pull-right" style="margin-top: -1px">
-                                <a href="#" id="dLabel" class="ttip" type="button" style="color: var(--color-info)" data-toggle="dropdown"
-                                   aria-haspopup="true" aria-expanded="false"
-                                   title="<?php _e( "Change Payment Method", "wpdm-premium-packages" ); ?>">
-                                    <i id="editpm" class="fa-solid fa-square-pen" style="font-size: 15pt;"></i>
-                                </a>
-
-                                <div class="dropdown-menu panel panel-default" aria-labelledby="dLabel"
-                                     style="padding: 0;width: 230px;">
-                                    <div class="panel-heading"><?php _e( "Change Payment Method:", "wpdm-premium-packages" ); ?></div>
-                                    <div class="panel-body-np" style="height: 200px;overflow: auto;">
-										<?php
-										$payment_methods = WPDMPP()->active_payment_gateways();
-										foreach ( $payment_methods as $payment_method ) {
-											$payment_method_class = $payment_method;
-											$payment_method       = str_replace( "WPDM_", "", $payment_method );
-											?>
-                                            <a href="#" class="list-item changepm"
-                                               data-pm="<?php echo $payment_method_class; ?>"><?php echo $payment_method; ?></a>
-										<?php } ?>
+                    <div class="panel panel-default" style="overflow: visible !important;">
+                        <div class="panel-heading" style="display: flex;align-items: center;justify-content: space-between;">
+                            <div><?php _e( "Order Total", "wpdm-premium-packages" ); ?></div>
+                            <div class="wpdm-pm-dropdown">
+                                <button type="button" class="wpdm-pm-dropdown__trigger ttip" id="paymentMethodBtn" title="<?php _e( "Change Payment Method", "wpdm-premium-packages" ); ?>">
+                                    <i class="fa fa-credit-card-alt"></i>
+                                </button>
+                                <div class="wpdm-pm-dropdown__menu" id="paymentMethodMenu">
+                                    <div class="wpdm-pm-dropdown__header">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                                            <line x1="1" y1="10" x2="23" y2="10"></line>
+                                        </svg>
+                                        <?php _e( "Change Payment Method", "wpdm-premium-packages" ); ?>
+                                    </div>
+                                    <div class="wpdm-pm-dropdown__body">
+                                        <?php
+                                        $payment_methods = WPDMPP()->active_payment_gateways();
+                                        foreach ( $payment_methods as $payment_method ) {
+                                            $payment_method_class = $payment_method;
+                                            $payment_method_name  = str_replace( "WPDM_", "", $payment_method );
+                                            ?>
+                                            <a href="#" class="wpdm-pm-dropdown__item changepm" data-pm="<?php echo esc_attr($payment_method_class); ?>">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <path d="M12 6v6l4 2"></path>
+                                                </svg>
+                                                <?php echo esc_html($payment_method_name); ?>
+                                            </a>
+                                        <?php } ?>
                                     </div>
                                 </div>
                             </div>
-
+                        </div>
+                        <div class="panel-body">
                             <span class="lead color-green"><strong
                                         class="order_total"><?php echo wpdmpp_price_format( $order->total, $currency_sign, true ); ?></strong></span>
                             <span class="text-muted">via <span
@@ -435,9 +469,9 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                                 <div class="modal-dialog" role="document" style="width: 350px">
                                     <div class="modal-content">
                                         <div class="modal-header">
+                                            <h4 class="modal-title"><?php echo __( "Change Customer", "wpdm-premium-packages" ); ?></h4>
                                             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                                 <span aria-hidden="true">&times;</span></button>
-                                            <h4 class="modal-title"><?php echo __( "Change Customer", "wpdm-premium-packages" ); ?></h4>
                                         </div>
                                         <div class="modal-body">
                                             <input type="text"
@@ -445,8 +479,7 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                                                    class="form-control input-lg" id="changec"/>
                                         </div>
                                         <div class="modal-footer">
-                                            <button type="button" id="save_customer_change"
-                                                    class="btn btn-primary"><?php echo __( "Change", "wpdm-premium-packages" ); ?></button>
+                                            <button type="button" id="save_customer_change" class="btn btn-primary"><?php echo __( "Change", "wpdm-premium-packages" ); ?></button>
                                         </div>
                                     </div><!-- /.modal-content -->
                                 </div><!-- /.modal-dialog -->
@@ -566,8 +599,9 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                     <input type="hidden" name="action" value="wpdmpp_async_request"/>
                     <input type="hidden" name="execute" value="addRefund"/>
                     <input type="hidden" name="order_id" value="<?php echo wpdm_query_var( 'id' ); ?>"/>
-                    <div class="modal-header">
+                    <div class="modal-header" style="display: flex; justify-content: space-between">
                         <strong><?php _e( "Refund", "wpdm-premium-packages" ); ?></strong>
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true"><i class="fa fa-times"></i></button>
                     </div>
                     <div class="modal-header text-center" style="background: #fafafa">
                         <h4 style="padding: 0;margin: 0;"><?php _e( "Order Total", "wpdm-premium-packages" ); ?>: <span
@@ -599,8 +633,8 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                     <h4 class="modal-title" id="addproductLabel"><?php _e('Select Product','wpdm-premium-packages'); ?></h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
                 <div class="modal-body">
                     <input type="text" placeholder="<?php _e('Search Product...','wpdm-premium-packages'); ?>" class="form-control input-lg" id="srcp">
@@ -619,8 +653,9 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                     <input type="hidden" name="wpdmppuednonnce" value="<?php echo wp_create_nonce(WPDM_PRI_NONCE);  ?>">
                     <input type="hidden" name="action" value="wpdmpp_updateOrderExpiryDate">
                     <input type="hidden" name="order_id" value="<?php echo wpdm_query_var( 'id' ); ?>"/>
-                    <div class="modal-header">
-                        <strong><?php _e( "Change Expire Date", "wpdm-premium-packages" ); ?></strong>
+                    <div class="modal-header" style="display: flex; justify-content: space-between">
+                        <h4><?php _e( "Change Expire Date", "wpdm-premium-packages" ); ?></h4>
+                        <button class="close" type="button" data-dismiss="modal">&times;</button>
                     </div>
 
                     <div class="modal-body">
@@ -668,7 +703,6 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
 		?>
         //$('select#osv').selectpicker({style: '<?php echo isset( $style[ $order->order_status ] ) ? $style[ $order->order_status ] : 'btn-default'; ?>'});
         //$('select#psv').selectpicker({style: '<?php echo $style[ $order->payment_status ]; ?>'});
-
 
         $('#refundform').on('submit', function (e) {
             e.preventDefault();
@@ -767,7 +801,10 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
          $('.changepm').click(function (e) {
             e.preventDefault();
             WPDM.blockUI('#orderbar');
-            $('#editpm').removeClass('fa-square-pen').addClass('fa-sun fa-spin');
+            // Add loading state to trigger button
+            var $trigger = $('#paymentMethodBtn');
+            $trigger.addClass('loading').prop('disabled', true);
+            $trigger.find('svg').css('animation', 'wpdm-spin 1s linear infinite');
             $.post(ajaxurl, {
                 action: 'wpdmpp_async_request',
                 wpdmppasyncrequest: '<?php echo wp_create_nonce(WPDM_PRI_NONCE); ?>',
@@ -778,8 +815,9 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
                 $('#pmname').html(res.pmname);
                 WPDM.notify("<i class='fa fa-check-double'></i> " + res.msg, 'success', 'top-center', 4000);
                 WPDM.unblockUI('#orderbar');
-                $('#editpm').removeClass('fa-sun fa-spin').addClass('fa-square-pen');
-
+                // Remove loading state
+                $trigger.removeClass('loading').prop('disabled', false);
+                $trigger.find('svg').css('animation', '');
             });
         });
 
@@ -923,6 +961,55 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
         });
         $('.ttip').tooltip();
 
+        // Order Actions Dropdown Toggle
+        $('#orderActionsBtn').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var $parent = $(this).closest('.wpdm-order-actions');
+            $parent.toggleClass('open');
+        });
+
+        // Close dropdown when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.wpdm-order-actions').length) {
+                $('.wpdm-order-actions').removeClass('open');
+            }
+        });
+
+        // Close dropdown when clicking a menu item
+        $('.wpdm-order-actions__item').on('click', function() {
+            $(this).closest('.wpdm-order-actions').removeClass('open');
+        });
+
+        // Close dropdown on escape key
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape') {
+                $('.wpdm-order-actions').removeClass('open');
+                $('.wpdm-pm-dropdown').removeClass('open');
+            }
+        });
+
+        // Payment Method Dropdown Toggle
+        $('#paymentMethodBtn').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var $parent = $(this).closest('.wpdm-pm-dropdown');
+            // Close other dropdowns
+            $('.wpdm-order-actions').removeClass('open');
+            $parent.toggleClass('open');
+        });
+
+        // Close payment method dropdown when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.wpdm-pm-dropdown').length) {
+                $('.wpdm-pm-dropdown').removeClass('open');
+            }
+        });
+
+        // Close payment method dropdown after selecting
+        $('.wpdm-pm-dropdown__item').on('click', function() {
+            $(this).closest('.wpdm-pm-dropdown').removeClass('open');
+        });
 
     });
 </script>
@@ -978,6 +1065,259 @@ $renews = $wpdb->get_results( "select * from {$wpdb->prefix}ahm_order_renews whe
 
     a.list-item:not(:last-child) {
         border-bottom: 1px solid #dddddd;
+    }
+
+    /* Order Actions Dropdown - Modern Design */
+    .wpdm-order-actions {
+        position: relative;
+        display: inline-block;
+    }
+
+    .wpdm-order-actions__trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .wpdm-order-actions__trigger:hover {
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-color: #cbd5e1;
+        color: #1e293b;
+    }
+
+    .wpdm-order-actions__trigger:focus {
+        outline: none;
+        border-color: var(--color-info, #0ea5e9);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+    }
+
+    .wpdm-order-actions__trigger svg {
+        flex-shrink: 0;
+        color: #64748b;
+    }
+
+    .wpdm-order-actions__trigger span {
+        white-space: nowrap;
+    }
+
+    .wpdm-order-actions__chevron {
+        transition: transform 0.2s ease;
+    }
+
+    .wpdm-order-actions.open .wpdm-order-actions__chevron {
+        transform: rotate(180deg);
+    }
+
+    .wpdm-order-actions__menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        min-width: 220px;
+        padding: 6px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px);
+        transition: all 0.2s ease;
+        z-index: 1000;
+    }
+
+    .wpdm-order-actions.open .wpdm-order-actions__menu {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .wpdm-order-actions__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #475569;
+        text-decoration: none !important;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .wpdm-order-actions__item:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+
+    .wpdm-order-actions__item:active {
+        background: #e2e8f0;
+    }
+
+    .wpdm-order-actions__item svg {
+        flex-shrink: 0;
+        color: #64748b;
+        transition: color 0.15s ease;
+    }
+
+    .wpdm-order-actions__item:hover svg {
+        color: var(--color-info, #0ea5e9);
+    }
+
+    /* Separator between items (optional) */
+    .wpdm-order-actions__separator {
+        height: 1px;
+        margin: 6px 0;
+        background: #e2e8f0;
+    }
+
+    /* Payment Method Dropdown - Modern Design */
+    .wpdm-pm-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .wpdm-pm-dropdown__trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        color: var(--color-info, #0ea5e9);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .wpdm-pm-dropdown__trigger:hover svg{
+        stroke: var(--admin-color);
+    }
+
+    .wpdm-pm-dropdown__trigger svg {
+        flex-shrink: 0;
+    }
+
+    .wpdm-pm-dropdown__menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        width: 240px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px);
+        transition: all 0.2s ease;
+        z-index: 1000;
+        overflow: hidden;
+    }
+
+    .wpdm-pm-dropdown.open .wpdm-pm-dropdown__menu {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .wpdm-pm-dropdown__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .wpdm-pm-dropdown__header svg {
+        color: #64748b;
+    }
+
+    .wpdm-pm-dropdown__body {
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 6px;
+    }
+
+    .wpdm-pm-dropdown__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: #475569;
+        text-decoration: none !important;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .wpdm-pm-dropdown__item:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+
+    .wpdm-pm-dropdown__item:active {
+        background: #e2e8f0;
+    }
+
+    .wpdm-pm-dropdown__item svg {
+        flex-shrink: 0;
+        color: #94a3b8;
+        transition: color 0.15s ease;
+    }
+
+    .wpdm-pm-dropdown__item:hover svg {
+        color: var(--color-success, #10b981);
+    }
+
+    .wpdm-pm-dropdown__item.selected {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--color-success, #10b981);
+    }
+
+    .wpdm-pm-dropdown__item.selected svg {
+        color: var(--color-success, #10b981);
+    }
+
+    /* Custom scrollbar for payment methods */
+    .wpdm-pm-dropdown__body::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .wpdm-pm-dropdown__body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .wpdm-pm-dropdown__body::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 3px;
+    }
+
+    .wpdm-pm-dropdown__body::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+
+    /* Spin animation for loading states */
+    @keyframes wpdm-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    .wpdm-pm-dropdown__trigger.loading {
+        opacity: 0.6;
+        cursor: wait;
     }
 </style>
 <?php
