@@ -21,5 +21,5 @@ endif;
 //Order Details
 if ( isset( $_GET['id']) && $_GET['id'] != '' && ! isset( $_GET['item'] ) ):
     //include_once wpdm_tpl_path('partials/user-order-details.php', WPDMPP_TPL_DIR );
-    \WPDMPP\Libs\Order::userOrderDetails(wpdm_query_var('id'));
+    \WPDMPP\Order\OrderService::instance()->userOrderDetails(wpdm_query_var('id'));
 endif;

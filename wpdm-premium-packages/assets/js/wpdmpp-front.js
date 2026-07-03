@@ -17,6 +17,38 @@ jQuery(function ($) {
         });
     });
 
+    // Resolve unassigned order -> link it to the current account (User Dashboard).
+    // Delegated so it works even though the dashboard injects this form via AJAX.
+    $body.on('submit', '#resolveorder', function (e) {
+        e.preventDefault();
+        $('#resolveorder').slideUp();
+        $('#w8o').html(wpdmppIcons.spinner + ' ' + wpdmpp_txt.resolve_tracking).slideDown();
+        $.ajax({
+            url: wpdm_url.ajax,
+            type: 'post',
+            dataType: 'json',
+            data: $(this).serialize(),
+            success: function (res) {
+                if (res && res.success) {
+                    $('#w8o').html('<span class="text-success">' + wpdmppIcons.check + ' ' + wpdmpp_txt.resolve_success + '</span>');
+                    location.reload();
+                } else {
+                    var msg = (res && res.data && res.data.message) ? res.data.message : wpdmpp_txt.resolve_not_found;
+                    $('#w8o').html('<span class="text-danger">' + msg + '</span>');
+                }
+            },
+            error: function () {
+                $('#w8o').html('<span class="text-danger">' + wpdmpp_txt.resolve_error + '</span>');
+            }
+        });
+        return false;
+    });
+
+    $body.on('click', '#w8o', function () {
+        $(this).slideUp();
+        $('#resolveorder').slideDown();
+    });
+
     $body.on('click', '.file-price', function () {
         var pid = $(this).data('pid'), ps = 0, files = [], uc = 0, al = '';
         var haslic = parseInt($('.license-' + pid).length);
@@ -197,7 +229,7 @@ jQuery(function ($) {
                     btnaddtocart.addClass('btn-wc');
                     btnaddtocart.html(btnlbl).removeAttr('disabled');
                     if (cnotif) cnotif.remove();
-                    cnotif = WPDM.notify('<span class="w3eden">' + res.message + '</span>', 'info', 'top-center');
+                    cnotif = WPDM.toast(res.message, 'success', 'top-center');
                     $('.ttip').tooltip({html: true});
                     window.postMessage("cart_updated", window.location.protocol + "//" + window.location.hostname);
                 } else {
@@ -297,7 +329,7 @@ jQuery(function ($) {
         $.post(location.href, {action: 'wpdmpp_anync_exec', execute: 'saveCart'}, function (cart) {
             $('#carturl').val(cart.url);
             $('#cartid').val(cart.id);
-            $('#save-cart').html('<i class="fas fa-check-square"></i> Saved');
+            $('#save-cart').html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons['check-square'] : '') + ' Saved');
             $('#wpdm-save-cart').removeClass('hide').removeClass('d-none');
         });
     });
@@ -310,33 +342,16 @@ jQuery(function ($) {
             return;
         }
 
-        $('#fae').removeClass('fa-envelope').addClass(wpdm_js.spinner);
-        $('#email-cart').attr('disabled', 'disabled').html('Sending...');
+        $('#email-cart').attr('disabled', 'disabled').html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.spinner : '') + ' Sending...');
         $.post(location.href, {
             action: 'wpdmpp_anync_exec',
             execute: 'EmailCart',
             email: $('#cmail').val(),
             cartid: $('#cartid').val()
         }, function (res) {
-            $('#fae').removeClass(wpdm_js.spinner).addClass('fa-envelope');
-            $('#email-cart').html('Sent');
+            $('#email-cart').html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.mail : '') + ' Sent');
         });
     });
-
-    /* Select payment method on checkout page */
-    /* Execute on page load */
-    var pbtn_label = wpdmpp_txt.checkout_button_label; /* Default Payment Button Label */
-
-    if ($('#payment_form input[name="payment_method"]:checked').val() != undefined) {
-        set_payment_method(selected_payment_method())
-        $('#__PM_'+selected_payment_method()).addClass('active');
-    }
-
-    /* Execute on change */
-    $body.on('change', '#payment_form input[name="payment_method"]', function () {
-        set_payment_method($(this).val())
-    });
-
 
     /* Premium Package Cart Widget */
     $('#wpdm-cart-panel-trigger').on('click', function () {
@@ -354,31 +369,6 @@ jQuery(function ($) {
 });
 
 /* Body OnLoad Ends */
-
-function set_payment_method(method) {
-    var $ = jQuery;
-    pbtn_label = $('#pay_btn').html();
-    $('#payment_form').addClass('blockui');
-    $.post(wpdm_url.ajax, {action: 'set_payment_method_for_order', method: method, wpdm_client: wpdm_js.client_id}, function (res) {
-        if(typeof res !== 'object') {
-            WPDM.bootAlert("Order Error!", res, 400);
-            $('#payment_form').removeClass('blockui');
-            return false;
-        }
-        if (res.button === 'custom') {
-            $('#checkout-terms-agree').prop('checked', true).prop('disabled', true);
-            $('#pay_btn').hide();
-            $('#wpdmpp-custom-payment-button').html(res.html).show();
-        } else {
-            $('#checkout-terms-agree').prop('checked', true).removeAttr('disabled');
-            $('#wpdmpp-custom-payment-button').html(res.html).hide();
-            $('#pay_btn').show();
-        }
-        $('#billing_form').html(res.billing_form);
-        $('#payment_form').removeClass('blockui');
-        populateStates($('#country').val());
-    });
-}
 
 function selected_payment_method()
 {
@@ -535,18 +525,20 @@ function wpdmpp_extra_gigs() {
 function getkey(file, order_id, btn_id) {
     var oldico = jQuery(btn_id).html();
     jQuery(btn_id).html(wpdm_js.spinner);
-    jQuery.post(wpdm_url.home, {execute: 'getlicensekey', fileid: file, orderid: order_id}, function (_res) {
+    fetch(wpdmppApi.root + 'license/key', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': wpdmppApi.nonce
+        },
+        body: JSON.stringify({product_id: parseInt(file), order_id: order_id})
+    })
+    .then(function (response) { return response.json(); })
+    .then(function (result) {
+        var _res = result.data || result;
         var res;
-        res = "<input class='form-control input-lg' style='cursor:copy;font-weight: bold;margin: 0;font-family: monospace;text-align: center;font-size: 14pt;letter-spacing: 1px' onfocus='this.select()' id='lkcont' type=text readonly=readonly value='" + _res.key + "' />";
-        res = WPDM.el("div", {'class': 'input-group'}, res + WPDM.el("div", {'class': 'input-group-append'}, WPDM.el("button", {
-            type: 'button',
-            'class': 'btn btn-secondary',
-            id: 'btn-copy-key',
-            onclick: "WPDM.copy('lkcont')"
-        }, WPDM.el("i", {'class': 'fas fa-copy'}) + ' Copy')));
-        jQuery(btn_id).html(oldico);
-
-        if (_res.domains.length > 0) {
+        res = "<input class='form-control input-lg' title='Click to copy' style='cursor:copy;font-weight: bold;margin: 0;font-family: monospace;text-align: center;font-size: 14pt;letter-spacing: 1px' onclick='this.select();WPDM.copyTxt(jQuery(this).val())' id='lkcont' type=text readonly=readonly value='" + _res.key + "' />";
+        if (_res.domains && _res.domains.length > 0) {
             res += "<div class='panel panel-default card card-default' id='lpp' style='margin-top: 15px;margin-bottom: 0;overflow: hidden'><div class='panel-heading card-header text-left' style='text-transform: unset;background: #f5f5f5 !important;' >Linked Sites</div><div style='max-height: 300px;overflow: auto;'><ul class='list-group text-left' style='margin-top: -1px;margin-bottom: 0'>";
             jQuery.each(_res.domains, function (i, domain) {
                 res += "<li class='list-group-item lci'><a href='#' data-domain='" + domain + "' data-license='" + _res.key + "' data-oid='" + order_id + "' data-pid='" + file + "' class='wpdm__rld btn btn-xs btn-danger pull-right float-right'>Remove</a>" + domain + "</li>";
@@ -554,15 +546,18 @@ function getkey(file, order_id, btn_id) {
             res += "</ul></div></div><style>#lpp .lci{ border-radius: 0 !important;;border: 0 !important;border-top: 1px solid #dddddd !important;; }</style>";
         }
 
-        wpdm_bootModal("License Key", res, 450);
-
+        WPDM.dialog.alert("License Key", res, {html: true, size: 'md'});
+        jQuery(btn_id).html(oldico);
+    })
+    .catch(function () {
+        jQuery(btn_id).html(oldico);
     });
     return false;
 }
 
 var wpdmpp = {
     reset_pay_btn: function () {
-        jQuery('#pay_btn').removeAttr('disabled').html('<i class="fas fa-check-square"></i> &nbsp; ' + wpdmpp_txt.pay_now);
+        jQuery('#pay_btn').removeAttr('disabled').html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons['check-square'] : '') + ' &nbsp; ' + wpdmpp_txt.pay_now);
     }
 }
 

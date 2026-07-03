@@ -22,12 +22,12 @@ if(!defined('ABSPATH')) die('Dream more!');
                 if($method['active']) {
                 ?>
                 <tr>
-                    <td><img src="<?= $method['icon'] ?>" width="48px" /> </td>
+                    <td><img src="<?php echo esc_url($method['icon']); ?>" width="48px" alt="<?php echo esc_attr($method['name']); ?>" /> </td>
                     <td style="line-height: 1.2">
-                        <strong><?php echo $method['name'] ?></strong><br/>
-                        <small class="text-muted">Min. Amount: <?= wpdmpp_price_format($method['min']) ?></small>
+                        <strong><?php echo esc_html($method['name']); ?></strong><br/>
+                        <small class="text-muted">Min. Amount: <?php echo esc_html(wpdmpp_price_format($method['min'])); ?></small>
                     </td>
-                    <td><input class="form-control" id="pa<?= $method['id'] ?>" type="text" name="account[<?= $method['id'] ?>]" value="<?= wpdm_valueof($accounts, $method['id'])  ?>" /></td>
+                    <td><input class="form-control" id="pa<?php echo esc_attr($method['id']); ?>" type="text" name="account[<?php echo esc_attr($method['id']); ?>]" value="<?php echo esc_attr(wpdm_valueof($accounts, $method['id'])); ?>" /></td>
                 </tr>
 		    <?php }} ?>
             </tbody>

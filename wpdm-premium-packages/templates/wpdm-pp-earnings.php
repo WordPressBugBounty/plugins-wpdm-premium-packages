@@ -63,134 +63,243 @@ $matured_balance = $tempbalance - $total_withdraws;
 
 //finding pending balance
 $pending_balance = $balance - $matured_balance;
+
+// Build the withdrawal request form (rendered inside the WPDM modal via JS)
+$form          = 0;
+$billing_info  = maybe_unserialize( get_user_meta( get_current_user_id(), 'user_billing_shipping', true ) );
+$billing_info  = wpdm_valueof( $billing_info, "billing" );
+$user_accounts = get_user_meta( get_current_user_id(), '__wpdmpp_payment_account', true );
+$active_pom    = get_option( "wpdmpp_active_pom", [] );
+if ( ! is_array( $active_pom ) ) {
+	$active_pom = [];
+}
+$updatepoi = WPDM()->authorDashboard->url( [ 'adb_page' => 'withdraws' ] );
+
+ob_start();
+?>
+<div class="wpe-modal">
+	<form id="wreqform" method="post">
+		<?php
+		if ( ! is_array( $billing_info ) ||
+		     wpdm_valueof( $billing_info, 'first_name' ) == '' ||
+		     wpdm_valueof( $billing_info, 'last_name' ) == '' ||
+		     wpdm_valueof( $billing_info, 'address_1' ) . wpdm_valueof( $billing_info, 'address_2' ) == '' ||
+		     wpdm_valueof( $billing_info, 'postcode' ) == '' ||
+		     wpdm_valueof( $billing_info, 'state' ) . wpdm_valueof( $billing_info, 'city' ) == ''
+		) {
+			$updatebilling = wpdm_user_dashboard_url( array( 'udb_page' => 'edit-profile' ) );
+			?>
+			<div class="wpe-alert">
+				<?php esc_html_e( 'Critical billing info is missing. Please update your billing info to generate invoice properly.', WPDMPP_TEXT_DOMAIN ); ?>
+				<a class="wpe-btn wpe-btn--block" href="<?php echo esc_url( $updatebilling ); ?>"><?php esc_html_e( 'Update Billing Info', WPDMPP_TEXT_DOMAIN ); ?></a>
+			</div>
+			<?php
+		} else if ( ! $user_accounts ) {
+			?>
+			<div class="wpe-alert">
+				<?php esc_html_e( 'Critical payout info is missing. Please update your payout info to withdraw your fund.', WPDMPP_TEXT_DOMAIN ); ?>
+				<a class="wpe-btn wpe-btn--block" href="<?php echo esc_url( $updatepoi ); ?>"><?php esc_html_e( 'Update Payout Info', WPDMPP_TEXT_DOMAIN ); ?></a>
+			</div>
+			<?php
+		} else {
+			$form = 1;
+			?>
+			<input type="hidden" name="withdraw" value="1">
+			<div class="wpe-field">
+				<label class="wpe-field__label"><?php esc_html_e( 'Payment Option', WPDMPP_TEXT_DOMAIN ); ?></label>
+				<div class="wpe-pom-list">
+					<?php foreach ( WPDMPP()->withdraws->getPayoutMethods() as $method ) {
+						if ( $method['active'] ) { ?>
+							<label class="wpe-pom">
+								<span class="wpe-pom__info">
+									<span class="wpe-pom__name"><?php echo esc_html( $method['name'] ); ?></span>
+									<span class="wpe-pom__min"><?php printf( esc_html__( 'Min. Amount: %s', WPDMPP_TEXT_DOMAIN ), esc_html( wpdmpp_price_format( $method['min'] ) ) ); ?></span>
+								</span>
+								<?php if ( wpdm_valueof( $user_accounts, $method['id'] ) !== '' ) { ?>
+									<input required="required" class="wpe-pom__radio pom" data-min="<?php echo esc_attr( $method['min'] ); ?>" type="radio" name="payout_method" value="<?php echo esc_attr( $method['id'] ); ?>">
+								<?php } else { ?>
+									<a href="<?php echo esc_url( $updatepoi ); ?>" class="wpe-btn wpe-btn--secondary wpe-btn--sm ttip" title="<?php echo esc_attr( sprintf( __( 'You need to add your %s account before send withdrawal request using %s', WPDMPP_TEXT_DOMAIN ), $method['name'], $method['name'] ) ); ?>"><?php esc_html_e( 'Configure', WPDMPP_TEXT_DOMAIN ); ?></a>
+								<?php } ?>
+							</label>
+						<?php }} ?>
+				</div>
+			</div>
+			<div class="wpe-field">
+				<label class="wpe-field__label" for="withdraw_amount"><?php esc_html_e( 'Amount', WPDMPP_TEXT_DOMAIN ); ?></label>
+				<input type="number" name="withdraw_amount" id="withdraw_amount" required="required" value="<?php echo floor( $matured_balance ); ?>" min="10" max="<?php echo floor( $matured_balance ); ?>" class="wpe-input">
+			</div>
+			<?php
+		}
+		?>
+		<div class="wpe-actions">
+			<button type="button" class="wpe-btn wpe-btn--secondary" id="wd-cancel"><?php esc_html_e( 'Close', WPDMPP_TEXT_DOMAIN ); ?></button>
+			<?php if ( $form === 1 ) { ?>
+				<button type="submit" class="wpe-btn"><?php esc_html_e( 'Send Request', WPDMPP_TEXT_DOMAIN ); ?></button>
+			<?php } ?>
+		</div>
+	</form>
+</div>
+<?php
+$wd_modal_inner = trim( ob_get_clean() );
 ?>
 
-<div class="row">
-    <div class="col-md-3 center">
-        <div class="card">
-            <div class="card-header"><?php _e( "Sales:", "wpdm-premium-packages" ); ?></div>
-            <div class="card-body lead"><?php echo wpdmpp_price_format( $total_sales, true, true ); ?></div>
-        </div>
+<style>
+    .wpe-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+    .wpe-card {
+        background: var(--color-bg-card, #fff);
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 10px;
+        overflow: hidden;
+        text-align: center;
+    }
+    .wpe-card__label {
+        padding: 10px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: var(--color-muted, #64748b);
+        border-bottom: 1px solid var(--color-border, #e2e8f0);
+    }
+    .wpe-card__value { padding: 18px 14px; font-size: 22px; font-weight: 700; color: var(--color-text, #1e293b); }
+    .wpe-balance {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: var(--color-bg-card, #fff);
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 10px;
+        padding: 18px 22px;
+        margin: 20px 0;
+    }
+    .wpe-balance__main { text-align: left; }
+    .wpe-balance__label { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted, #64748b); }
+    .wpe-balance__amount { font-size: 26px; font-weight: 700; color: var(--color-success, #10b981); margin-top: 2px; }
+    /* Buttons */
+    .wpe-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 9px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        line-height: 1.4;
+        border: 1px solid var(--color-primary, #6366f1);
+        border-radius: 8px;
+        background: var(--color-primary, #6366f1);
+        color: #fff;
+        cursor: pointer;
+        text-decoration: none !important;
+        transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+    }
+    .wpe-btn:hover:not(:disabled), .wpe-btn:focus:not(:disabled) { background: var(--color-primary-active, #4f46e5); border-color: var(--color-primary-active, #4f46e5); color: #fff; }
+    .wpe-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .wpe-btn--secondary { background: transparent; color: var(--color-text, #1e293b); border-color: var(--color-border, #e2e8f0); }
+    .wpe-btn--secondary:hover:not(:disabled) { background: var(--color-bg, #f8fafc); color: var(--color-text, #1e293b); border-color: var(--color-border, #e2e8f0); }
+    .wpe-btn--sm { padding: 5px 12px; font-size: 12px; }
+    .wpe-btn--block { display: flex; width: 100%; margin-top: 12px; }
+    /* Modal form */
+    .wpe-modal { text-align: left; }
+    .wpe-field { margin-bottom: 18px; }
+    .wpe-field__label { display: block; font-size: 13px; font-weight: 600; color: var(--color-text, #1e293b); margin-bottom: 8px; }
+    .wpe-pom-list { display: flex; flex-direction: column; gap: 8px; }
+    .wpe-pom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        margin: 0;
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: border-color 120ms ease;
+    }
+    .wpe-pom:hover { border-color: var(--color-primary, #6366f1); }
+    .wpe-pom__info { display: flex; flex-direction: column; line-height: 1.3; }
+    .wpe-pom__name { font-weight: 600; font-size: 14px; color: var(--color-text, #1e293b); }
+    .wpe-pom__min { font-size: 12px; color: var(--color-muted, #64748b); }
+    .wpe-pom__radio { width: 18px; height: 18px; accent-color: var(--color-primary, #6366f1); flex-shrink: 0; }
+    .wpe-input {
+        width: 100%;
+        padding: 10px 14px;
+        font-size: 16px;
+        line-height: 1.4;
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 8px;
+        background: var(--color-bg-card, #fff);
+        color: var(--color-text, #1e293b);
+        outline: none;
+    }
+    .wpe-input:focus { border-color: var(--color-primary, #6366f1); box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 99, 102, 241), .18); }
+    .wpe-alert {
+        padding: 14px 16px;
+        border-radius: 8px;
+        background: rgba(var(--color-warning-rgb, 245, 158, 11), .12);
+        color: var(--color-text, #1e293b);
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .wpe-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 22px;
+        padding-top: 16px;
+        border-top: 1px solid var(--color-border, #e2e8f0);
+    }
+    /* Earnings table */
+    .wpe-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    .wpe-table th, .wpe-table td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--color-border, #e2e8f0); font-size: 14px; color: var(--color-text, #1e293b); }
+    .wpe-table thead th { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted, #64748b); background: var(--color-bg, #f8fafc); }
+    .wpe-table tbody tr:hover { background: var(--color-bg, #f8fafc); }
+    .wpe-table tfoot th { font-weight: 700; color: var(--color-text, #1e293b); border-top: 2px solid var(--color-border, #e2e8f0); }
+    @media (max-width: 768px) {
+        .wpe-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+        .wpe-stats { grid-template-columns: 1fr; }
+        .wpe-balance { flex-direction: column; align-items: stretch; text-align: center; }
+        .wpe-balance__main { text-align: center; }
+    }
+</style>
+
+<div class="wpe-stats">
+    <div class="wpe-card">
+        <div class="wpe-card__label"><?php esc_html_e( "Sales", "wpdm-premium-packages" ); ?></div>
+        <div class="wpe-card__value"><?php echo wpdmpp_price_format( $total_sales, true, true ); ?></div>
     </div>
-    <div class="col-md-3 center" title="After <?php echo $commission ?>% Site Commission Deducted">
-        <div class="card">
-            <div class="card-header"><?php _e( "Earning:", "wpdm-premium-packages" ); ?></div>
-            <div class="card-body lead"><?php echo wpdmpp_price_format( $total_earning, true, true ); ?></div>
-        </div>
+    <div class="wpe-card" title="<?php echo esc_attr( sprintf( __( 'After %s%% site commission deducted', 'wpdm-premium-packages' ), $commission ) ); ?>">
+        <div class="wpe-card__label"><?php esc_html_e( "Earning", "wpdm-premium-packages" ); ?></div>
+        <div class="wpe-card__value"><?php echo wpdmpp_price_format( $total_earning, true, true ); ?></div>
     </div>
-    <div class="col-md-3 center">
-        <div class="card">
-            <div class="card-header"><?php _e( "Withdrawn:", "wpdm-premium-packages" ); ?></div>
-            <div class="card-body lead" id="wa"><?php echo wpdmpp_price_format( $total_withdraws, true, true ); ?></div>
-        </div>
+    <div class="wpe-card">
+        <div class="wpe-card__label"><?php esc_html_e( "Withdrawn", "wpdm-premium-packages" ); ?></div>
+        <div class="wpe-card__value" id="wa"><?php echo wpdmpp_price_format( $total_withdraws, true, true ); ?></div>
     </div>
-    <div class="col-md-3 center">
-        <div class="card">
-            <div class="card-header"><?php _e( "Pending:", "wpdm-premium-packages" ); ?></div>
-            <div class="card-body lead"><?php echo wpdmpp_price_format( $pending_balance, true, true ); ?></div>
-        </div>
-    </div>
-    <div class="col-md-12 center">
-        <div class="card mt-4 mb-4">
-            <div class="card-header"><?php _e( "Balance:", "wpdm-premium-packages" ); ?></div>
-            <div class="card-body lead">
-                <span id="mb"><?php echo wpdmpp_price_format( $matured_balance, true, true ); ?></span>
-                <div class="pull-right">
-                    <button data-toggle="modal" <?php if ( $matured_balance <= 0 ){ ?>disabled="disabled" <?php } ?>
-                            data-target="#wdmodal" type="button"
-                            class="btn btn-info"><?= __( 'Withdraw Funds', WPDMPP_TEXT_DOMAIN ) ?></button>
-                </div>
-            </div>
-        </div>
+    <div class="wpe-card">
+        <div class="wpe-card__label"><?php esc_html_e( "Pending", "wpdm-premium-packages" ); ?></div>
+        <div class="wpe-card__value"><?php echo wpdmpp_price_format( $pending_balance, true, true ); ?></div>
     </div>
 </div>
 
-<!-- Modal -->
-<div class="modal fade" id="wdmodal" tabindex="-1" role="dialog" aria-labelledby="modelTitleId" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm" role="document" style="width: 350px">
-        <div class="modal-content">
-                <form id="wreqform" action="" method="post">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><?= __( 'Withdrawal Request', WPDMPP_TEXT_DOMAIN ) ?></h5>
-                    </div>
-                    <div class="modal-body">
-	                    <?php
-	                    $form = 0;
-	                    $billing_info = maybe_unserialize(get_user_meta(get_current_user_id(), 'user_billing_shipping', true));
-	                    $billing_info = wpdm_valueof($billing_info, "billing");
-	                    $user_accounts = get_user_meta( get_current_user_id(), '__wpdmpp_payment_account', true );
-	                    $active_pom = get_option("wpdmpp_active_pom", []);
-	                    if(!is_array($active_pom)) $active_pom = [];
-	                    $updatepoi = WPDM()->authorDashboard->url(['adb_page' => 'withdraws']);
-
-	                    if ( !is_array($billing_info) ||
-                             wpdm_valueof($billing_info,'first_name') == '' ||
-	                         wpdm_valueof($billing_info,'last_name') == '' ||
-	                         wpdm_valueof($billing_info, 'address_1') . wpdm_valueof($billing_info, 'address_2') == '' ||
-	                         wpdm_valueof($billing_info,'postcode') == '' ||
-	                         wpdm_valueof($billing_info,'state') . wpdm_valueof($billing_info,'city') == ''
-	                    ) {
-
-		                    $updatebilling = wpdm_user_dashboard_url( array( 'udb_page' => 'edit-profile' ) );
-		                    \WPDM\__\Messages::warning( "Critical billing info is missing. Please update your billing info to generate invoice properly.<br style='margin-bottom: 10px;display: block'/><a class='btn btn-warning'  href='$updatebilling'>Update Billing Info</a>", 0 );
-	                    } else if(!$user_accounts) {
-		                    \WPDM\__\Messages::warning( "Critical payout info is missing. Please update your payout info to withdraw your fund.<br style='margin-bottom: 10px;display: block'/><a class='btn btn-warning' href='$updatepoi'>Update Payout Info</a>", 0 );
-	                    } else { $form = 1;
-	                    ?>
-                        <input type="hidden" name="withdraw" value="1">
-
-                        <div class="form-group">
-                            <strong class="d-block mb-2"><?= __( 'Payment Option', WPDMPP_TEXT_DOMAIN ) ?></strong>
-                            <div class="list-group">
-								<?php foreach ( WPDMPP()->withdraws->getPayoutMethods() as $method ) {
-                                    if($method['active']) {
-                                    ?>
-                                    <label class="list-group-item  d-flex justify-content-between align-items-start">
-                                        <div class="ms-2 me-auto" style="line-height: 1.2">
-                                        <strong class="fw-bold"><?= $method['name'] ?></strong><br/>
-                                        <small class="text-muted">Min. Amount: <?= wpdmpp_price_format($method['min']) ?></small>
-                                        </div>
-                                        <div>
-                                            <?php if(wpdm_valueof($user_accounts, $method['id']) !== '') { ?>
-                                            <input required="required" class="form-control pom"
-                                                   data-min="<?= $method['min'] ?>" type="radio"
-                                                   name="payout_method"
-                                                   value="<?= $method['id'] ?>">
-                                            <?php } else { ?>
-                                                <a href="<?= $updatepoi ?>" class="ttip btn btn-info btn-sm mt-1" title="<?= sprintf(__('You need to add your %s account before send withdrawal request using %s', WPDMPP_TEXT_DOMAIN), $method['name'], $method['name']) ?>"><?= __('Configure', WPDMPP_TEXT_DOMAIN) ?></a>
-                                            <?php } ?>
-                                        </div>
-                                    </label>
-								<?php }} ?>
-
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <strong class="d-block mb-2"><?= __( 'Amount', WPDMPP_TEXT_DOMAIN ) ?></strong>
-                            <input type="number" name="withdraw_amount" id="withdraw_amount"
-                                   required="required"
-                                   value="<?php echo floor( $matured_balance ); ?>"
-                                   min="10"
-                                   max="<?php echo floor( $matured_balance ); ?>" class="form-control" id="wamt">
-
-                        </div>
-
-	                    <?php } ?>
-
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('Close', WPDMPP_TEXT_DOMAIN)?></button>
-                        <?php if($form === 1) { ?>
-                        <button type="submit" class="btn btn-primary"><?= __('Send Request', WPDMPP_TEXT_DOMAIN)?></button>
-                        <?php } ?>
-                    </div>
-                </form>
-
-        </div>
-
+<div class="wpe-balance">
+    <div class="wpe-balance__main">
+        <div class="wpe-balance__label"><?php esc_html_e( "Available Balance", "wpdm-premium-packages" ); ?></div>
+        <div class="wpe-balance__amount" id="mb"><?php echo wpdmpp_price_format( $matured_balance, true, true ); ?></div>
     </div>
+    <button type="button" id="wd-open" <?php disabled( $matured_balance <= 0 ); ?> class="wpe-btn"><?php esc_html_e( 'Withdraw Funds', WPDMPP_TEXT_DOMAIN ); ?></button>
 </div>
-<table class="table table-striped panel" id="earnings">
+
+<table class="wpe-table" id="earnings">
     <thead>
     <tr>
         <th><?php _e( "Date", "wpdm-premium-packages" ); ?></th>
@@ -226,41 +335,66 @@ $pending_balance = $balance - $matured_balance;
 
 <script>
     jQuery(function ($) {
-        var cs = '<?php echo wpdmpp_currency_sign(); ?>', mb = <?php echo number_format( $matured_balance, 2 ); ?>,
-            wd = <?php echo number_format( $total_withdraws, 2 ); ?>;
+        var cs = '<?php echo esc_js( wpdmpp_currency_sign() ); ?>',
+            mb = <?php echo number_format( $matured_balance, 2, '.', '' ); ?>,
+            wd = <?php echo number_format( $total_withdraws, 2, '.', '' ); ?>;
+        var wdModalHtml = <?php echo wp_json_encode( $wd_modal_inner ); ?>;
 
-        $('body').on('click', '.pom', function (e) {
-            let wam = $('#withdraw_amount');
-            let min = $(this).data('min');
-            wam.attr('min', min);
-            if (wam.val() < min) wam.val(min);
+        // WPDM native dialog system (download-manager/assets/modal)
+        var dlg = (typeof WPDM !== 'undefined' && WPDM.dialog) ? WPDM.dialog : (typeof WPDMDialog !== 'undefined' ? WPDMDialog : null);
 
+        function closeWdDialog() {
+            $('#wd-dialog .wpdm-dialog__close').trigger('click');
+        }
+
+        $('body').on('click', '#wd-open', function () {
+            if (!dlg) return;
+            dlg.show({
+                id: 'wd-dialog',
+                title: '<?php echo esc_js( __( 'Withdrawal Request', WPDMPP_TEXT_DOMAIN ) ); ?>',
+                icon: false,
+                size: 'md',
+                content: wdModalHtml,
+                backdrop: 'static'
+            });
         });
 
-        $('#wreqform').submit(function () {
+        $('body').on('click', '#wd-cancel', function () {
+            closeWdDialog();
+        });
+
+        $('body').on('click', '.pom', function () {
+            var wam = $('#withdraw_amount');
+            var min = $(this).data('min');
+            wam.attr('min', min);
+            if (parseFloat(wam.val()) < parseFloat(min)) wam.val(min);
+        });
+
+        $('body').on('submit', '#wreqform', function (e) {
+            e.preventDefault();
             WPDM.blockUI('#wreqform');
-            $(this).ajaxSubmit({
+            $.ajax({
+                url: location.href,
+                type: 'post',
+                dataType: 'json',
+                data: $(this).serialize(),
                 success: function (res) {
                     WPDM.unblockUI('#wreqform');
-                    if (res === 'denied') {
-                        alert('<?php _e( "Request denied. Matured balance is 0!", "wpdm-premium-packages" ); ?>');
-                        $('#wreqb').attr('disabled', 'disabled').html("<i class='fa fa-check-circle-o'></i>");
-                    } else {
-                        $('#wnotice .modal-title').html('Great!');
-                        $('#wnotice .modal-body').html(res)
+                    if (res && res.success) {
                         var wa = parseFloat($('#withdraw_amount').val());
-                        var rb = mb - wa;
-                        mb = rb;
-                        wd += wa;
-                        $('#mb').html(cs + rb.toFixed(2));
+                        mb = mb - wa;
+                        wd = wd + wa;
+                        $('#mb').html(cs + mb.toFixed(2));
                         $('#wa').html(cs + wd.toFixed(2));
-                        if(res.success) {
-                            WPDM.notify(res.msg, 'success', 'top-center', 6000);
-                            $('#wdmodal').modal('hide');
-                        }
-                        else
-                            WPDM.notify(res.msg, 'danger', 'top-center', 6000);
+                        WPDM.notify(res.msg, 'success', 'top-center', 6000);
+                        closeWdDialog();
+                    } else {
+                        WPDM.notify((res && res.msg) ? res.msg : '<?php echo esc_js( __( "Withdrawal request failed.", "wpdm-premium-packages" ) ); ?>', 'danger', 'top-center', 6000);
                     }
+                },
+                error: function () {
+                    WPDM.unblockUI('#wreqform');
+                    WPDM.notify('<?php echo esc_js( __( "Something went wrong. Please try again.", "wpdm-premium-packages" ) ); ?>', 'danger', 'top-center', 6000);
                 }
             });
             return false;

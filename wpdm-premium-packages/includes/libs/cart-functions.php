@@ -10,7 +10,7 @@ use WPDM\__\Session;
 use WPDM\__\Template;
 use WPDM\__\TempStorage;
 use WPDM\__\UI;
-use WPDMPP\Libs\CouponCodes;
+use WPDMPP\Coupon\CouponService;
 
 /**
  * @usage Shows a requested cart. Hooked to 'wp_loaded'
@@ -46,20 +46,6 @@ function wpdmpp_load_saved_cart(){
 }
 
 /**
- * @usage Shows Paymnet Options on checkout step. Hooked to 'init'
- */
-function wpdmpp_load_payment_methods(){
-    if( !wpdm_is_ajax() || !isset($_REQUEST['wpdmpp_load_pms'] ) ) return;
-    $settings = get_option('_wpdmpp_settings');
-    $guest_checkout = (isset($settings['guest_checkout']) && $settings['guest_checkout'] == 1) ? 1 : 0;
-    if(!is_user_logged_in() && !$guest_checkout) die('You are not logged in!');
-    $payment_html = "";
-    include_once(WPDMPP_TPL_DIR . "checkout-cart/checkout.php");
-    echo $payment_html;
-    die();
-}
-
-/**
  * Checking product coupon whether valid or not
  *
  * @param $pid
@@ -67,7 +53,8 @@ function wpdmpp_load_payment_methods(){
  * @return int
  */
 function wpdmpp_check_coupon($pid, $coupon, $items = null){
-    return CouponCodes::validate_coupon($coupon, $pid, $items);
+    $result = CouponService::getInstance()->validateCoupon($coupon, 0, $items ?? [], null, $pid > 0 ? (int) $pid : null);
+    return $result['valid'] ? ($result['discount'] ?? 0) : 0;
 }
 
 /**
@@ -100,21 +87,21 @@ function wpdmpp_add_to_cart(){
         $product_name = wpdm_valueof($cart_data, "{$product_id}/product_name");
         /* Check if current request is AJAX  */
         if( __::is_ajax() ) {
-            $message = apply_filters("wpdmpp_addtocart_success_message", "<i class='fa fa-check-double'></i> <strong>{$product_name}</strong> has been added to your cart ".wpdmpp_checkout_link(esc_attr__( 'Checkout', WPDMPP_TEXT_DOMAIN ), 'btn btn-info btn-sm ml-3'), wpdm_valueof($cart_data, $product_id));
+            $message = apply_filters("wpdmpp_addtocart_success_message", " <strong>{$product_name}</strong> has been added to your cart. ".wpdmpp_checkout_link(esc_attr__( 'View Cart', WPDMPP_TEXT_DOMAIN ), ''), wpdm_valueof($cart_data, $product_id));
             wp_send_json(['success' => true, 'cart_url' => wpdmpp_cart_page(), 'message' => $message]);
         }
 
         if( (int)get_wpdmpp_option('wpdmpp_after_addtocart_redirect') === 1 ) {
-            header( "location: ".wpdmpp_cart_page() );
+            wp_safe_redirect( wpdmpp_cart_page() );
         }
         else {
             if(wpdmpp_is_cart_page(url_to_postid($_SERVER['REQUEST_URI'])))
-                header( "location: ".wpdmpp_cart_page() );
+                wp_safe_redirect( wpdmpp_cart_page() );
             else {
-                header( "location: " . $_SERVER['HTTP_REFERER'] );
+                wp_safe_redirect( esc_url_raw( $_SERVER['HTTP_REFERER'] ) );
             }
         }
-        die();
+        exit;
     }
 }
 
@@ -271,17 +258,17 @@ function wpdmpp_buynow(){
         /* Check if current request is AJAX  */
         if( ! empty( $_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest' ) {
             echo wpdmpp_cart_page();
-            die();
+            wp_die();
         }
 
         if( $settings['wpdmpp_after_addtocart_redirect'] == 1 ) {
-            header( "location: ".wpdmpp_cart_page() );
+            wp_safe_redirect( wpdmpp_cart_page() );
         }
         else {
-            $return = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : home_url('/');
-            header( "location: " . $return );
+            $return = isset($_SERVER['HTTP_REFERER']) ? esc_url_raw( $_SERVER['HTTP_REFERER'] ) : home_url('/');
+            wp_safe_redirect( $return );
         }
-        die();
+        exit;
     }
 }
 
@@ -453,8 +440,8 @@ function wpdmpp_add_to_cart_ucb(){
         $settings = get_option('_wpdmpp_settings');
 
         if( isset($settings['wpdmpp_after_addtocart_redirect']) && $settings['wpdmpp_after_addtocart_redirect'] == 1 ) {
-            header( "location: ".wpdmpp_cart_page() );
-            die();
+            wp_safe_redirect( wpdmpp_cart_page() );
+            exit;
         }
     }
 }
@@ -545,8 +532,8 @@ function wpdmpp_update_cart(){
     //if( wpdm_is_ajax() ) {
     //    die(json_encode($ret));
     //}
-    header("location: ".wpdmpp_cart_page());
-    die();
+    wp_safe_redirect( wpdmpp_cart_page() );
+    exit;
 }
 
 /**
@@ -625,6 +612,17 @@ function wpdmpp_calculate_discount(){
 
             if(!is_array($cart_items[$pid])) $cart_items[$pid] = array();
             $cart_items[$pid]['ID'] = $pid;
+
+            // Dynamic items (e.g. membership plans) — skip post meta lookups
+            $is_dynamic = (isset($item['product_type']) && $item['product_type'] === 'dynamic') || (isset($item['type']) && $item['type'] === 'dynamic');
+            if ($is_dynamic) {
+                $cart_items[$pid]['post_title'] = isset($item['product_name']) ? $item['product_name'] : (isset($item['name']) ? $item['name'] : '');
+                $cart_items[$pid]['prices'] = 0;
+                $cart_items[$pid]['discount_amount'] = 0;
+                $cart_items[$pid]['coupon_amount'] = 0;
+                continue;
+            }
+
             $cart_items[$pid]['post_title'] = get_the_title($pid);
             $prices = 0;
             $variations = "";
@@ -675,7 +673,7 @@ function wpdmpp_calculate_discount(){
             //if(isset($item['coupon']) && trim($item['coupon'])!='') $valid_coupon = wpdmpp_check_coupon($pid,$item['coupon']);
             //else $valid_coupon = false;
 
-            $coupon_discount = (isset($item['coupon']) && trim($item['coupon'])!='' && $pid > 0) ? CouponCodes::validate_coupon(trim($item['coupon']), $pid) : 0;
+            $coupon_discount = (isset($item['coupon']) && trim($item['coupon'])!='' && $pid > 0) ? wpdmpp_check_coupon($pid, trim($item['coupon'])) : 0;
             $role_discount = wpdmpp_role_discount($pid); //isset($discount[$role]) && $discount[$role] > 0?$discount[$role]:0;
 
             $cart_items[$pid]['prices'] = $prices;
@@ -785,6 +783,10 @@ function wpdmpp_get_cart_discount(){
     $discount_r = 0;
 
     foreach($cart_items as $pid => $item){
+        // Skip dynamic items (e.g. membership plans) — no role/product discount applies
+        $is_dynamic = (isset($item['product_type']) && $item['product_type'] === 'dynamic') || (isset($item['type']) && $item['type'] === 'dynamic');
+        if ($is_dynamic) continue;
+
         $opt = get_post_meta($pid,'wpdmpp_list_opts',true);
         $prices = 0;
         $lprices = array();
@@ -823,6 +825,7 @@ function wpdmpp_get_cart_discount(){
             }
         }}
 
+        if( !is_array($discount) ) $discount = [];
         if( ! isset( $discount[$role] ) || ! is_numeric( $discount[$role] ) ) $discount[$role] = 0;
 
         if(!empty($lprices)):
@@ -859,15 +862,15 @@ function wpdmpp_grand_total(){
 function wpdmpp_calculate_tax($orderid = ''){
     $cartsubtotal = wpdmpp_get_cart_subtotal();
     $tax_total = 0;
-    $order = new \WPDMPP\Libs\Order();
+    $orderService = \WPDMPP\Order\OrderService::instance();
 
     //echo '<pre>';print_r($_SESSION['orderid']);echo '</pre>';
 
     if($orderid == '' && !Session::get('orderid')) return 0;
     if($orderid == '' && Session::get('orderid')) $orderid = Session::get('orderid');
-    $order_info = $order->GetOrder($orderid);
+    $order_info = $orderService->getOrder($orderid);
     if(!is_object($order_info)) return 0;
-    $bdata = unserialize($order_info->billing_info);
+    $bdata = $order_info->getBillingInfo();
     $settings = maybe_unserialize(get_option('_wpdmpp_settings'));
 
     //echo '<pre>';print_r($bdata);echo '</pre>';
@@ -888,9 +891,9 @@ function wpdmpp_calculate_tax2(){
     $coupon = wpdmpp_get_cart_coupon();
     $cartdiscount = (double)wpdm_valueof($coupon, 'discount');
     $cartsubtotal -= $cartdiscount;
-    $order = new \WPDMPP\Libs\Order();
+    $orderService = \WPDMPP\Order\OrderService::instance();
 
-    $order_info = $order->GetOrder(Session::get('orderid'));
+    $order_info = $orderService->getOrder(Session::get('orderid'));
 
     if(get_wpdmpp_option('tax/enable') == 1){
         $rate = wpdmpp_tax_rate(sanitize_text_field(wpdm_query_var('country')), sanitize_text_field(wpdm_query_var('state')));
@@ -933,7 +936,7 @@ function wpdmpp_addtocart_js(){
                     var lbl;
                     var obj = jQuery(this);
                     lbl = jQuery(this).html();
-                    jQuery(this).html('<i class="fa fa-sun fa-spin"></i> adding...');
+                    jQuery(this).html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.spinner : '') + ' adding...');
                     jQuery.post(this.href,function(){
                         obj.html('added').unbind('click').click(function(){ return false; });
                     })
@@ -970,14 +973,17 @@ function wpdmpp_update_os(){
 
     $order_id = sanitize_text_field( $_POST['order_id'] );
     $status = sanitize_text_field( $_POST['status'] );
-    $order = new \WPDMPP\Libs\Order();
-    $order->Update( array( 'order_status' => $status ), $order_id );
+    $orderService = \WPDMPP\Order\OrderService::instance();
+    $orderService->updateOrder( array( 'order_status' => $status ), $order_id );
 
     $settings = maybe_unserialize(get_option('_wpdmpp_settings'));
     $siteurl = home_url("/");
 
     //email to customer of that order
-    $userid = $wpdb->get_var("select uid from {$wpdb->prefix}mp_orders where order_id='".$order_id."'");
+    $userid = $wpdb->get_var( $wpdb->prepare(
+        "SELECT uid FROM {$wpdb->prefix}ahm_orders WHERE order_id = %s",
+        $order_id
+    ) );
     $user_info = get_userdata($userid);
     $admin_email = get_bloginfo("admin_email");
     $email = array();
@@ -991,35 +997,37 @@ function wpdmpp_update_os(){
     //wp_mail($user_info->user_email,$email['subject'],$email['body'],$email['headers']);
     //wp_mail($admin_email,$email['subject'],$email['body'],$email['headers']);
 
-    die(__('Order status updated',"wpdm-premium-packages"));
+    wp_die( esc_html__( 'Order status updated', 'wpdm-premium-packages' ) );
 }
 
 function wpdmpp_update_ps(){
     if(!current_user_can(WPDMPP_MENU_ACCESS_CAP)) return;
     $order_id = sanitize_text_field( $_POST['order_id'] );
     $status = sanitize_text_field( $_POST['status'] );
-    $order = new \WPDMPP\Libs\Order();
-    $order->Update(array('payment_status' => $status ), $order_id );
-    die(__('Payment status updated',"wpdm-premium-packages"));
+    $orderService = \WPDMPP\Order\OrderService::instance();
+    $orderService->updateOrder(array('payment_status' => $status ), $order_id );
+    wp_die( esc_html__( 'Payment status updated', 'wpdm-premium-packages' ) );
 }
 
 function wpdmpp_pay_now($post_data){
-    $order = new \WPDMPP\Libs\Order();
-    $corder = $order->GetOrder($post_data['order_id']);
-    $payment = new \WPDMPP\Libs\Payment();
-    if(!isset($post_data['payment_method']) || $post_data['payment_method']=='')  $post_data['payment_method'] = $corder->payment_method;
-    $post_data['payment_method'] = $post_data['payment_method']?$post_data['payment_method']:'PayPal';
-    $payment->InitiateProcessor($post_data['payment_method']);
-    $payment->Processor->OrderTitle = 'WPMP Order# '.$corder->order_id;
-    $payment->Processor->InvoiceNo = $corder->order_id;
-    $payment->Processor->Custom = $corder->order_id;
-    $payment->Processor->Amount = number_format($corder->total,2,".","");
-    echo $payment->Processor->ShowPaymentForm(1);
+    $orderService = \WPDMPP\Order\OrderService::instance();
+    $corder = $orderService->getOrder($post_data['order_id']);
+    $method = !empty($post_data['payment_method']) ? $post_data['payment_method'] : ($corder->getPaymentMethod() ?: 'PayPal');
+
+    $result = \WPDMPP\Payment\PaymentService::instance()->processPayment(strtolower($method), [
+        'order_id'    => $corder->getOrderId(),
+        'order_title' => 'WPMP Order# ' . $corder->getOrderId(),
+        'amount'      => number_format($corder->getTotal(), 2, ".", ""),
+    ]);
+
+    if (!empty($result['redirect'])) {
+        wpdmpp_js_redirect($result['redirect']);
+    }
 }
 
 function wpdmpp_process_order(){
     $current_user = wp_get_current_user();
-    $order = new \WPDMPP\Libs\Order();
+    $orderService = \WPDMPP\Order\OrderService::instance();
 
     if(preg_match("@\/payment\/([^\/]+)\/([^\/]+)@is", $_SERVER['REQUEST_URI'], $process)){
         $gateway = $process[1];
@@ -1027,9 +1035,9 @@ function wpdmpp_process_order(){
         $invoice = sanitize_text_field( $_POST['invoice'] );
         $invoice = explode("_",$invoice);
         $invoice = array_shift($invoice);
-        $odata = $order->GetOrder($invoice);
-        if(!$odata) die('ERROR: Order Not Found!');
-        $current_user = get_userdata($odata->uid);
+        $odata = $orderService->getOrder($invoice);
+        if(!$odata) wp_die( esc_html__( 'ERROR: Order Not Found!', 'wpdm-premium-packages' ) );
+        $current_user = get_userdata($odata->getUserId());
         $uname = $current_user->display_name;
         $uid = $current_user->ID;
         $email = $current_user->user_email;
@@ -1044,7 +1052,7 @@ function wpdmpp_process_order(){
                 $logininfo = "Username: $uname<br/>Password: $password<br/>";
             }
 
-            $order->Update( array( 'order_status' => sanitize_text_field( $_POST['payment_status'] ), 'payment_status' => sanitize_text_field( $_POST['payment_status'] ), 'uid' => $uid ), $invoice );
+            $orderService->updateOrder( array( 'order_status' => sanitize_text_field( $_POST['payment_status'] ), 'payment_status' => sanitize_text_field( $_POST['payment_status'] ), 'uid' => $uid ), $invoice );
 
             $sitename = get_option('blogname');
 
@@ -1069,7 +1077,7 @@ function wpdmpp_process_order(){
             // to buyer
             //wp_mail($buyer_email,$email['subject'],$email['body'],$email['headers']);
             \WPDM\__\Email::send("sale-notification", $params);
-            die("OK");
+            wp_die( 'OK' );
         }
 
         if($page == 'return' && $_POST['payment_status'] == 'Completed'){
@@ -1084,10 +1092,11 @@ function wpdmpp_process_order(){
                 $creds['remember'] = true;
                 $user = wp_signon( $creds, false );
             }
-            die("<script>location.href='$myorders';</script>");
+            wp_safe_redirect( $myorders );
+            exit;
         }
 
-        die();
+        wp_die();
     }
 }
 
@@ -1242,7 +1251,7 @@ function wpdmpp_add_to_cart_form( $product_id , $template = ''){
 function wpdmpp_add_to_cart_button($product_id, $show_price = false){
     global $current_user, $wpdmpp_settings;
     $current_user = wp_get_current_user();
-    $add_to_cart_button_label = get_wpdmpp_option("a2cbtn_label", "<i class='fa fa-shopping-cart'></i> &nbsp;".__("Add to Cart","wpdm-premium-packages"));
+    $add_to_cart_button_label = get_wpdmpp_option("a2cbtn_label", \WPDMPP\UI\Icons::get('shopping-cart', 16) . " &nbsp;".__("Add to Cart","wpdm-premium-packages"));
     $add_to_cart_button_label = apply_filters('add_to_cart_button_label', $add_to_cart_button_label, $product_id);
 
     $add_to_cart_button_class = wpdm_download_button_style(false, $product_id). " btn-addtocart";
@@ -1275,7 +1284,7 @@ function wpdmpp_add_to_cart_html( $product_id , $template = ''){
     $price = ob_get_clean();
     $html = $price.$form;
 
-    return $html . WPDMPP()->shortCodes->buyNowHTML(['id' => $product_id, 'title' => __('Buy Now', WPDMPP_TEXT_DOMAIN)]);
+    return $html . \WPDMPP\Frontend\ShortcodeService::getInstance()->buyNow(['id' => $product_id]);
 
 
 }
@@ -1301,10 +1310,10 @@ function wpdmpp_waytocart($product, $btnclass = 'btn-info'){
 
     // Product is FREE
     if( ! $price_variation && wpdmpp_product_price($product['ID']) == 0 )
-        return '<a href="'.get_permalink($product['ID']).'" class="btn '.$btnclass.'  btn-addtocart" ><i class="far fa-arrow-alt-circle-down"></i> '.__("Download","wpdm-premium-packages").'</a>';
+        return '<a href="'.get_permalink($product['ID']).'" class="btn '.$btnclass.'  btn-addtocart" >' . \WPDMPP\UI\Icons::get('download', 16) . ' '.__("Download","wpdm-premium-packages").'</a>';
 
     // Product is Premium
-    $add_to_cart_button_label = get_wpdmpp_option("a2cbtn_label", "<i class='fas fa-shopping-basket mr-2'></i>".__("Add to Cart","wpdm-premium-packages"));
+    $add_to_cart_button_label = get_wpdmpp_option("a2cbtn_label", \WPDMPP\UI\Icons::get('basket', 16) . " ".__("Add to Cart","wpdm-premium-packages"));
     $add_to_cart_button_label = apply_filters('add_to_cart_button_label', $add_to_cart_button_label, $product['ID']);
     if( $price_variation || $license_enabled) {
         $html = "<a href='" . get_permalink($product['ID']) . "' class='btn $btnclass' >" . $add_to_cart_button_label . "</a>";
@@ -1351,3 +1360,66 @@ function wpdmpp_array_diff($a, $b){
         return true;
     }
 }
+
+/**
+ * Render buy-now button via AJAX
+ *
+ * Migrated from CustomActions::buyNowButton()
+ * Registered for both logged-in and non-logged-in users.
+ */
+function wpdmpp_buy_now_button() {
+    $product_id = wpdm_query_var('pid', 'int');
+    $license = wpdm_query_var('license', 'txt');
+    $product = \WPDMPP\Product\ProductService::getInstance()->getProduct($product_id);
+    $price = $product ? $product->getLicensePrice($license) : 0;
+    $params = array('title' => __('Buy Now', WPDMPP_TEXT_DOMAIN));
+    include wpdm_tpl_path("add-to-cart/buy-now.php", WPDMPP_TPL_DIR, WPDMPP_TPL_FALLBACK);
+    wp_die();
+}
+add_action('wp_ajax_wpdmpp_load_buynow_button', 'wpdmpp_buy_now_button');
+add_action('wp_ajax_nopriv_wpdmpp_load_buynow_button', 'wpdmpp_buy_now_button');
+
+/**
+ * Apply coupon AJAX handler
+ * Migrated from CouponCodes::applyCouponAjax()
+ */
+function wpdmpp_apply_coupon_ajax() {
+    $code = wpdm_query_var('code', 'txt');
+    $cartTotal = (float) wpdmpp_get_cart_subtotal();
+    $cartItems = wpdmpp_get_cart_data();
+
+    // Email for restricted coupons: logged-in user, else the email sent by the form
+    $email = is_user_logged_in()
+        ? wp_get_current_user()->user_email
+        : (sanitize_email(wpdm_query_var('email', 'txt')) ?: null);
+
+    $couponService = CouponService::getInstance();
+    $result = $couponService->validateCoupon($code, $cartTotal, $cartItems, $email);
+
+    if ($result['valid']) {
+        $couponService->applyCoupon($code, $cartTotal, $cartItems, $email);
+        wp_send_json_success([
+            'message' => __('Coupon applied successfully!', 'wpdm-premium-packages'),
+            'discount' => $result['discount'] ?? 0,
+        ]);
+    } else {
+        wp_send_json_error([
+            'message' => $result['message'] ?? __('Invalid coupon code', 'wpdm-premium-packages'),
+        ]);
+    }
+}
+add_action('wp_ajax_wpdmpp_apply_coupon', 'wpdmpp_apply_coupon_ajax');
+add_action('wp_ajax_nopriv_wpdmpp_apply_coupon', 'wpdmpp_apply_coupon_ajax');
+
+/**
+ * Remove coupon AJAX handler
+ * Migrated from CouponCodes::removeCouponAjax()
+ */
+function wpdmpp_remove_coupon_ajax() {
+    CouponService::getInstance()->removeCoupon();
+    wp_send_json_success([
+        'message' => __('Coupon removed', 'wpdm-premium-packages'),
+    ]);
+}
+add_action('wp_ajax_wpdmpp_remove_coupon', 'wpdmpp_remove_coupon_ajax');
+add_action('wp_ajax_nopriv_wpdmpp_remove_coupon', 'wpdmpp_remove_coupon_ajax');

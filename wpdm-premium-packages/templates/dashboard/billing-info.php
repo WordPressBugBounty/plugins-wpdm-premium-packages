@@ -16,22 +16,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 <input type="hidden" name="__upnonce" value="<?php wp_create_nonce(NONCE_KEY); ?>"/>
 <div class="card panel-default panel dashboard-card" id="billing-info-form">
     <div class="card-header panel-heading bg-white">
-        <i class="fa fa-address-card mr-2 text-info"></i> <?php _e('Billing Address', 'wpdm-premium-packages'); ?>
+        <?php echo \WPDMPP\UI\Icons::get('address-card', 16); ?> <?php _e('Billing Address', 'wpdm-premium-packages'); ?>
     </div>
     <div class="card-body panel-body">
 
         <div class="row row-fluid">
             <div class="form-group col-md-6 ">
-                <label class="" for="billing_first_name"><?php _e("First Name", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                               title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="billing_first_name"><?php _e("First Name", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <input type="text" value="<?php if (isset($billing['first_name'])) echo esc_attr($billing['first_name']); ?>"
                        placeholder="<?php _e("First Name", "wpdm-premium-packages"); ?>" id="billing_first_name" name="checkout[billing][first_name]"
                        class="form-control" required="required">
 
             </div>
             <div class="form-group col-md-6 ">
-                <label class="" for="billing_last_name"><?php _e("Last Name", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                             title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="billing_last_name"><?php _e("Last Name", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <input type="text" value="<?php if (isset($billing['last_name'])) echo esc_attr($billing['last_name']); ?>"
                        placeholder="<?php _e("Last Name", "wpdm-premium-packages"); ?>" id="billing_last_name" name="checkout[billing][last_name]"
                        class="form-control" required="required">
@@ -47,8 +45,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                        class="input-text  form-control">
             </div>
             <div class="form-group col-md-6 ">
-                <label class="" for="billing_address_1"><?php _e("Address Line 1", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                                  title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="billing_address_1"><?php _e("Address Line 1", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <input type="text" value="<?php if (isset($billing['address_1'])) echo esc_attr($billing['address_1']); ?>"
                        placeholder="<?php _e("Address", "wpdm-premium-packages"); ?>" id="billing_address_1" name="checkout[billing][address_1]"
                        class="form-control" required="required">
@@ -64,8 +61,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                        name="checkout[billing][address_2]" class="input-text  form-control">
             </div>
             <div class="form-group col-md-6 ">
-                <label class="" for="billing_city"><?php _e("Town/City", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                        title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="billing_city"><?php _e("Town/City", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <input type="text" value="<?php if (isset($billing['city'])) echo esc_attr($billing['city']); ?>"
                        placeholder="<?php _e("Town/City", "wpdm-premium-packages"); ?>" id="billing_city" name="checkout[billing][city]"
                        class="form-control" required="required">
@@ -75,16 +71,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 
         <div class="row row-fluid">
             <div class="form-group col-md-6 ">
-                <label class="" for="billing_postcode"><?php _e("Postcode/Zip", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                               title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="billing_postcode"><?php _e("Postcode/Zip", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <input type="text" value="<?php if (isset($billing['postcode'])) echo esc_attr($billing['postcode']); ?>"
                        placeholder="<?php _e("Postcode/Zip", "wpdm-premium-packages"); ?>" id="billing_postcode" name="checkout[billing][postcode]"
                        class="form-control" required="required">
 
             </div>
             <div class="form-group col-md-6 ">
-                <label class="" for="country"><?php _e("Country", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                         title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="country"><?php _e("Country", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <?php
                 $countries = wpdmpp_get_countries();
                 $allowed_countries = ( isset($wpdmpp_settings['allow_country'] ) ) ? $wpdmpp_settings['allow_country'] : array();
@@ -117,8 +111,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
             </div>
             <div class="form-group col-md-6 ">
-                <label class="" for="billing_email"><?php _e("Email Address", "wpdm-premium-packages"); ?> <i class="fa fa-star text-danger ttip"
-                                                                                                             title="<?php _e('Required', 'wpdm-premium-packages'); ?>"></i></label>
+                <label class="" for="billing_email"><?php _e("Email Address", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
                 <input type="text" value="<?php if (isset($billing['email'])) echo $billing['email']; ?>"
                        placeholder="<?php _e("Email Address", "wpdm-premium-packages"); ?>" id="billing_email" name="checkout[billing][email]"
                        class="input-text required email  form-control" required="required">

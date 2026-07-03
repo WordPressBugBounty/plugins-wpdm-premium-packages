@@ -123,6 +123,7 @@
                 var $panel = self.buildMenuCartPanel();
                 $menuItem.append($panel);
                 $menuItem.addClass('wpdmpp-minicart-container');
+                $menuItem.attr('data-wpdm-scheme', wpdmppMiniCart.colorScheme || 'system');
 
                 // Initialize this menu cart instance
                 self.initMenuCartInstance($menuItem);
@@ -256,7 +257,8 @@
                 },
                 success: function(response) {
                     if (response.success && response.data) {
-                        self.updateMenuCart($menuItem, response.data);
+                        var cartData = response.data.cart || response.data;
+                        self.updateMenuCart($menuItem, cartData);
                     }
                 }
             });
@@ -331,24 +333,27 @@
             var html = '';
 
             $.each(items, function(index, item) {
+                var itemName = item.product_name || item.name || '';
+                var itemUrl = item.permalink || item.url || '#';
+                var itemPrice = item.price_formatted || item.unit_price_formatted || '';
                 html += '<div class="wpdmpp-minicart-item" data-product-id="' + item.product_id + '">';
 
                 if (self.settings.showThumbnails && item.thumbnail) {
                     html += '<div class="wpdmpp-minicart-item-thumb">';
-                    html += '<img src="' + item.thumbnail + '" alt="' + self.escapeHtml(item.name) + '">';
+                    html += '<img src="' + item.thumbnail + '" alt="' + self.escapeHtml(itemName) + '">';
                     html += '</div>';
                 }
 
                 html += '<div class="wpdmpp-minicart-item-details">';
-                html += '<a href="' + item.url + '" class="wpdmpp-minicart-item-name">' + self.escapeHtml(item.name) + '</a>';
+                html += '<a href="' + itemUrl + '" class="wpdmpp-minicart-item-name">' + self.escapeHtml(itemName) + '</a>';
                 html += '<div class="wpdmpp-minicart-item-meta">';
                 html += '<span class="wpdmpp-minicart-item-qty">' + item.quantity + ' &times; </span>';
-                html += '<span class="wpdmpp-minicart-item-price">' + item.unit_price_formatted + '</span>';
+                html += '<span class="wpdmpp-minicart-item-price">' + itemPrice + '</span>';
                 html += '</div>';
                 html += '</div>';
 
                 html += '<div class="wpdmpp-minicart-item-actions">';
-                html += '<span class="wpdmpp-minicart-item-total">' + item.line_total_formatted + '</span>';
+                html += '<span class="wpdmpp-minicart-item-total">' + (item.line_total_formatted || '') + '</span>';
                 html += '<button type="button" class="wpdmpp-minicart-item-remove" data-product-id="' + item.product_id + '" aria-label="' + wpdmppMiniCart.strings.remove + '">';
                 html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
                 html += '</button>';
@@ -375,12 +380,13 @@
                     xhr.setRequestHeader('X-WP-Nonce', wpdmppMiniCart.nonce);
                 },
                 success: function(response) {
-                    if (response.success && response.cart) {
+                    if (response.success && response.data) {
+                        var cartData = response.data.cart || response.data;
                         $item.slideUp(200, function() {
                             $(this).remove();
-                            self.updateMenuCart($menuItem, response.cart);
+                            self.updateMenuCart($menuItem, cartData);
                             // Also update any other mini cart instances
-                            self.updateCart(response.cart);
+                            self.updateCart(cartData);
                         });
                         self.showToast(self.strings.itemRemoved);
                     }
@@ -534,7 +540,7 @@
         fetchCart: function(callback) {
             var self = this;
 
-            if (this.isLoading) {
+            if (this.isLoading || !this.$cart) {
                 return;
             }
 
@@ -560,7 +566,9 @@
                 },
                 complete: function() {
                     self.isLoading = false;
-                    self.$cart.removeClass('wpdmpp-mc-loading');
+                    if (self.$cart) {
+                        self.$cart.removeClass('wpdmpp-mc-loading');
+                    }
                 }
             });
         },
@@ -571,7 +579,7 @@
         updateCart: function(cartData) {
             var self = this;
 
-            if (!cartData) {
+            if (!cartData || !this.$cart) {
                 return;
             }
 
@@ -625,24 +633,27 @@
             var showThumbnails = this.settings.showThumbnails;
 
             $.each(items, function(index, item) {
+                var itemName = item.product_name || item.name || '';
+                var itemUrl = item.permalink || item.url || '#';
+                var itemPrice = item.price_formatted || item.unit_price_formatted || '';
                 html += '<div class="wpdmpp-mc-item" data-product-id="' + item.product_id + '">';
 
                 if (showThumbnails && item.thumbnail) {
                     html += '<div class="wpdmpp-mc-item-thumb">';
-                    html += '<img src="' + item.thumbnail + '" alt="' + self.escapeHtml(item.name) + '">';
+                    html += '<img src="' + item.thumbnail + '" alt="' + self.escapeHtml(itemName) + '">';
                     html += '</div>';
                 }
 
                 html += '<div class="wpdmpp-mc-item-details">';
-                html += '<a href="' + item.url + '" class="wpdmpp-mc-item-name">' + self.escapeHtml(item.name) + '</a>';
+                html += '<a href="' + itemUrl + '" class="wpdmpp-mc-item-name">' + self.escapeHtml(itemName) + '</a>';
                 html += '<div class="wpdmpp-mc-item-meta">';
                 html += '<span class="wpdmpp-mc-item-qty">' + item.quantity + ' &times; </span>';
-                html += '<span class="wpdmpp-mc-item-price">' + item.unit_price_formatted + '</span>';
+                html += '<span class="wpdmpp-mc-item-price">' + itemPrice + '</span>';
                 html += '</div>';
                 html += '</div>';
 
                 html += '<div class="wpdmpp-mc-item-actions">';
-                html += '<span class="wpdmpp-mc-item-total">' + item.line_total_formatted + '</span>';
+                html += '<span class="wpdmpp-mc-item-total">' + (item.line_total_formatted || '') + '</span>';
                 html += '<button type="button" class="wpdmpp-mc-item-remove" data-product-id="' + item.product_id + '" aria-label="' + wpdmppMiniCart.strings.remove + '">';
                 html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
                 html += '</button>';
@@ -695,11 +706,12 @@
                     xhr.setRequestHeader('X-WP-Nonce', wpdmppMiniCart.nonce);
                 },
                 success: function(response) {
-                    if (response.success && response.cart) {
+                    if (response.success && response.data) {
+                        var cartData = response.data.cart || response.data;
                         // Animate removal
                         $item.slideUp(200, function() {
                             $(this).remove();
-                            self.updateCart(response.cart);
+                            self.updateCart(cartData);
                         });
 
                         self.showToast(self.strings.itemRemoved);
@@ -784,7 +796,8 @@
                 success: function(response) {
                     if (response.success) {
                         // Update cart
-                        self.updateCart(response.cart);
+                        var cartData = response.data ? (response.data.cart || response.data) : response.cart;
+                        self.updateCart(cartData);
 
                         // Show toast
                         self.showToast(self.strings.itemAdded, 'success');

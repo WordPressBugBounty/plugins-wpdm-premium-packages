@@ -1,11 +1,44 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-add_action('init', 'wpdmpp_load_payment_methods');
 add_action('init', 'wpdmpp_remove_cart_item');
 add_action('init', 'wpdmpp_get_purchased_items');
 
 add_action('wp_loaded', 'wpdmpp_load_saved_cart');
+
+// Cache invalidation hooks - clear stats cache when orders change
+add_action( 'wpdmpp_order_completed', 'wpdmpp_invalidate_stats_cache' );
+add_action( 'wpdmpp_order_updated', 'wpdmpp_invalidate_stats_cache' );
+add_action( 'wpdmpp_order_refund_added', 'wpdmpp_invalidate_stats_cache' );
+
+/**
+ * Invalidate order statistics cache when orders are modified
+ *
+ * @param string|int $order_id Order ID or product ID
+ */
+function wpdmpp_invalidate_stats_cache( $order_id = null ) {
+    global $wpdb;
+
+    // Clear order stats cache (keyed by hour)
+    $cache_key = 'wpdmpp_order_stats_' . wp_date( 'Y-m-d-H' );
+    delete_transient( $cache_key );
+
+    // If we have an order ID, clear product-specific caches too
+    if ( $order_id ) {
+        // Get product IDs from this order
+        $order_id_clean = sanitize_text_field( $order_id );
+        $product_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT pid FROM {$wpdb->prefix}ahm_order_items WHERE oid = %s",
+            $order_id_clean
+        ) );
+
+        // Clear product sales caches
+        foreach ( $product_ids as $pid ) {
+            $product_cache_key = 'wpdmpp_product_sales_' . absint( $pid ) . '_' . wp_date( 'Y-m-d-H' );
+            delete_transient( $product_cache_key );
+        }
+    }
+}
 
 
 add_action('wp', 'wpdmpp_download_order_note_attachment');
@@ -16,7 +49,6 @@ add_filter("wpdm_email_templates", "wpdmpp_email_templates");
 if (is_admin()) {
     add_action('admin_head', 'wpdmpp_head');
     add_action('admin_footer', 'wpdmpp_admin_footer');
-    add_action('wp_ajax_assign_user_2order', 'wpdmpp_assign_user_2order');
     add_action('wp_ajax_RecalculateSales', 'wpdmpp_recalculate_sales');
     add_action('publish_post', 'wpdmpp_notify_product_accepted');
     add_action('wp_ajax_wpdmpp_export_product_customers', 'wpdmpp_export_product_customers');
@@ -251,12 +283,12 @@ function wpdmpp_export_product_customers() {
  * Renders the admin settings UI for the Mini Cart feature
  */
 function wpdmpp_mini_cart_settings_panel() {
-    // Include MiniCartAPI to get default settings
-    if (!class_exists('WPDMPP\Libs\MiniCartAPI')) {
+    // Get mini cart settings from MiniCartService
+    if (!class_exists('WPDMPP\Cart\MiniCart\MiniCartService')) {
         return;
     }
 
-    $settings = get_option('wpdmpp_mini_cart_settings', \WPDMPP\Libs\MiniCartAPI::getDefaultSettings());
+    $settings = \WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->getSettings();
     ?>
 
     <!-- Mini Cart Settings -->
@@ -469,10 +501,10 @@ function wpdmpp_mini_cart_settings_panel() {
                 <h5 style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #1e40af;"><?php _e('Display Mini Cart', 'wpdm-premium-packages'); ?></h5>
 <pre style="background: #dbeafe; padding: 12px; border-radius: 6px; font-size: 12px; color: #1e40af; font-family: monospace; margin: 0 0 16px; overflow-x: auto; white-space: pre-wrap;">
 // Basic usage (uses settings from admin)
-echo \WPDMPP\Libs\MiniCart::render();
+echo \WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->render();
 
 // With custom options
-echo \WPDMPP\Libs\MiniCart::render([
+echo \WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->render([
     'display_style' => 'floating',  // dropdown, slide_panel, floating
     'position' => 'bottom-right',   // top-right, top-left, bottom-right, bottom-left
     'show_count' => 'yes',          // yes or no
@@ -484,14 +516,14 @@ echo \WPDMPP\Libs\MiniCart::render([
 
                 <h5 style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #1e40af;"><?php _e('Check if Mini Cart is Enabled', 'wpdm-premium-packages'); ?></h5>
 <pre style="background: #dbeafe; padding: 12px; border-radius: 6px; font-size: 12px; color: #1e40af; font-family: monospace; margin: 0 0 16px; overflow-x: auto; white-space: pre-wrap;">
-if (\WPDMPP\Libs\MiniCart::isEnabled()) {
+if (\WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->isEnabled()) {
     // Mini cart is enabled
 }
 </pre>
 
                 <h5 style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #1e40af;"><?php _e('Get Mini Cart Settings', 'wpdm-premium-packages'); ?></h5>
 <pre style="background: #dbeafe; padding: 12px; border-radius: 6px; font-size: 12px; color: #1e40af; font-family: monospace; margin: 0; overflow-x: auto; white-space: pre-wrap;">
-$settings = \WPDMPP\Libs\MiniCart::getSettings();
+$settings = \WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->getSettings();
 </pre>
             </div>
 

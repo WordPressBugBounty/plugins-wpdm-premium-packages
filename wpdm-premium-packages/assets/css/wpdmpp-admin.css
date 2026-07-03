@@ -23,34 +23,28 @@ h3.wpdmpp-product-price{
 .cart-total-final.btn{
     background: transparent;
 }
-.w3eden span.fa-stack,
-.admin-orders span.fa-stack{
-    font-size: 0.85em;
-    display: inline-block;
-    height: 1.7em;
-    line-height: 1.7em;
-    position: relative;
-    vertical-align: middle;
+.wpdmpp-status-badge{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 1.7em;
-    box-sizing: content-box !important;
-}
-.admin-orders .fa-stack .fa-stack-2x{
-    display: none;
-}
-.admin-orders .fa-stack .fa-stack-1x{
+    height: 1.7em;
     border-radius: 500px;
-    border: 1px solid;
-    font-size: 90%;
+    border: 1px solid currentColor;
+    font-size: 0.85em;
+    vertical-align: middle;
     box-sizing: content-box !important;
 }
-.admin-orders table .oa-Processing .fa-stack-1x,
-.admin-orders table .oa-Processing{
+.wpdmpp-status-badge svg{
+    width: 1em;
+    height: 1em;
+}
+.admin-orders table .oa-Processing,
+.wpdmpp-status-badge.oa-Processing{
     color: #3498DB;
     border-color: #3498DB;
 }
-.fa-stack.oa-Refunded,
-.fa-stack.oa-Refunded .fa-stack-1x,
-.download-off .fa-stack-1x,
+.wpdmpp-status-badge.oa-Refunded,
 .download-off{
     color: #cccccc;
     border-color: #cccccc !important;
@@ -58,29 +52,28 @@ h3.wpdmpp-product-price{
 .renew-active,
 .renew-active *,
 .download-on,
-.download-on .fa-stack-1x,
-.admin-orders table .oa-Completed .fa-stack-1x,
-.admin-orders table .oa-Completed{
+.admin-orders table .oa-Completed,
+.wpdmpp-status-badge.oa-Completed{
     color: #5CA572;
     border-color: #5CA572 !important;
 }
-.admin-orders table .oa-Cancelled .fa-stack-1x,
-.admin-orders table .oa-Cancelled{
+.admin-orders table .oa-Cancelled,
+.wpdmpp-status-badge.oa-Cancelled{
     color: #C64F4D;
     border-color: #C64F4D;
 }
-.admin-orders table .oa-Disputed .fa-stack-1x,
-.admin-orders table .oa-Disputed{
+.admin-orders table .oa-Disputed,
+.wpdmpp-status-badge.oa-Disputed{
     color: #F75D74;
     border-color: #F75D74;
 }
-.admin-orders table .oa-Expired .fa-stack-1x,
-.admin-orders table .oa-Expired{
+.admin-orders table .oa-Expired,
+.wpdmpp-status-badge.oa-Expired{
     color: #F2983E;
     border-color: #F2983E;
 }
-.admin-orders table .oa-Gifted .fa-stack-1x,
-.admin-orders table .oa-Gifted{
+.admin-orders table .oa-Gifted,
+.wpdmpp-status-badge.oa-Gifted{
     color: #CD6DED;
     border-color: #CD6DED;
 }
@@ -111,9 +104,11 @@ div.tooltip-inner{
     color: #e8473c !important;
     border-color: #e8473c !important;
 }
-.w3eden .pm-status span i{
+.w3eden .pm-status span svg{
     margin-left: 5px;
-    transform: scale(1.1);
+    width: 14px;
+    height: 14px;
+    vertical-align: -2px;
 }
 .w3eden .pm-status{
     font-weight: 400;
@@ -175,12 +170,12 @@ div.tooltip-inner{
 .w3eden .table-wpdmpp th{
     background: #ffffff !important;
 }
-.fa.fa-star.text-danger {
-    font-size: 6px;
-    float: right;
-    margin-left: 3px;
-    margin-top: 3px;
+.wpdmpp-required{
     color: var(--color-danger);
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 2px;
+    vertical-align: super;
 }
 
 .w3eden .card{
@@ -190,3 +185,5 @@ div.tooltip-inner{
 .w3eden .table.table-striped.table-wpdmpp tr.row-focus{
     background: #ffffef !important;
 }
+.wpdmpp-spin { animation: wpdmpp-spin 0.8s linear infinite; }
+@keyframes wpdmpp-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

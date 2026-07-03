@@ -19,8 +19,8 @@ if ( ! defined( 'ABSPATH' ) ) {
             <?php echo apply_filters( "wpdmpp_empty_cart_text", __( "No item is added in the cart yet.", "wpdm-premium-packages" ) ); ?>
         </div>
         <div class='card-footer text-right'>
-            <a class='btn btn-sm btn-primary' href='<?php echo $settings['continue_shopping_url']; ?>'>
-                <?php echo apply_filters( "wpdmpp_cart_continue_shopping_button_label", __( "Continue Shopping", "wpdm-premium-packages" ) ); ?> <i class='fa fa-arrow-right'></i>
+            <a class='btn btn-sm btn-primary' href='<?php echo wpdmpp_continue_shopping_url(); ?>'>
+                <?php echo apply_filters( "wpdmpp_cart_continue_shopping_button_label", __( "Continue Shopping", "wpdm-premium-packages" ) ); ?> <?php echo \WPDMPP\UI\Icons::get('arrow-right', 16); ?>
             </a>
         </div>
     </div>

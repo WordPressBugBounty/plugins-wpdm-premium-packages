@@ -751,13 +751,27 @@
    Dark Mode Support
    ========================================================================== */
 
+/* Manual dark mode - when WPDM setting is "dark" */
+.wpdmpp-mini-cart[data-wpdm-scheme="dark"] {
+    --wpdmpp-mc-text: #f1f5f9;
+    --wpdmpp-mc-text-muted: #94a3b8;
+    --wpdmpp-mc-bg: #1e293b;
+    --wpdmpp-mc-bg-secondary: #0f172a;
+    --wpdmpp-mc-border: #334155;
+    --wpdmpp-mc-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.4);
+    --wpdmpp-mc-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* System dark mode - follows OS preference, blocked by "light" setting */
 @media (prefers-color-scheme: dark) {
-    .wpdmpp-mini-cart {
+    .wpdmpp-mini-cart:not([data-wpdm-scheme="light"]) {
         --wpdmpp-mc-text: #f1f5f9;
         --wpdmpp-mc-text-muted: #94a3b8;
         --wpdmpp-mc-bg: #1e293b;
         --wpdmpp-mc-bg-secondary: #0f172a;
         --wpdmpp-mc-border: #334155;
+        --wpdmpp-mc-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.4);
+        --wpdmpp-mc-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 }
 
@@ -1176,8 +1190,18 @@
    Nav Menu Dark Mode Support
    ========================================================================== */
 
+/* Manual dark mode for nav menu cart */
+.wpdmpp-minicart-container[data-wpdm-scheme="dark"] {
+    --wpdmpp-mc-text: #f1f5f9;
+    --wpdmpp-mc-text-muted: #94a3b8;
+    --wpdmpp-mc-bg: #1e293b;
+    --wpdmpp-mc-bg-secondary: #0f172a;
+    --wpdmpp-mc-border: #334155;
+}
+
+/* System dark mode for nav menu cart */
 @media (prefers-color-scheme: dark) {
-    .wpdmpp-minicart-container {
+    .wpdmpp-minicart-container:not([data-wpdm-scheme="light"]) {
         --wpdmpp-mc-text: #f1f5f9;
         --wpdmpp-mc-text-muted: #94a3b8;
         --wpdmpp-mc-bg: #1e293b;

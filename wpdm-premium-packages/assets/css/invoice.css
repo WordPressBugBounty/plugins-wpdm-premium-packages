@@ -66,3 +66,33 @@
         display: none;
     }
 }
+
+/* ========================
+   Dark Mode Overrides
+   ======================== */
+
+/* Manual dark mode - when WPDM setting is "dark" */
+.w3eden.dark-mode em {
+    color: var(--dm-text-muted);
+}
+.w3eden.dark-mode .card .panel-header,
+.w3eden.dark-mode .panel-default .panel-heading {
+    background: var(--dm-bg-tertiary);
+}
+.w3eden.dark-mode h3.invoice-no {
+    color: #60a5fa;
+}
+
+/* System dark mode - follows OS preference, blocked by "light" setting */
+@media (prefers-color-scheme: dark) {
+    .w3eden:not(.light-mode) em {
+        color: var(--dm-text-muted);
+    }
+    .w3eden:not(.light-mode) .card .panel-header,
+    .w3eden:not(.light-mode) .panel-default .panel-heading {
+        background: var(--dm-bg-tertiary);
+    }
+    .w3eden:not(.light-mode) h3.invoice-no {
+        color: #60a5fa;
+    }
+}

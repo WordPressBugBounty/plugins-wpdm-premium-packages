@@ -3,7 +3,7 @@ jQuery(function ($) {
     $('body').on('click', '.exec-async', function (e) {
        const $this = $(this)
        const html = $this.html();
-       $this.html('<i class="fa fa-sun fa-spin"></i> Processing..');
+       $this.html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.spinner : '') + ' Processing..');
        $this.attr('disabled', true);
        const target = $(this).data('rest');
        $.get($(this).data('url'), function (response) {
@@ -61,7 +61,7 @@ jQuery(function ($) {
         e.preventDefault();
         var $this = $(this);
         var id = $(this).attr('rel');
-        $this.html("<i class='fa fa-spinner fa-spin'></i>");
+        $this.html(typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.spinner : '');
         $.post(ajaxurl, {action: 'RecalculateSales', id: $(this).attr('rel')}, function (res) {
             $this.html(res.sales_amount);
             $('#sc-' + id).html(res.sales_quantity);
@@ -243,7 +243,7 @@ function delete_renew_entry(id, nonce) {
             class: 'btn btn-danger',
             callback: function () {
                 var popup = this;
-                $(this).find('.modal-body').html('<i class="fa fa-refresh fa-spin"></i> Deleting...');
+                $(this).find('.modal-body').html((typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.spinner : '') + ' Deleting...');
                 $.post(ajaxurl, {action: 'delete_renew_entry', id: id, _dre: nonce}, function (res) {
                     $('#renew_row_' + id).hide();
                     popup.modal('hide');
@@ -265,14 +265,24 @@ function delete_renew_entry(id, nonce) {
 
 function getkey(file, order_id, btn_id) {
 
-    jQuery(btn_id).html("<i class='fas fa-sun fa-spin white'></i>");
-    jQuery.post(ajaxurl, {execute: 'getlicensekey', fileid: file, orderid: order_id}, function (_res) {
+    jQuery(btn_id).html(typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.spinner : '');
+    fetch(wpdmppApi.root + 'license/key', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-WP-Nonce': wpdmppApi.nonce
+        },
+        body: JSON.stringify({product_id: parseInt(file), order_id: order_id})
+    })
+    .then(function (response) { return response.json(); })
+    .then(function (result) {
+        var _res = result.data || result;
         var res;
         res = "<input class='form-control input-lg' style='cursor:copy;font-weight: bold;margin: 0' onfocus='this.select()' type=text readonly=readonly value='" + _res.key + "' />";
 
-        jQuery(btn_id).html("<i class='fa fa-key white'></i>");
+        jQuery(btn_id).html(typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.key : '');
 
-        if (_res.domains.length > 0) {
+        if (_res.domains && _res.domains.length > 0) {
             res += "<div class='panel panel-default card card-default' id='lpp' style='margin-top: 15px;margin-bottom: 0;overflow: hidden'><div class='panel-heading card-header text-left' style='text-transform: unset;background: #f5f5f5 !important;' >Linked Sites</div><div style='max-height: 300px;overflow: auto;'><ul class='list-group text-left' style='margin-top: -1px;margin-bottom: 0'>";
             jQuery.each(_res.domains, function (i, domain) {
                 res += "<li class='list-group-item lci'>" + domain + "</li>";
@@ -280,8 +290,10 @@ function getkey(file, order_id, btn_id) {
             res += "</ul></div></div><style>#lpp .lci{ border-radius: 0 !important;;border: 0 !important;border-top: 1px solid #dddddd !important;; }</style>";
         }
 
-        WPDM.bootAlert("License Key", res, 400);
-
+        WPDM.dialog.alert("License Key", res, {html: true});
+    })
+    .catch(function () {
+        jQuery(btn_id).html(typeof wpdmppIcons !== 'undefined' ? wpdmppIcons.key : '');
     });
     return false;
 }

@@ -97,8 +97,8 @@ foreach ($dates as &$date) {
                         <div style="padding: 0 20px;">
                             <canvas id="downloadhis" style="width:100%;max-height: 350px"></canvas>
                             <small>
-                                <span class="color-blue pull-right"><i class="fa fa-adjust"></i> <?php _e('Amount ( Sales )','wpdm-premium-packages'); ?></span>
-                                <span class="color-purple"><i class="fa fa-adjust"></i> <?php _e('Item Count ( Sales )','wpdm-premium-packages'); ?></span>
+                                <span class="color-blue pull-right"><?php echo \WPDMPP\UI\Icons::get('circle-dot', 16); ?> <?php _e('Amount ( Sales )','wpdm-premium-packages'); ?></span>
+                                <span class="color-purple"><?php echo \WPDMPP\UI\Icons::get('circle-dot', 16); ?> <?php _e('Item Count ( Sales )','wpdm-premium-packages'); ?></span>
                             </small>
                         </div>
                     </div>

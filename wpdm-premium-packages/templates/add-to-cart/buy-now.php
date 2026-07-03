@@ -9,8 +9,8 @@ if (!defined('ABSPATH')) die();
 if((int)get_wpdmpp_option('show_buynow') === 1){
     if(!isset($params)) $params = array();
 	$_buynow_html = '';
-	$pp = new \WPDMPP\Libs\PaymentMethods\Paypal();
-	$buynow['Paypal'] = $pp->buyNowButton($product_id, $license);
+	$pp = new \WPDMPP\Payment\Gateways\PayPalGateway();
+	$buynow['PayPal'] = $pp->isEnabled() ? $pp->renderCheckoutButton('', $price) : '';
 	$buynow = apply_filters("wpdmpp_buynow_options", $buynow, $product_id, $license);
 	foreach ($buynow as $pm => $buynow_html){
 		if($buynow_html) {

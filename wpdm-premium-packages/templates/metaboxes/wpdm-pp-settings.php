@@ -74,8 +74,8 @@ $oid = uniqid();
                             foreach($variation as $key=>$vname){ ?>
                                 <div id="variation_div_<?php echo $key;?>" class="card panel panel-default p-0 mb-3">
                                     <div class="card-header panel-heading">
-                                        <?php _e('Group ID#','wpdm-premium-packages');  ?> <?php echo $key;?> <i class="info fa fa-info" title="Use the Group ID when building add to cart URL"></i>
-                                        <a class="delet_vdiv pull-right" rel="variation_div_<?php echo $key;?>" title="delete this gig"><i class="fa fa-times-circle text-danger"></i></a>
+                                        <?php _e('Group ID#','wpdm-premium-packages');  ?> <?php echo $key;?> <span class="info ttip" title="Use the Group ID when building add to cart URL"><?php echo \WPDMPP\UI\Icons::get('info-circle', 16); ?></span>
+                                        <a class="delet_vdiv pull-right" rel="variation_div_<?php echo $key;?>" title="delete this gig"><span class="text-danger"><?php echo \WPDMPP\UI\Icons::get('times-circle', 16); ?></span></a>
                                     </div>
                                     <table class="table table-vt" id="voption_table_<?php echo $key;?>">
                                         <tr><td colspan="5"><label><input style="margin: 0" type="checkbox" name="file[variation][<?php echo $key;?>][multiple]" placeholder="Multiple Select" <?php if(isset($vname['multiple'])) echo "checked='checked'"; ?> > &nbsp;<?php echo __('Multiple Select','wpdm-premium-packages'); ?></label></td></tr>
@@ -83,7 +83,7 @@ $oid = uniqid();
                                         <tr>
                                             <th style="width: 200px"><?php _e('Gig Name','wpdm-premium-packages'); ?></th>
                                             <th><?php _e('Gig Description','wpdm-premium-packages'); ?></th>
-                                            <th width="150px"><?php _e('Gig ID ','wpdm-premium-packages'); ?><i class="info fa fa-info" title="Use the Gig ID when building add to cart URL"></i></th>
+                                            <th width="150px"><?php _e('Gig ID ','wpdm-premium-packages'); ?><span class="info ttip" title="Use the Gig ID when building add to cart URL"><?php echo \WPDMPP\UI\Icons::get('info-circle', 16); ?></span></th>
                                             <th width="150px"><?php _e('Extra Cost','wpdm-premium-packages'); ?></th>
                                             <th width="50px"><?php _e('Delete','wpdm-premium-packages'); ?></th>
                                         </tr>
@@ -95,8 +95,8 @@ $oid = uniqid();
                                                         <td><input type="text" name="file[variation][<?php echo $key;?>][<?php echo $optionkey;?>][option_name]"  placeholder="Gig Name" class="form-control input-sm" value="<?php echo esc_attr($optionval['option_name']);?>"></td>
                                                         <td><textarea name="file[variation][<?php echo $key;?>][<?php echo $optionkey;?>][option_description]"  placeholder="Gig Description" class="form-control input-sm"><?php echo isset($optionval['option_description'])?htmlspecialchars(strip_tags($optionval['option_description'],'<script>')):'';?></textarea></td>
                                                         <td><input class="form-control input-sm" value="<?php echo $optionkey;?>" readonly type="text"></td>
-                                                        <td><div class="input-group input-group-sm"><span class="input-group-addon"><i class="fa fa-plus-circle"></i></span><input style="max-width: 70px" min="0" name="file[variation][<?php echo $key;?>][<?php echo $optionkey;?>][option_price]" id="" size="5" class="form-control" type="number" placeholder="price" value="<?php echo $optionval['option_price'];?>"></div></td>
-                                                        <td><i class="delet_voption fa fa-times-circle text-danger" rel="voption<?php echo $optionkey;?>" title="Delete this option" style="cursor:pointer"></i></td>
+                                                        <td><div class="input-group input-group-sm"><span class="input-group-addon"><?php echo \WPDMPP\UI\Icons::get('plus-circle', 16); ?></span><input style="max-width: 70px" min="0" name="file[variation][<?php echo $key;?>][<?php echo $optionkey;?>][option_price]" id="" size="5" class="form-control" type="number" placeholder="price" value="<?php echo $optionval['option_price'];?>"></div></td>
+                                                        <td><span class="delet_voption text-danger" rel="voption<?php echo $optionkey;?>" title="Delete this option" style="cursor:pointer"><?php echo \WPDMPP\UI\Icons::get('times-circle', 16); ?></span></td>
                                                     </tr>
                                                 <?php
                                                 }
@@ -135,7 +135,7 @@ $oid = uniqid();
                             <div class="list-group-item" id="fdl<?php echo $id; ?>">
                                 <div class="input-group">
                                     <input type="text" class="form-control" readonly="readonly" value="<?php echo $free_download; ?>" name="file[free_downloads][]" />
-                                    <span class="input-group-addon delete-freedl" data-id="#fdl<?php echo $id; ?>"><i class="fas fa-trash-alt color-red"></i></span>
+                                    <span class="input-group-addon delete-freedl" data-id="#fdl<?php echo $id; ?>"><span class="color-red"><?php echo \WPDMPP\UI\Icons::get('trash', 16); ?></span></span>
                                 </div>
                             </div>
 
@@ -145,7 +145,7 @@ $oid = uniqid();
                         ?>
                     </div>
                 </div><div class="card-footer panel-footer">
-                    <button type="button" id="addfreedls" class="btn btn-secondary btn-sm"><i class="fa fa-plus-circle"></i> <?php _e('Add Free File(s)','wpdm-premium-packages'); ?></button>
+                    <button type="button" id="addfreedls" class="btn btn-secondary btn-sm"><?php echo \WPDMPP\UI\Icons::get('plus-circle', 16); ?> <?php _e('Add Free File(s)','wpdm-premium-packages'); ?></button>
                 </div>
             </div>
 
@@ -164,7 +164,7 @@ $oid = uniqid();
                     });
                     $('#add_variation').on("click", function (){
                         var tm=new Date().getTime();
-                        $('#vdivs').append('<div id="variation_div_'+tm+'" class="card panel panel-default p-0 mb-3"><div class="card-header panel-heading"><?php _e('Group ID','wpdm-premium-packages'); ?># '+tm+'<a class="delet_vdiv pull-right" rel="variation_div_'+tm+'" title="delete this variation"><i class="fa fa-times-circle text-danger"></i></a></div><table class="table table-v" id="voption_table_'+tm+'"><tr><td colspan="5"><label><input type="checkbox" style="margin: 0 !important;" name="file[variation]['+tm+'][multiple]"> <?php _e('Multiple Select','wpdm-premium-packages'); ?></label></td></tr><tr><td colspan="5"><input type="text" name="file[variation]['+tm+'][vname]" id="" class="form-control" placeholder="Group Name"></td></tr><tr><th>Gig Name</th><th>Gig Description</th><th>Gig ID</th><th width="150px">Extra Cost</th><th width="50px">Delete</th></tr><tr id="voption_'+tm+'"><td><input type="text" name="file[variation]['+tm+']['+tm+'][option_name]" id="" placeholder="Gig Name" class="form-control input-sm"></td><td><textarea name="file[variation]['+tm+']['+tm+'][option_description]"  placeholder="Gig Description" class="form-control"></textarea></td><td><input type="text"  placeholder="Gig Name" disabled=disabled value="'+tm+'" class="form-control input-sm"></td><td><div class="input-group input-group-sm"><span class="input-group-prepend"><span class="input-group-text"><i class="fa fa-plus-circle"></i></span></span><input type="number" class="form-control" style="max-width: 70px" min=0 name="file[variation]['+tm+']['+tm+'][option_price]" id="" placeholder="<?php _e('Price','wpdm-premium-packages'); ?>"></div></td><td><i class="delet_voption fa fa-times-circle text-danger" rel="voption_'+tm+'" title="delete this option" alt="" style="cursor:pointer"></i></td></tr></table><div style="clear: both;"></div><div class="card-footer panel-footer"><input type="button" class="btn btn-secondary btn-sm add_voption" rel="'+tm+'" value="Add Gig"></div></div>');
+                        $('#vdivs').append('<div id="variation_div_'+tm+'" class="card panel panel-default p-0 mb-3"><div class="card-header panel-heading"><?php _e('Group ID','wpdm-premium-packages'); ?># '+tm+'<a class="delet_vdiv pull-right" rel="variation_div_'+tm+'" title="delete this variation"><span class="text-danger"><?php echo \WPDMPP\UI\Icons::get('times-circle', 16); ?></span></a></div><table class="table table-v" id="voption_table_'+tm+'"><tr><td colspan="5"><label><input type="checkbox" style="margin: 0 !important;" name="file[variation]['+tm+'][multiple]"> <?php _e('Multiple Select','wpdm-premium-packages'); ?></label></td></tr><tr><td colspan="5"><input type="text" name="file[variation]['+tm+'][vname]" id="" class="form-control" placeholder="Group Name"></td></tr><tr><th>Gig Name</th><th>Gig Description</th><th>Gig ID</th><th width="150px">Extra Cost</th><th width="50px">Delete</th></tr><tr id="voption_'+tm+'"><td><input type="text" name="file[variation]['+tm+']['+tm+'][option_name]" id="" placeholder="Gig Name" class="form-control input-sm"></td><td><textarea name="file[variation]['+tm+']['+tm+'][option_description]"  placeholder="Gig Description" class="form-control"></textarea></td><td><input type="text"  placeholder="Gig Name" disabled=disabled value="'+tm+'" class="form-control input-sm"></td><td><div class="input-group input-group-sm"><span class="input-group-prepend"><span class="input-group-text"><?php echo \WPDMPP\UI\Icons::get('plus-circle', 16); ?></span></span><input type="number" class="form-control" style="max-width: 70px" min=0 name="file[variation]['+tm+']['+tm+'][option_price]" id="" placeholder="<?php _e('Price','wpdm-premium-packages'); ?>"></div></td><td><span class="delet_voption text-danger" rel="voption_'+tm+'" title="delete this option" style="cursor:pointer"><?php echo \WPDMPP\UI\Icons::get('times-circle', 16); ?></span></td></tr></table><div style="clear: both;"></div><div class="card-footer panel-footer"><input type="button" class="btn btn-secondary btn-sm add_voption" rel="'+tm+'" value="Add Gig"></div></div>');
                     });
                     $('body').on("click", '.delet_vdiv', function(){
                         if(confirm("Are you sure to remove"))
@@ -172,7 +172,7 @@ $oid = uniqid();
                     });
                     $('body').on("click", '.add_voption' , function (){
                         var tm=new Date().getTime();
-                        $('#voption_table_'+$(this).attr("rel")).append('<tr id="voption'+tm+'"><td><input type="text" name="file[variation]['+$(this).attr("rel")+']['+tm+'][option_name]"  placeholder="Gig Name" class="form-control input-sm"></td><td><textarea name="file[variation]['+jQuery(this).attr("rel")+']['+tm+'][option_description]"  placeholder="Gig Description" class="form-control"></textarea></td><td><input type="text"  placeholder="Gig Name" disabled=disabled value="'+tm+'" class="form-control input-sm"></td><td><div class="input-group input-group-sm"><span class="input-group-prepend"><span class="input-group-text"><i class="fa fa-plus-circle"></i></span></span><input type="number" name="file[variation]['+$(this).attr("rel")+']['+tm+'][option_price]" size="5" id="" placeholder="<?php _e('Price','wpdm-premium-packages'); ?>" class="form-control" style="max-width:70px"></div></td><td><i class="delet_voption fa fa-times-circle text-danger" rel="voption'+tm+'" title="delete this option" alt="" style="cursor:pointer"></i></td></tr>');
+                        $('#voption_table_'+$(this).attr("rel")).append('<tr id="voption'+tm+'"><td><input type="text" name="file[variation]['+$(this).attr("rel")+']['+tm+'][option_name]"  placeholder="Gig Name" class="form-control input-sm"></td><td><textarea name="file[variation]['+jQuery(this).attr("rel")+']['+tm+'][option_description]"  placeholder="Gig Description" class="form-control"></textarea></td><td><input type="text"  placeholder="Gig Name" disabled=disabled value="'+tm+'" class="form-control input-sm"></td><td><div class="input-group input-group-sm"><span class="input-group-prepend"><span class="input-group-text"><?php echo \WPDMPP\UI\Icons::get('plus-circle', 16); ?></span></span><input type="number" name="file[variation]['+$(this).attr("rel")+']['+tm+'][option_price]" size="5" id="" placeholder="<?php _e('Price','wpdm-premium-packages'); ?>" class="form-control" style="max-width:70px"></div></td><td><span class="delet_voption text-danger" rel="voption'+tm+'" title="delete this option" style="cursor:pointer"><?php echo \WPDMPP\UI\Icons::get('times-circle', 16); ?></span></td></tr>');
                     });
 
                     $('body').on("click", '.delet_voption', function(){
@@ -244,7 +244,7 @@ $oid = uniqid();
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <?= __('Assign role', WPDMPP_TEXT_DOMAIN); ?>
-                    <a href="#" class="ttip pull-right" title="<?= esc_attr__('Assign selected role to the users to purchase this product', WPDMPP_TEXT_DOMAIN); ?>"><i class="fa fa-info-circle"></i></a>
+                    <a href="#" class="ttip pull-right" title="<?= esc_attr__('Assign selected role to the users to purchase this product', WPDMPP_TEXT_DOMAIN); ?>"><?php echo \WPDMPP\UI\Icons::get('info-circle', 16); ?></a>
                 </div>
                 <div class="panel-body">
                     <select name="file[assign_role]" class="form-control">
@@ -341,7 +341,7 @@ $oid = uniqid();
                 var ID = newDate.getTime();
 
                 /*file = file.replace('<?php echo home_url('/'); ?>','<?php echo str_replace("\\", "/", ABSPATH); ?>');*/
-                $('#free-files').append("<div class='list-group-item'  id='"+ID+"'><div class='input-group'><input class='form-control' readonly=readonly name='file[free_downloads][]' value='"+file+"' /><span class='input-group-addon delete-freedl' data-id='#"+ID+"'><i class='fas fa-trash-alt color-red'></i></span></div></div>");
+                $('#free-files').append("<div class='list-group-item'  id='"+ID+"'><div class='input-group'><input class='form-control' readonly=readonly name='file[free_downloads][]' value='"+file+"' /><span class='input-group-addon delete-freedl' data-id='#"+ID+"'><span class='color-red'>"+'<?php echo \WPDMPP\UI\Icons::get('trash', 16); ?>'+"</span></span></div></div>");
 
 
             });

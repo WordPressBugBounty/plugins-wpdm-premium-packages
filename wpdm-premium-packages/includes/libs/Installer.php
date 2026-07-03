@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
         /**
          * @var float
          */
-        private $dbVersion = 585.0;
+        private $dbVersion = 586.0;
 
 
         function __construct()
@@ -470,6 +470,42 @@ if (!defined('ABSPATH')) {
 			$installer->addColumn('ahm_withdraws', 'execution_date', "INT NOT NULL DEFAULT '0'");
 			$installer->addColumn('ahm_withdraws', 'payment_account', "VARCHAR( 255 ) NOT NULL");
 
+			// Add database indexes for frequently queried columns (performance optimization)
+			// ahm_orders indexes
+			$installer->addIndex( 'ahm_orders', 'uid' );
+			$installer->addIndex( 'ahm_orders', 'date' );
+			$installer->addIndex( 'ahm_orders', 'expire_date' );
+			$installer->addIndex( 'ahm_orders', 'order_status' );
+			$installer->addIndex( 'ahm_orders', 'payment_status' );
+			$installer->addCompositeIndex( 'ahm_orders', [ 'uid', 'order_status' ], 'idx_uid_order_status' );
+			$installer->addCompositeIndex( 'ahm_orders', [ 'payment_status', 'date' ], 'idx_payment_date' );
+
+			// ahm_order_items indexes
+			$installer->addIndex( 'ahm_order_items', 'oid' );
+			$installer->addIndex( 'ahm_order_items', 'pid' );
+			$installer->addIndex( 'ahm_order_items', 'sid' );
+			$installer->addIndex( 'ahm_order_items', 'cid' );
+			$installer->addCompositeIndex( 'ahm_order_items', [ 'pid', 'oid' ], 'idx_pid_oid' );
+
+			// ahm_licenses indexes
+			$installer->addIndex( 'ahm_licenses', 'licenseno' );
+			$installer->addIndex( 'ahm_licenses', 'oid' );
+			$installer->addIndex( 'ahm_licenses', 'pid' );
+			$installer->addIndex( 'ahm_licenses', 'status' );
+			$installer->addCompositeIndex( 'ahm_licenses', [ 'licenseno', 'status' ], 'idx_license_status' );
+
+			// ahm_order_renews indexes
+			$installer->addIndex( 'ahm_order_renews', 'order_id' );
+			$installer->addIndex( 'ahm_order_renews', 'date' );
+
+			// ahm_coupons indexes
+			$installer->addIndex( 'ahm_coupons', 'code' );
+			$installer->addIndex( 'ahm_coupons', 'expire_date' );
+
+			// ahm_withdraws indexes
+			$installer->addIndex( 'ahm_withdraws', 'uid' );
+			$installer->addIndex( 'ahm_withdraws', 'status' );
+
 			update_option( '__wpdmpp_db_version', $installer->dbVersion, false );
 		}
 
@@ -492,9 +528,9 @@ if (!defined('ABSPATH')) {
             if (!empty($orders_page)) $_wpdmpp_settings['orders_page_id'] = $orders_page;
             $_wpdmpp_settings['continue_shopping_url'] = site_url('/');
             $_wpdmpp_settings['wpdmpp_after_addtocart_redirect'] = 1;
-            $_wpdmpp_settings['Paypal']['enabled'] = 1;
-            $_wpdmpp_settings['Paypal']['Paypal_mode'] = 'live';
-            if (!empty($orders_page)) $_wpdmpp_settings['Paypal']['return_url'] = get_permalink($orders_page);
+            $_wpdmpp_settings['PayPal']['enabled'] = 1;
+            $_wpdmpp_settings['PayPal']['Paypal_mode'] = 'live';
+            if (!empty($orders_page)) $_wpdmpp_settings['PayPal']['return_url'] = get_permalink($orders_page);
 
             if (!get_option('_wpdmpp_settings')) {
                 update_option('_wpdmpp_settings', $_wpdmpp_settings);
@@ -527,5 +563,67 @@ if (!defined('ABSPATH')) {
             $exists = count($result) > 0 ? TRUE : FALSE;
             if (!$exists)
                 $wpdb->query("ALTER TABLE `{$wpdb->prefix}{$table}` CHANGE `{$column}` `{$newName}` {$type_n_default}");
+        }
+
+        /**
+         * Add index to table column if it doesn't exist
+         *
+         * @param string $table Table name (without prefix)
+         * @param string $column Column name to index
+         * @param string $index_name Optional custom index name (defaults to idx_{column})
+         * @return bool True if index was added, false if it already exists
+         */
+        function addIndex( $table, $column, $index_name = '' ) {
+            global $wpdb;
+
+            $table_name = "{$wpdb->prefix}{$table}";
+            $index_name = $index_name ?: "idx_{$column}";
+
+            // Check if index already exists
+            $index_exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+                 WHERE table_schema = DATABASE()
+                 AND table_name = %s
+                 AND index_name = %s",
+                $table_name, $index_name
+            ) );
+
+            if ( ! $index_exists ) {
+                $wpdb->query( "ALTER TABLE `{$table_name}` ADD INDEX `{$index_name}` (`{$column}`)" );
+                return true;
+            }
+
+            return false;
+        }
+
+        /**
+         * Add composite index to table if it doesn't exist
+         *
+         * @param string $table Table name (without prefix)
+         * @param array $columns Array of column names
+         * @param string $index_name Index name
+         * @return bool True if index was added, false if it already exists
+         */
+        function addCompositeIndex( $table, $columns, $index_name ) {
+            global $wpdb;
+
+            $table_name = "{$wpdb->prefix}{$table}";
+
+            // Check if index already exists
+            $index_exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+                 WHERE table_schema = DATABASE()
+                 AND table_name = %s
+                 AND index_name = %s",
+                $table_name, $index_name
+            ) );
+
+            if ( ! $index_exists ) {
+                $columns_str = implode( '`, `', $columns );
+                $wpdb->query( "ALTER TABLE `{$table_name}` ADD INDEX `{$index_name}` (`{$columns_str}`)" );
+                return true;
+            }
+
+            return false;
         }
     }

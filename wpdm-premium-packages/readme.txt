@@ -3,8 +3,8 @@ Contributors: w3eden, codename065, shahriar0822, shafayat-alam, shimo16ab
 Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
-Tested up to: 6.9
-Stable tag: 6.2.0
+Tested up to: 7.0
+Stable tag: 7.0.0
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -24,7 +24,18 @@ WordPress Download Manager with Premium Packages offers the **easiest checkout e
 * **Secure Downloads** - Protected file delivery with expiring links
 * **Built-in Licensing** - Software license key generation and validation
 
-= Mini Cart Widget (NEW) =
+= What's New in 7.0.0 =
+
+Version 7.0.0 is a major **codebase modernization** that rebuilds Premium Packages from the ground up for better performance, stability, and security - while keeping everything you already rely on:
+
+* **Rebuilt Architecture** - A modern, modular PSR-4 codebase that runs faster and is far easier to extend
+* **REST API** - A full REST API powering the checkout and every core module (cart, orders, coupons, licenses, products, customers, invoices)
+* **Redesigned Customer Dashboard** - Refreshed, mobile-friendly orders list and order details pages with dark mode support
+* **Modernized Admin Dashboard** - Rebuilt sales widgets with faster lazy loading
+* **Redesigned Setup Wizard** - A brand-new onboarding wizard that launches right after activation and walks you through store basics, pages, currency, and PayPal setup in four quick steps
+* **More Reliable Checkout** - Improved single-page checkout, PayPal Smart Buttons, and auto-renewing subscription handling
+
+= Mini Cart Widget =
 
 Premium Packages now includes a **modern Mini Cart widget** that enhances your customers' shopping experience:
 
@@ -45,7 +56,7 @@ Extended order and invoice management options with multiple invoice templates an
 
 = Sales Reports & Analytics =
 
-Comprehensive sales reporting with detailed analytics. Generate custom charts and graphs for site-wide sales, shop-specific, or product-specific data. Track your business growth with ease.
+Comprehensive sales reporting with detailed analytics. Generate custom charts and graphs for site-wide, shop-specific, or product-specific data. Track your business growth with ease.
 
 = Mobile Apps =
 
@@ -112,7 +123,9 @@ Simple yet powerful tax configuration. Set up tax rates for different countries,
 = At A Glance =
 
 * Sell Digital Products Securely
-* **NEW: Mini Cart Widget** with multiple display styles
+* **NEW: Rebuilt on a modern, faster PSR-4 codebase (v7.0.0)**
+* **NEW: REST API for the checkout and all core modules**
+* Mini Cart Widget with multiple display styles
 * Accept payment without creating products using `[wpdmpp_pay_link]`
 * Easy Administration Dashboard
 * PayPal Integration (more gateways available as add-ons)
@@ -203,6 +216,17 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.0.0 - 2026.07.03 =
+* A ground-up codebase overhaul for better performance, stability, security, and extensibility
+* **NEW: REST API** - Full REST API covering cart, checkout, orders, coupons, licenses, products, customers, and invoices
+* Redesigned customer dashboard - Refreshed orders list and order details pages with a modern, mobile-friendly interface and dark mode support
+* Modernized admin dashboard widgets (sales overview, latest orders, recent sales, top sellers) with faster lazy loading
+* Redesigned setup wizard - modern step-by-step onboarding that launches automatically on fresh installs, with PayPal API credentials setup
+* Improved payment gateway settings with a cleaner, more consistent configuration UI
+* Improved single-page checkout, PayPal Smart Buttons, and auto-renewing subscription reliability
+* Removed legacy dead code and unused files for a lighter, cleaner plugin package
+* Numerous bug fixes, security hardening, and compatibility improvements
 
 = 6.2.0 - 2026.01.02 =
 * **NEW: Mini Cart Widget** - Modern shopping cart widget with three display styles (dropdown, slide panel, floating)
@@ -930,6 +954,9 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 * Fixed issue with default payment method integration
 
 == Upgrade Notice ==
+
+= 7.0.0 =
+Major release: Premium Packages has been rebuilt on a modern PSR-4 architecture for better performance, stability, and security, and adds a full REST API, a redesigned customer dashboard, and more reliable checkout and subscriptions. Please back up your site before updating.
 
 = 6.2.0 =
 New Mini Cart widget with three display styles, nav menu integration, and REST API support. Recommended update for all users.

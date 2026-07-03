@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 6.2.0
+ * Version: 7.0.0
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -20,14 +20,10 @@ use WPDM\__\Crypt;
 use WPDM\__\FileSystem;
 use WPDM\__\Session;
 use WPDM\Package\FileList;
-use WPDMPP\Libs\BillingInfo;
 use WPDMPP\Libs\Cart;
-use WPDMPP\Libs\CouponCodes;
-use WPDMPP\Libs\Order;
-use WPDMPP\Libs\Payment;
-use WPDMPP\Libs\ShortCodes;
-use WPDMPP\Libs\User;
 use WPDMPP\Libs\Withdraws;
+use WPDMPP\Order\OrderService;
+use WPDMPP\Payment\PaymentService;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -40,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '6.2.0' );
+	define( 'WPDMPP_VERSION', '7.0.0' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -48,8 +44,14 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	if ( ! defined( 'WPDMPP_MENU_ACCESS_CAP' ) ) {
 		define( 'WPDMPP_MENU_ACCESS_CAP', 'manage_categories' );
 	}
+
 	if ( ! defined( 'WPDMPP_ADMIN_CAP' ) ) {
-		define( 'WPDMPP_ADMIN_CAP', 'manage_categories' );
+		define( 'WPDMPP_ADMIN_CAP', 'manage_options' );
+	}
+
+	// Load PSR-4 autoloader for new architecture (v7.0.0+)
+	if ( file_exists( WPDMPP_BASE_DIR . 'src/autoload.php' ) ) {
+		require_once WPDMPP_BASE_DIR . 'src/autoload.php';
 	}
 
 	if ( ! defined( 'WPDMPP_TPL_FALLBACK' ) ) {
@@ -60,6 +62,10 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		define( 'WPDMPP_TPL_DIR', dirname( __FILE__ ) . '/templates/' );
 	}
 
+	if ( ! defined( 'WPDMPP_ADMIN_VIEWS' ) ) {
+		define( 'WPDMPP_ADMIN_VIEWS', dirname( __FILE__ ) . '/src/Admin/' );
+	}
+
 	class WPDMPremiumPackage {
 
 		/**
@@ -67,34 +73,24 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		public $cart;
 		/**
-		 * @var Order
+		 * @var OrderService
 		 */
 		public $order;
 
-		/**
-		 * @var Withdraws
-		 */
 		public $withdraws;
 
 		/**
-		 * @var Payment
+		 * @var PaymentService
 		 */
 		public $payment;
 
-		/**
-		 * @var CouponCodes
-		 */
 		public $couponCodes;
-
-		/**
-		 * @var ShortCodes
-		 */
 		public $shortCodes;
 
 		function __construct() {
 			global $wpdmpp_settings, $payment_methods;
 			$wpdmpp_settings = maybe_unserialize( get_option( '_wpdmpp_settings' ) );
-			$payment_methods = [ 'TestPay', 'Paypal', 'Cash', 'Cheque' ];
+			$payment_methods = [ 'TestPay', 'PayPal', 'Cash', 'Cheque' ];
 
 			$this->init();
 			$this->init_hooks();
@@ -114,6 +110,9 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 		private function init_hooks() {
 
+			// Must run before WPDMPP_INSTALLER::init — the installer seeds
+			// _wpdmpp_settings, which the fresh-install check relies on being empty.
+			register_activation_hook( __FILE__, array( $this, 'wpdmpp_setup_wizard_activation_flag' ) );
 			register_activation_hook( __FILE__, [ \WPDMPP_INSTALLER::class, 'init' ] );
 			add_action( 'upgrader_process_complete', [$this, 'update'], 10, 2);
 
@@ -121,26 +120,44 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 			add_action( 'wp_login', [ new Cart(), 'onUserLogin' ], 10, 2 );
 
-			add_action( 'wpdm-package-form-left', [ $this, 'wpdmpp_meta_box_pricing' ] );
-			add_filter( 'wpdm_package_settings_tabs', [ $this, 'wpdmpp_meta_boxes' ] );
-			add_filter( 'add_wpdm_settings_tab', [ $this, 'settings_tab' ] );
-			add_filter( 'wpdm_privacy_settings_panel', [ $this, 'privacy_settings' ] );
+			// Metabox hooks are now handled by MetaboxService in the new architecture
+			// Settings hooks are now handled by SettingsService in the new architecture
+			// Both services register themselves when Plugin::init() is called
 
 			add_action( 'wpdm_template_editor_menu', [ $this, 'template_editor_menu' ] );
 
 			add_action( 'admin_notices', array( $this, 'notice' ) );
+			add_action( 'admin_notices', array( $this, 'wpdmpp_run_setup_wizard_notice' ) );
 
+			// Register billing-info profile hooks early (priority 1). Its save handler
+			// listens on 'wpdm_update_profile', which core's EditProfile fires on init
+			// priority 10 — so the listener must be added before then or the billing
+			// data never saves. register() only adds hooks (no __()), so it is safe
+			// here, before the textdomain loads in the priority-10 callback below.
+			add_action( 'init', function () {
+				if ( class_exists( '\WPDMPP\Customer\BillingInfoService' ) ) {
+					\WPDMPP\Customer\BillingInfoService::getInstance()->register();
+				}
+			}, 1 );
 
 			add_action( 'init', function () {
-				$this->dbTables();
+				// Load textdomain first — must happen before any __() calls
 				$this->wpdmpp_languages();
+
+				// Register services that use __() in their register() methods
+				$this->payment->register();
+				\WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->register();
+				if ( class_exists( '\WPDMPP\Core\Plugin' ) ) {
+					\WPDMPP\Core\Plugin::instance()->init();
+				}
+
+				$this->dbTables();
 				$this->clone_order();
 				$this->invoice();
 				$this->wpdmpp_process_guest_order();
 				$this->paynow();
 				$this->payment_notification();
 				$this->comeplete_buynow_action();
-				$this->wpdmpp_ajax_payfront();
 				$this->freeDownload();
 
 			} );
@@ -154,18 +171,12 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 			add_action( 'wp_ajax_resolveorder', array( $this, 'wpdmpp_resolveorder' ) );
 
-			add_action( 'wp_ajax_set_payment_method_for_order', array( $this, 'set_payment_method' ) );
-			add_action( 'wp_ajax_nopriv_set_payment_method_for_order', array( $this, 'set_payment_method' ) );
-
 			add_action( 'wp_ajax_nopriv_gettax', array( $this, 'calculate_tax' ) );
 			add_action( 'wp_ajax_gettax', array( $this, 'calculate_tax' ) );
 
 			add_action( 'wp_ajax_wpdmpp_cancel_subscription', array( $this, 'cancel_subscription' ) );
 
-			add_action( 'wp_ajax_product_sales_overview', array( $this, 'wpdmpp_meta_box_sales_overview' ) );
-
-			add_action( 'wp_ajax_nopriv_payment_options', array( $this, 'payment_options' ) );
-			add_action( 'wp_ajax_payment_options', array( $this, 'payment_options' ) );
+			// Sales overview AJAX is now handled by MetaboxService
 
 			add_action( 'wp_ajax_wpdmpp_update_withdraw_status', array( $this, 'wpdmpp_update_withdraw_status' ) );
 
@@ -178,10 +189,9 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			add_action( 'admin_enqueue_scripts', array( $this, 'wpdmpp_admin_enqueue_scripts' ) );
 
 			if ( is_admin() ) {
-				add_action( 'wp_ajax_wpdmpp_save_settings', array( $this, 'saveSettings' ) );
+				// Settings save is now handled by SettingsService::ajaxSaveSettings()
 				add_action( 'wp_ajax_wpdmpp_toggle_auto_renew', array( $this, 'toggleAutoRenew' ) );
 				add_action( 'wp_ajax_wpdmpp_toggle_manual_renew', array( $this, 'toggleManualRenew' ) );
-				add_action( 'wp_ajax_wpdmpp_async_request', array( $this, 'wpdmpp_async_request' ) );
 				add_action( 'wp_loaded', array( $this, 'wpdmpp_hide_notices' ) );
 			}
 
@@ -189,7 +199,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				add_action( 'wpdm_login_form', array( $this, 'wpdmpp_guest_download_link' ) );
 			}
 
-			add_filter( 'wpdm_meta_box', array( $this, 'add_meta_boxes' ) );
+			// add_meta_boxes is now handled by MetaboxService
 			add_filter( 'wpdm_user_dashboard_menu', array( $this, 'wpdmpp_user_dashboard_menu' ) );
 
 			add_filter( 'wpdm_after_prepare_package_data', array( $this, 'fetchTemplateTag' ) );
@@ -199,8 +209,6 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			add_filter( 'wpdm_single_file_download_link', array( $this, 'hideSingleFileDownloadLink' ), 10, 3 );
 
 			//add_action( 'activated_plugin', array( $this, 'pp_save_error' ) );
-
-			add_action( 'init', array( $this, 'connect_wizard' ) );
 
 		}
 
@@ -236,20 +244,28 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		}
 
 
-		function connect_wizard() {
-			// Setup Wizard
-			if ( ! empty( $_GET['page'] ) ) {
-				switch ( $_GET['page'] ) {
-					case 'wpdmpp-setup' :
-						include_once( dirname( __FILE__ ) . '/includes/settings/wizard/class.SetupWizard.php' );
-						break;
-				}
+		/**
+		 * Activation hook: arm the setup wizard for fresh installs only.
+		 *
+		 * Runs before WPDMPP_INSTALLER::init seeds defaults, so an empty
+		 * _wpdmpp_settings option here means a genuinely fresh install.
+		 * Arms the "Run the Setup Wizard" admin notice and sets a short-lived
+		 * transient that SetupWizardService consumes to redirect to the wizard
+		 * on the next admin page load.
+		 */
+		function wpdmpp_setup_wizard_activation_flag() {
+			if ( get_option( '_wpdmpp_settings' ) || get_option( 'wpdmpp_setp_wizard_notice' ) === 'hide' ) {
+				return;
 			}
+			update_option( 'wpdmpp_setp_wizard_notice', 'show', false );
+			set_transient( '_wpdmpp_setup_wizard_redirect', 1, 30 );
 		}
 
 		function wpdmpp_run_setup_wizard_notice() {
 
-			if ( get_option( 'wpdmpp_setp_wizard_notice' ) == 'hide' ) {
+			// Only shown while armed by a fresh-install activation; finishing
+			// or skipping the wizard flips the option to 'hide'.
+			if ( get_option( 'wpdmpp_setp_wizard_notice' ) !== 'show' || ! current_user_can( 'manage_options' ) ) {
 				return;
 			}
 			?>
@@ -291,58 +307,59 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 		function include_files() {
 			include_once( dirname( __FILE__ ) . "/includes/libs/functions.php" );
+			include_once( dirname( __FILE__ ) . "/includes/libs/Logger.php" );
 			include_once( dirname( __FILE__ ) . "/includes/libs/Installer.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/User.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/LicenseManager.php" );
+			// User.php removed — now handled by CustomerService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/User.php" );
+			// LicenseManager.php removed — now handled by LicenseService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/LicenseManager.php" );
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/Product.php" );
+			// Product.php removed — now handled by ProductService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/Product.php" );
 			include_once( dirname( __FILE__ ) . "/includes/libs/Cart.php" );
 			$this->cart = new Cart();
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/Order.php" );
-			$this->order = new Order();
+			// Order.php removed — now handled by OrderService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/Order.php" );
+			$this->order = OrderService::instance();
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/Payment.php" );
-			$this->payment = new Payment();
-            $this->payment->actions();
+			// Payment.php removed — now handled by PaymentService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/Payment.php" );
+			$this->payment = PaymentService::instance();
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/CustomActions.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/CustomColumns.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/Currencies.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/BillingInfo.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/DashboardWidgets.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/OrderNoteTemplates.php" );
+			// CustomActions.php removed — AJAX handlers migrated to domain admin services
+			// CustomColumns.php removed — now handled by PackageColumnsService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/CustomColumns.php" );
+			// Currencies.php removed — now handled by CurrencyService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/Currencies.php" );
+			// BillingInfo.php removed — now handled by BillingInfoService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/BillingInfo.php" );
+			//include_once( dirname( __FILE__ ) . "/includes/libs/DashboardWidgets.php" );
+			// OrderNoteTemplates.php removed — now handled by OrderNoteTemplateService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/OrderNoteTemplates.php" );
+			// Withdraws bridge — delegates to PayoutService, needed by payout templates
 			include_once( dirname( __FILE__ ) . "/includes/libs/Withdraws.php" );
 			$this->withdraws = new Withdraws();
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/CouponCodes.php" );
-			$this->couponCodes = new CouponCodes();
+			// CouponCodes.php removed — AJAX handlers migrated to cart-functions.php, service is CouponService in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/CouponCodes.php" );
+			//$this->couponCodes = new CouponCodes();
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/ShortCodes.php" );
-			$this->shortCodes = new ShortCodes();
+			// ShortCodes.php removed — now handled by ShortcodeService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/ShortCodes.php" );
+			//$this->shortCodes = new ShortCodes();
 
-			include_once( dirname( __FILE__ ) . "/includes/libs/CronJobs.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/AbandonedOrderRecovery.php" );
+			// CronJobs.php removed — now handled by CronJobService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/CronJobs.php" );
+			// AbandonedOrderRecovery.php removed — now handled by AbandonedOrderService registered in Plugin.php
+			//include_once( dirname( __FILE__ ) . "/includes/libs/AbandonedOrderRecovery.php" );
 			include_once( dirname( __FILE__ ) . "/includes/libs/cart-functions.php" );
 			include_once( dirname( __FILE__ ) . "/includes/libs/hooks.php" );
 
 			include_once( dirname( __FILE__ ) . "/includes/menus/AdminMenus.php" );
 
-			// Cart Widget
-			include_once( dirname( __FILE__ ) . "/includes/widgets/widget-cart.php" );
-
-			// Mini Cart (Modern)
-			include_once( dirname( __FILE__ ) . "/includes/libs/MiniCartAPI.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/MiniCart.php" );
-			\WPDMPP\Libs\MiniCartAPI::init();
-			\WPDMPP\Libs\MiniCart::init();
-
-			// Integrated payment mothods
-			include_once( dirname( __FILE__ ) . "/includes/libs/payment-methods/Cash/Cash.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/payment-methods/Cheque/Cheque.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/payment-methods/Paypal/Paypal.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/payment-methods/TestPay/TestPay.php" );
-			include_once( dirname( __FILE__ ) . "/includes/libs/SellerDashboard.php" );
+			// Legacy payment method files removed - now handled by PaymentService gateways
+			// See: src/Payment/Gateways/{PayPalGateway,CashGateway,ChequeGateway,TestPayGateway}.php
 
 		}
 
@@ -362,11 +379,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			if ( Session::get( 'orderid' ) ) {
 				WPDMPP()->order->reCalculate( Session::get( 'orderid' ) );
 				if ( wpdm_query_var( 'payment_method', 'txt' ) ) {
-					$payment = new Payment();
-					$payment->initiateProcessor( wpdm_query_var( 'payment_method', 'txt' ) );
-					if ( method_exists( $payment->Processor, 'customPayButton' ) ) {
-						$customPayButton = $payment->Processor->customPayButton();
-					}
+					$customPayButton = PaymentService::instance()->getCheckoutButton( wpdm_query_var( 'payment_method', 'txt' ) );
 				}
 			}
 
@@ -383,145 +396,32 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		}
 
 
-		/**
-		 * Metabox content for Pricing and other Premium Pckage Settings
-		 */
+		// =========================================================================
+		// METABOX FUNCTIONS MOVED TO NEW ARCHITECTURE
+		// =========================================================================
+		// The following metabox functions have been moved to:
+		// \WPDMPP\Admin\Metabox\MetaboxService
+		//
+		// - wpdmpp_meta_box_sales_overview_loader() -> MetaboxService::renderSalesOverviewPlaceholder()
+		// - wpdmpp_meta_box_sales_overview()        -> MetaboxService::ajaxLoadSalesOverview()
+		// - add_meta_boxes()                        -> MetaboxService::addSalesOverviewMetabox()
+		// - wpdmpp_meta_box_pricing()               -> MetaboxService::renderPricingMetabox()
+		// - wpdmpp_meta_boxes()                     -> MetaboxService::addPricingTab()
+		//
+		// @since 7.0.0
+		// =========================================================================
 
-		function wpdmpp_meta_box_sales_overview_loader() {
-			?>
-			<style>
-				.wpdmpp-widget-loading {
-					display: flex;
-					flex-direction: column;
-					align-items: center;
-					justify-content: center;
-					padding: 40px 20px;
-					color: #64748b;
-					font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-				}
-				.wpdmpp-widget-loading-spinner {
-					width: 32px;
-					height: 32px;
-					border: 3px solid #e2e8f0;
-					border-top-color: #6366f1;
-					border-radius: 50%;
-					animation: wpdmpp-spin 0.8s linear infinite;
-					margin-bottom: 12px;
-				}
-				.wpdmpp-widget-loading-text {
-					font-size: 13px;
-					color: #94a3b8;
-				}
-				@keyframes wpdmpp-spin {
-					to { transform: rotate(360deg); }
-				}
-			</style>
-			<div id="wpdmpp-sales-overview">
-				<div class="wpdmpp-widget-loading">
-					<div class="wpdmpp-widget-loading-spinner"></div>
-					<div class="wpdmpp-widget-loading-text"><?php _e( 'Loading...', 'wpdm-premium-packages' ); ?></div>
-				</div>
-			</div>
-			<script>
-				jQuery(function ($) {
-					$('#wpdmpp-sales-overview').load(ajaxurl, {
-						action: 'product_sales_overview',
-						post: <?php echo wpdm_query_var( 'post' ); ?>
-					});
-				});
-			</script>
-			<?php
-		}
-
-		function wpdmpp_meta_box_sales_overview() {
-			global $post;
-			$data = Session::get( 'sales_overview_html_' . wpdm_query_var( 'post' ) );
-			if ( $data ) {
-				echo $data;
-				die();
-			}
-			ob_start();
-			include __DIR__ . '/includes/menus/templates/product-sales-overview.php';
-			$data = ob_get_clean();
-			Session::set( 'sales_overview_html_' . wpdm_query_var( 'post' ), $data );
-			echo $data;
-			die();
-		}
-
-
-		function payment_options() {
-			global $post;
-			include \WPDM\__\Template::locate( 'checkout-cart/checkout.php', dirname( __FILE__ ) . '/templates' );
-			die();
-		}
-
-		function add_meta_boxes( $metaboxes ) {
-			$pid   = wpdm_query_var( 'post' );
-			$price = wpdmpp_effective_price( $pid );
-			if ( $price > 0 ) {
-				$wpdmpp_metaboxes['sales-overview'] = array(
-					'title'    => __( 'Sales Overview', "wpdm-premium-packages" ),
-					'callback' => array(
-						$this,
-						'wpdmpp_meta_box_sales_overview_loader'
-					),
-					'position' => 'side',
-					'priority' => 'core'
-				);
-				$metaboxes                          = $wpdmpp_metaboxes + $metaboxes;
-			}
-
-			return $metaboxes;
-		}
-
-		/**
-		 * Metabox content for Pricing and other Premium Pckage Settings
-		 */
-		function wpdmpp_meta_box_pricing() {
-			global $post;
-			include Template::locate( 'metaboxes/wpdm-pp-settings.php', WPDMPP_TPL_DIR );
-		}
-
-		/**
-		 * @param $tabs
-		 *
-		 * @return mixed
-		 * @usage Adding Premium Package Settings Metabox by applying WPDM's 'wpdm_package_settings_tabs' filter
-		 */
-		function wpdmpp_meta_boxes( $tabs ) {
-			if ( is_admin() ) {
-				$tabs['pricing'] = array(
-                        'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-dollar-sign-icon lucide-badge-dollar-sign"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
-					'name'     => __( 'Pricing & Discounts', "wpdm-premium-packages" ),
-					'callback' => array( $this, 'wpdmpp_meta_box_pricing' )
-				);
-			}
-
-			return $tabs;
-		}
-
-
-		/**
-		 *  Premium Package Settings Page
-		 */
-		function settings() {
-			$show_db_update_notice = 0;
-			if(\WPDMPP_INSTALLER::dbUpdateRequired()){
-				$show_db_update_notice = 1;
-				\WPDMPP_INSTALLER::updateDB();
-			}
-
-			include( "includes/settings/settings.php" );
-		}
-
-		function settings_tab( $tabs ) {
-			$tabs['ppsettings'] = wpdm_create_settings_tab( 'ppsettings', 'Premium Package', array(
-				$this,
-				'settings'
-			), $icon = 'fa-solid fa-basket-shopping' );
-
-			return $tabs;
-		}
+		// =========================================================================
+		// SETTINGS FUNCTIONS MOVED TO NEW ARCHITECTURE
+		// =========================================================================
+		// The following settings functions have been moved to:
+		// \WPDMPP\Admin\Settings\SettingsService
+		//
+		// - settings()      -> SettingsService::renderSettingsPage()
+		// - settings_tab()  -> SettingsService::addSettingsTab()
+		//
+		// @since 7.0.0
+		// =========================================================================
 
 		/**
 		 * Generate Order Invoice op request
@@ -530,14 +430,11 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			if ( isset( $_GET['id'] ) && $_GET['id'] != '' && isset( $_GET['wpdminvoice'] ) ) {
 				ob_start();
 				wp_register_style( 'wpdm-front-bootstrap', WPDM_BASE_URL . 'assets/bootstrap/css/bootstrap.css' );
-				wp_register_style( 'font-awesome', WPDM_BASE_URL . 'assets/font-awesome/css/font-awesome.min.css' );
 				wp_register_style( 'wpdm-front', WPDM_BASE_URL . 'assets/css/front.css' );
 				wp_register_style( 'wpdmpp-invoice', WPDMPP_BASE_URL . 'assets/css/invoice.css', array(
 					'wpdm-front-bootstrap',
-					'font-awesome',
 					'wpdm-front'
 				) );
-				//include \WPDM\__\Template::locate("wpdm-pp-invoice.php", WPDMPP_TPL_DIR);
 				include \WPDM\__\Template::locate( "invoices/default/invoice.php", WPDMPP_TPL_DIR );
 				$data = ob_get_clean();
 
@@ -571,9 +468,11 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 			wpdmpp_expiry_check();
 
+			wp_enqueue_style( 'wpdmpp-dashboard', WPDMPP_BASE_URL . 'assets/css/wpdmpp-dashboard.css', [], WPDMPP_VERSION );
+
 			ob_start();
 			if ( isset( $params[2] ) && $params[1] == 'order' ) {
-				Order::userOrderDetails( $params[2] );
+				OrderService::instance()->userOrderDetails( $params[2] );
 			} else {
 				include_once wpdm_tpl_path( 'partials/resolve-order.php', WPDMPP_TPL_DIR );
 				include_once wpdm_tpl_path( 'partials/user-orders-list.php', WPDMPP_TPL_DIR );
@@ -588,66 +487,87 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		/**
 		 * Process Guest Orders
 		 */
+		/**
+		 * Emit a short plain-text status token for the guest-order lookup AJAX call
+		 * and stop execution.
+		 *
+		 * Uses an explicit 200 status because wp_die() defaults to HTTP 500 for
+		 * non-Ajax requests, which makes jQuery treat the (otherwise successful)
+		 * response as an error and skip the success callback. A plain body also
+		 * keeps the client-side anchored regexes (e.g. /^ratelimit:/) working.
+		 *
+		 * @param string $token Status token consumed by the front-end handler.
+		 */
+		private function guest_order_reply( $token ) {
+			if ( ! headers_sent() ) {
+				nocache_headers();
+				status_header( 200 );
+				header( 'Content-Type: text/plain; charset=utf-8' );
+			}
+			die( $token );
+		}
+
 		function wpdmpp_process_guest_order() {
 
 			if ( wpdm_query_var( 'exitgo', 'int' ) ) {
 				Session::clear( 'guest_order' );
-				$return = isset( $_SERVER['HTTP_REFERER'] ) ? $_SERVER['HTTP_REFERER'] : home_url( '/' );
-				wp_redirect( $return );
-				die( 'ok' );
+				$return = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( $_SERVER['HTTP_REFERER'] ) : home_url( '/' );
+				wp_safe_redirect( $return );
+				exit;
 			}
 
 			if ( isset( $_POST['__wpdmpp_go'] ) ) {
 
 				check_ajax_referer( NONCE_KEY, '__wpdmpp_go_nonce' );
 
-				//if( ! Session::get('guest_order_init') ) { Session::set('guest_order_init', uniqid(), 18000); die('nosess'); }
+				// Rate limiting: 5 attempts per 15 minutes per IP
+				$rate_limit = \WPDMPP\Security\RateLimiter::check( 'guest_order_lookup', 5, 900 );
+				if ( $rate_limit['limited'] ) {
+					$this->guest_order_reply( 'ratelimit:' . (int) $rate_limit['retry_after'] );
+				}
 
 				$orderid    = sanitize_text_field( $_POST['__wpdmpp_go']['order'] );
 				$orderemail = sanitize_email( $_POST['__wpdmpp_go']['email'] );
 
-				$o     = new Order();
-				$order = $o->getOrder( $orderid );
+				$order = OrderService::instance()->getOrder( $orderid );
 
 				// No match for order id
-				if ( ! is_object( $order ) || ! isset( $order->order_id ) || $order->order_id != $orderid ) {
-					die( 'noordr' );
+				if ( ! is_object( $order ) || $order->getOrderId() != $orderid ) {
+					$this->guest_order_reply( 'noordr' );
 				}
 
 				// Found a match for order id
-				$billing_info  = unserialize( $order->billing_info );
+				$billing_info  = $order->getBillingInfo();
 				$billing_email = isset( $billing_info['order_email'] ) ? $billing_info['order_email'] : '';
 
-				if ( is_email( $orderemail ) && $orderemail == $billing_email && $order->uid <= 0 ) {
+				if ( is_email( $orderemail ) && $orderemail == $billing_email && $order->getUserId() <= 0 ) {
+					// Clear rate limit on successful lookup
+					\WPDMPP\Security\RateLimiter::clear( 'guest_order_lookup' );
 					Session::set( 'guest_order', $orderid, 18000 );
 					Session::set( 'order_email', $billing_email, 18000 );
-					die( 'success' );
+					$this->guest_order_reply( 'success' );
 				}
 
 				// Order assigned to registered user, so no guest access, please login to access order
-				if ( $order->uid > 0 ) {
-					die( 'nogues' );
+				if ( $order->getUserId() > 0 ) {
+					$this->guest_order_reply( 'nogues' );
 				}
 
-				die( 'noordr' );
+				$this->guest_order_reply( 'noordr' );
 			}
 
 		}
 
 
-		/**
-		 * Save admin settings options
-		 */
-		function saveSettings() {
-			if ( wp_verify_nonce( wpdm_query_var( '__wpdms_nonce' ), WPDMSET_NONCE_KEY ) && current_user_can( WPDMPP_ADMIN_CAP ) ) {
-				$settings = $_POST['_wpdmpp_settings'];
-				$settings = wpdm_sanitize_array( $settings );
-				$settings = apply_filters( "wpdmpp_before_save_settings", $settings );
-				update_option( '_wpdmpp_settings', $settings );
-				do_action( "wpdmpp_after_save_settings" );
-				wp_send_json(['success' => true, 'msg' => __( 'Settings Saved Successfully', "wpdm-premium-packages" ), 'settings' => $settings ]);
-			}
-		}
+		// =========================================================================
+		// SETTINGS SAVE FUNCTION MOVED TO NEW ARCHITECTURE
+		// =========================================================================
+		// The saveSettings() function has been moved to:
+		// \WPDMPP\Admin\Settings\SettingsService::ajaxSaveSettings()
+		//
+		// @since 7.0.0
+		// @deprecated Use SettingsService::ajaxSaveSettings() instead
+		// =========================================================================
 
 
 		static function authorize_masterkey() {
@@ -707,31 +627,32 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				$current_user = wp_get_current_user();
 				$settings     = get_option( '_wpdmpp_settings' );
 
-				$order = new Order();
-				$odata = $order->getOrder( $OID );
-				$items = array_keys( unserialize( $odata->cart_data ) );
+				$odata = OrderService::instance()->getOrder( $OID );
+				$items = array_keys( $odata->getCartData() );
 				if ( $domain !== '' && $domain === wpdm_query_var( 'domain' ) ) {
 
-					if ( ! user_can( $odata->uid, 'manage_options' ) ) {
-						$current_user = get_user_by( 'id', $odata->uid );
-						wp_set_current_user( $odata->uid );
-						wp_set_auth_cookie( $odata->uid );
+					if ( ! user_can( $odata->getUserId(), 'manage_options' ) ) {
+						$current_user = get_user_by( 'id', $odata->getUserId() );
+						wp_set_current_user( $odata->getUserId() );
+						wp_set_auth_cookie( $odata->getUserId() );
 					}
 					if ( ! is_user_logged_in() ) {
-						$odata->uid = 0;
+						// Note: Cannot modify entity property directly; treat uid as 0 for logic below
+						$odata_uid_override = 0;
 					}
 					$settings['guest_download'] = 1;
 					Session::set( 'guest_order', $OID, 18000 );
 
 				}
 
+				$odata_uid = isset( $odata_uid_override ) ? $odata_uid_override : $odata->getUserId();
 
-				$expire_date = $odata->expire_date > 0 ? $odata->expire_date : ( $odata->date + ( get_wpdmpp_option( 'order_validity_period', 365 ) * 86400 ) );
+				$expire_date = $odata->getExpireDate() > 0 ? $odata->getExpireDate() : ( $odata->getDate() + ( get_wpdmpp_option( 'order_validity_period', 365 ) * 86400 ) );
 
-				if ( $odata->uid != $current_user->ID && ! Session::get( 'guest_order' ) ) {
+				if ( $odata_uid != $current_user->ID && ! Session::get( 'guest_order' ) ) {
 					Messages::error( __( "Invalid Access!", "wpdm-premium-packages" ), 1 );
 				}
-				if ( $odata->order_status === 'Expired' || time() > $expire_date ) {
+				if ( $odata->getOrderStatus() === 'Expired' || time() > $expire_date ) {
 					Messages::error( __( "Sorry! Support and Update Access Period is Already Expired", "wpdm-premium-packages" ), 1 );
 				}
 
@@ -741,7 +662,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				$package['files'] = WPDM()->package->getFiles( $PID, true );
 
 				//wpdmdd($package);
-				$cart = maybe_unserialize( $odata->cart_data );
+				$cart = $odata->getCartData();
 
 				$cfiles = array();
 
@@ -780,15 +701,14 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 
 				//Member's Download
-				if ( @in_array( $PID, $items ) && $OID != '' && is_user_logged_in() && $current_user->ID == $odata->uid && $odata->order_status == 'Completed' ) {
+				if ( @in_array( $PID, $items ) && $OID != '' && is_user_logged_in() && $current_user->ID == $odata->getUserId() && $odata->getOrderStatus() == 'Completed' ) {
 					//for premium item
 
-					$order = new Order();
-					$order->update( array( 'download' => 1 ), $OID );
+					OrderService::instance()->updateOrder( array( 'download' => 1 ), $OID );
 
 					if ( count( $cfiles ) > 0 && ! isset( $cfiles[ wpdm_query_var( 'ind' ) ] ) ) {
 						if ( count( $cfiles ) > 1 ) {
-							$zipped = \WPDM\__\FileSystem::zipFiles( $cfiles, $package['post_title'] . " " . $odata->order_id );
+							$zipped = \WPDM\__\FileSystem::zipFiles( $cfiles, $package['post_title'] . " " . $odata->getOrderId() );
 							\WPDM\__\FileSystem::downloadFile( $zipped, basename( $zipped ) );
 						} else {
 							$file = array_shift( $cfiles );
@@ -798,7 +718,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 							\WPDM\__\FileSystem::downloadFile( $file, basename( $file ) );
 						}
 
-						die();
+						exit;
 					} else {
 						Session::set( '__wpdmpp_authorized_download', 1 );
 						$package['access'] = array( 'guest' );
@@ -809,14 +729,13 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				//Guest's Download
 				if ( @in_array( $PID, $items )
 				     && $OID != ''
-				     && $odata->uid == 0
-				     && $odata->order_status == 'Completed'
+				     && $odata_uid == 0
+				     && $odata->getOrderStatus() == 'Completed'
 				     && isset( $settings['guest_download'] )
 				     && Session::get( 'guest_order' ) === $OID ) {
 					Session::set( '__wpdmpp_authorized_download', 1 );
 					$package['access'] = array( 'guest' );
-					$order             = new Order();
-					$order->Update( array( 'download' => 1 ), $OID );
+					OrderService::instance()->updateOrder( array( 'download' => 1 ), $OID );
 					include( WPDM_SRC_DIR . "wpdm-start-download.php" );
 
 				}
@@ -835,12 +754,12 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 					$file_path = wpdm_valueof( $files, $file );
 					if ( $file_path !== '' ) {
 						WPDM()->fileSystem->downloadFile( $file_path, basename( $file_path ), 10240, 0 );
-						die();
+						exit;
 					} else {
-						die( 'Access Denied!' );
+						wp_die( esc_html__( 'Access Denied!', 'wpdm-premium-packages' ), esc_html__( 'Error', 'wpdm-premium-packages' ), array( 'response' => 403 ) );
 					}
 				} else {
-					die( 'Invalid Token!' );
+					wp_die( esc_html__( 'Invalid Token!', 'wpdm-premium-packages' ), esc_html__( 'Error', 'wpdm-premium-packages' ), array( 'response' => 401 ) );
 				}
 			}
 
@@ -854,22 +773,21 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 			//If session already contains an order ID
 			if ( Session::get( 'orderid' ) ) {
-				$order      = new Order();
-				$order_info = $order->getOrder( Session::get( 'orderid' ) );
+				$order_info = OrderService::instance()->getOrder( Session::get( 'orderid' ) );
 				// Check it the order ID in session is valid
-				if ( is_object( $order_info ) && $order_info->order_id ) {
+				if ( is_object( $order_info ) && $order_info->getOrderId() ) {
 					// Check if the order is not completed yet
-					if ( $order_info->order_status !== 'Completed' ) {
+					if ( $order_info->getOrderStatus() !== 'Completed' ) {
 						$items = WPDMPP()->cart->getItems();
 						$data  = array(
 							'cart_data' => serialize( $items ),
 							'items'     => serialize( array_keys( $items ) )
 						);
-						$order->reCalculate( $order_info->order_id );
-						$order->updateOrderItems( $items, $order_info->order_id );
-						$order->Update( $data, $order_info->order_id );
+						WPDMPP()->order->reCalculate( $order_info->getOrderId() );
+						OrderService::instance()->saveOrderItems( $items, $order_info->getOrderId() );
+						OrderService::instance()->updateOrder( $data, $order_info->getOrderId() );
 						//Set the incomplete order ID as the current order ID
-						$order_id = $order_info->order_id;
+						$order_id = $order_info->getOrderId();
 					} else {
 						// The order is already completed, so clear the session and create a new order
 						Session::clear( 'orderid' );
@@ -891,50 +809,6 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		/**
 		 *  Set payment method for order
 		 */
-		function set_payment_method() {
-			$current_user = wp_get_current_user();
-            if(wpdm_query_var('wpdm_client') !== '')
-                Session::deviceID(wpdm_query_var('wpdm_client'));
-            //wpdmdd(WPDMPP()->cart->getItems());
-			if ( wpdm_query_var( 'method', 'txt' ) != '' ) {
-				//$order = new Order($_SESSION['orderid']);
-				//$order->set('payment_method', wpdm_query_var('method', 'txt'));
-				//$order->save();
-				Session::set( 'payment_method', wpdm_query_var( 'method', 'txt' ) );
-				$payment = new Payment();
-				$payment->initiateProcessor( wpdm_query_var( 'method', 'txt' ) );
-
-				ob_start();
-				$billing_required = isset( $payment->Processor->billing ) ? (int) $payment->Processor->billing : 0;
-				$billing          = array();
-				if ( is_user_logged_in() ) {
-					$billing = BillingInfo::get( get_current_user_id() );
-				}
-				// If you payment menthod requires to fill a custom form during checkout
-				if ( method_exists( $payment->Processor, "checkoutForm" ) ) {
-					echo $payment->Processor->checkoutForm();
-				} else {
-					if ( get_wpdmpp_option( 'billing_address' ) == 1 || wpdmpp_tax_active() || $billing_required ) {
-						// Ask Billing Address When Checkout
-						include \WPDM\__\Template::locate( 'checkout-cart/checkout-billing-info.php', dirname( __FILE__ ) . '/templates' . WPDM()->bsversion . "/", WPDMPP_TPL_FALLBACK );
-					} else {
-						// Ask only Name and Email When Checkout
-						include \WPDM\__\Template::locate( 'checkout-cart/checkout-name-email.php', dirname( __FILE__ ) . '/templates' . WPDM()->bsversion . "/", WPDMPP_TPL_FALLBACK );
-					}
-				}
-				$billing_form = ob_get_clean();
-
-				if ( method_exists( $payment->Processor, 'customPayButton' ) ) {
-					$cb = $payment->Processor->customPayButton();
-					if ( $cb != '' ) {
-						wp_send_json( array( 'button' => 'custom', 'html' => $cb, 'billing_form' => $billing_form ) );
-					}
-				}
-				wp_send_json( array( 'button' => 'default', 'html' => '', 'billing_form' => $billing_form ) );
-			}
-		}
-
-
 		/**
 		 * Saving payment method info from checkout process
 		 */
@@ -942,18 +816,17 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			if ( isset( $_REQUEST['task'] ) && $_REQUEST['task'] == "paynow" ) {
 
 				if ( wpdmpp_is_cart_empty() ) {
-					die( '<div class="alert alert-danger" data-title="ERROR!">' . __( 'Cart is Empty!', 'wpdmp-premium-package' ) . '</div>' );
+					wp_die( '<div class="alert alert-danger" data-title="ERROR!">' . esc_html__( 'Cart is Empty!', 'wpdm-premium-packages' ) . '</div>' );
 				}
 				if ( ! is_user_logged_in() && ( ! isset( $_POST['billing']['order_email'] ) || ! is_email( $_POST['billing']['order_email'] ) ) ) {
-					die( '<div class="alert alert-danger" data-title="ERROR!">' . __( 'Please enter order confirmation email!', 'wpdmp-premium-package' ) . '</div>' );
+					wp_die( '<div class="alert alert-danger" data-title="ERROR!">' . esc_html__( 'Please enter order confirmation email!', 'wpdm-premium-packages' ) . '</div>' );
 				}
 
 				$current_user = wp_get_current_user();
 
 				$order_id = $this->create_order();
 
-				$order = new Order();
-				$order->update( [ 'payment_method' => wpdm_query_var( 'payment_method', 'txt' ) ], $order_id );
+				OrderService::instance()->updateOrder( [ 'payment_method' => wpdm_query_var( 'payment_method', 'txt' ) ], $order_id );
 
 				//Update users billing info
 				if ( is_user_logged_in() ) {
@@ -967,7 +840,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 					}
 				}
 				$this->place_order( $order_id );
-				die();
+				wp_die();
 			}
 		}
 
@@ -978,44 +851,40 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		function place_order( $order_id ) {
 			//if(floatval(wpdmpp_get_cart_total()) <= 0 ) return;
 			global $wpdb;
-			$order       = new Order();
-			$order       = $order->getOrder( $order_id );
-			$order_total = $order->total;
-			$tax         = $order->tax;
+			$order       = OrderService::instance()->getOrder( $order_id );
+			$order_total = $order->getTotal();
+			$tax         = $order->getTax();
 
-			$items = maybe_unserialize( $order->cart_data );
+			$items = $order->getCartData();
 			//$cart_data = wpdmpp_get_cart_data();
 
 			if ( ! is_array( $items ) || count( $items ) == 0 ) {
 				Messages::Error( __( "Cart is Empty!", "wpdm-premium-packages" ), 0 );
-				die();
+				wp_die();
 			}
 
-			$order_title = $order->title;
+			$order_title = $order->getTitle();
 
 			do_action( "wpdm_before_placing_order", $order_id );
 
 			// If order total is not 0 then go to payment gateway
 			if ( $order_total > 0 ) {
 
-				$payment = new Payment();
-				$payment->initiateProcessor( wpdm_query_var( 'payment_method', 'txt' ) );
-				$payment->Processor->OrderTitle = $order_title;
-				$payment->Processor->InvoiceNo  = $order_id;
-				$payment->Processor->Custom     = $order_id;
-				$payment->Processor->Amount     = number_format( $order_total, 2, ".", "" );
+				$result = PaymentService::instance()->processPayment( strtolower( wpdm_query_var( 'payment_method', 'txt' ) ), [
+					'order_id'    => $order_id,
+					'order_title' => $order_title,
+					'amount'      => number_format( $order_total, 2, ".", "" ),
+				]);
 
-				echo $payment->Processor->showPaymentForm( 1 );
-
-				if ( ! isset( $payment->Processor->EmptyCartOnPlaceOrder ) || $payment->Processor->EmptyCartOnPlaceOrder == true ) {
-					wpdmpp_empty_cart();
+				if ( ! empty( $result['redirect'] ) ) {
+					wpdmpp_js_redirect( $result['redirect'] );
 				}
 
-				die();
+				wp_die();
 
 			} else {
 				// if order total is 0 then empty cart and redirect to home
-				Order::complete_order( $order_id );
+				OrderService::instance()->completeOrder( $order_id );
 				wpdmpp_empty_cart();
 				wpdmpp_js_redirect( wpdmpp_orders_page( 'id=' . $order_id ) );
 			}
@@ -1025,13 +894,13 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			if ( ! is_user_logged_in() ) {
 				return;
 			}
-			$order = new Order( wpdm_query_var( 'clone_order', 'txt' ) );
-			if ( ! $order->order_id || (int) $order->uid !== get_current_user_id() ) {
+			$order = OrderService::instance()->getOrder( wpdm_query_var( 'clone_order', 'txt' ) );
+			if ( ! $order || ! $order->getOrderId() || (int) $order->getUserId() !== get_current_user_id() ) {
 				return;
 			}
 			WPDMPP()->cart->clear();
-			//wpdmdd($order->cart_data);
-			foreach ( $order->cart_data as $pid => $item ) {
+			//wpdmdd($order->getCartData());
+			foreach ( $order->getCartData() as $pid => $item ) {
 				WPDMPP()->cart->addItem( $pid, wpdm_valueof( $item, 'license/id' ) );
 			}
 			wpdmpp_redirect( wpdmpp_cart_url() );
@@ -1053,19 +922,15 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function payment_notification() {
 			if ( isset( $_REQUEST['action'] ) && $_REQUEST['action'] == "wpdmpp-payment-notification" ) {
-
-				$payment_gateway_class = 'WPDMPP\Libs\PaymentMethods\\' . sanitize_text_field( $_REQUEST['class'] );
-				$payment_method        = new $payment_gateway_class();
-
-				//$payment_method = new $_REQUEST['class']();
-
-				if ( $payment_method->verifyNotification() ) {
-					do_action( "wpdmpp_payment_completed", $payment_method->InvoiceNo );
-					Order::complete_order( $payment_method->InvoiceNo, true, $payment_method );
-					do_action( "wpdm_after_checkout", $payment_method->InvoiceNo );
-					die( 'OK' );
+				$className = sanitize_text_field( $_REQUEST['class'] );
+				$gateway = PaymentService::instance()->getGateway( strtolower( $className ) );
+				if ( $gateway && method_exists( $gateway, 'handleWebhook' ) ) {
+					$result = $gateway->handleWebhook();
+					if ( ! empty( $result['success'] ) ) {
+						wp_die( 'OK' );
+					}
 				}
-				die( "FAILED" );
+				wp_die( 'FAILED' );
 			}
 		}
 
@@ -1074,10 +939,11 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function comeplete_buynow_action() {
 			if ( wpdm_query_var( 'action', 'txt' ) === "wpdmpp-complete-buynow" ) {
-
-				$payment_gateway_class = 'WPDMPP\Libs\PaymentMethods\\' . sanitize_text_field( $_REQUEST['class'] );
-				$payment_method        = new $payment_gateway_class();
-				$payment_method->completeBuyNow();
+				$className = sanitize_text_field( $_REQUEST['class'] );
+				$gateway = PaymentService::instance()->getGateway( strtolower( $className ) );
+				if ( $gateway && method_exists( $gateway, 'completeBuyNow' ) ) {
+					$gateway->completeBuyNow();
+				}
 			}
 		}
 
@@ -1085,11 +951,11 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			global $wpdmpp;
 			$wpdmpp->add_to_cart( $product_id );
 			$wpdmpp->create_order();
-			$order = new Order( Session::get( 'orderid' ) );
+			$order = OrderService::instance()->getOrder( Session::get( 'orderid' ) );
 
 			wpdmpp_calculate_discount();
-			$order->updateOrderItems( wpdmpp_get_cart_data(), Session::get( 'orderid' ) );
-			$order_total = $order->calcOrderTotal( Session::get( 'orderid' ) );
+			OrderService::instance()->saveOrderItems( wpdmpp_get_cart_data(), Session::get( 'orderid' ) );
+			$order_total = WPDMPP()->order->calcOrderTotal( Session::get( 'orderid' ) );
 
 			$tax = 0;
 
@@ -1113,7 +979,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 			$o->newOrder( wpdm_query_var( 'oid' ), 'Custom Order', $items, $total, 0, 'Completed', 'Completed', serialize( $cart_data ) );
 
-			Order::updateOrderItems( $cart_data, wpdm_query_var( 'oid' ) );
+			OrderService::instance()->saveOrderItems( $cart_data, wpdm_query_var( 'oid' ) );
 
 			$subtotal = wpdmpp_get_cart_subtotal();
 			if ( wpdmpp_tax_active() && Session::get( 'tax' ) ) {
@@ -1126,18 +992,20 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			$grand_total = $order_total - (double) wpdm_valueof( $coupon, 'discount', 0 );
 
 			$grand_total = wpdmpp_price_format( $grand_total, false, false );
-			if ( is_user_logged_in() && $order->uid == 0 ) {
-				$order->set( 'uid', get_current_user_id() );
+			$update_data = array(
+				'subtotal'        => $subtotal,
+				'cart_discount'   => 0,
+				'payment_method'  => 'PayPal',
+				'coupon_discount' => $coupon['discount'],
+				'coupon_code'     => $coupon['code'],
+				'tax'             => $tax,
+				'order_notes'     => '',
+				'total'           => $grand_total,
+			);
+			if ( is_user_logged_in() && $order->getUserId() == 0 ) {
+				$update_data['uid'] = get_current_user_id();
 			}
-			$order->set( 'subtotal', $subtotal );
-			$order->set( 'cart_discount', 0 );
-			$order->set( 'payment_method', 'Paypal' );
-			$order->set( 'coupon_discount', $coupon['discount'] );
-			$order->set( 'coupon_code', $coupon['code'] );
-			$order->set( 'tax', $tax );
-			$order->set( 'order_notes', '' );
-			$order->set( 'total', $grand_total );
-			$order->save();
+			OrderService::instance()->updateOrder( $update_data, Session::get( 'orderid' ) );
 
 		}
 
@@ -1161,38 +1029,10 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				);
 
 				wp_send_json( array( 'success' => 1 ) );
-				die();
 
 			}
 		}
 
-
-		/**
-		 * Payment using ajax
-		 */
-		function wpdmpp_ajax_payfront() {
-			if ( isset( $_POST['task'], $_POST['action'] ) && $_POST['task'] == "paymentfront" && $_POST['action'] == "wpdmpp_async_request" ) {
-				$data['order_id']       = sanitize_text_field( $_POST['order_id'] );
-				$data['payment_method'] = sanitize_text_field( $_POST['payment_method'] );
-				wpdmpp_pay_now( $data );
-				die();
-			}
-		}
-
-		/**
-		 * Dynamic function call using AJAX
-		 */
-		function wpdmpp_async_request() {
-
-			$CustomActions = new \WPDMPP\Libs\CustomActions();
-			if ( method_exists( $CustomActions, $_POST['execute'] ) ) {
-				$method = sanitize_text_field( $_POST['execute'] );
-				echo $CustomActions->$method();
-				die();
-			} else {
-				die( "Function doesn't exist" );
-			}
-		}
 
 		/**
 		 * Load Scripts and Styles
@@ -1204,10 +1044,16 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			$settings  = get_option( '_wpdmpp_settings' );
 			$cart_page = isset( $settings['page_id'] ) ? $settings['page_id'] : 0;
 
-			wp_enqueue_script( 'wpdm-pp-js', WPDMPP_BASE_URL . 'assets/js/wpdmpp-front.js', array(
+			$wpdmpp_js_suffix = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
+			wp_enqueue_script( 'wpdm-pp-js', WPDMPP_BASE_URL . "assets/js/wpdmpp-front{$wpdmpp_js_suffix}.js", array(
 				'jquery',
 				'jquery-form'
-			) );
+			), WPDMPP_VERSION );
+			wp_localize_script( 'wpdm-pp-js', 'wpdmppIcons', \WPDMPP\UI\Icons::toJson( 16 ) );
+			wp_localize_script( 'wpdm-pp-js', 'wpdmppApi', [
+				'root'  => esc_url_raw( rest_url( 'wpdmpp/v1/' ) ),
+				'nonce' => wp_create_nonce( 'wp_rest' ),
+			] );
 			if ( ! isset( $settings['disable_fron_end_css'] ) || (int) $settings['disable_fron_end_css'] === 0 ) {
 				wp_enqueue_style( 'wpdmpp-front', WPDMPP_BASE_URL . 'assets/css/wpdmpp.css', 999999 );
 			}
@@ -1234,6 +1080,11 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 				wp_enqueue_style( 'wpdmpp-admin', WPDMPP_BASE_URL . 'assets/css/wpdmpp-admin.min.css' );
 				wp_enqueue_script( 'wpdmpp-admin-js', WPDMPP_BASE_URL . 'assets/js/wpdmpp-admin.js', array( 'jquery' ) );
+				wp_localize_script( 'wpdmpp-admin-js', 'wpdmppIcons', \WPDMPP\UI\Icons::toJson( 16 ) );
+				wp_localize_script( 'wpdmpp-admin-js', 'wpdmppApi', [
+					'root'  => esc_url_raw( rest_url( 'wpdmpp/v1/' ) ),
+					'nonce' => wp_create_nonce( 'wp_rest' ),
+				] );
 
 				// Load Download Manager Scripts
 				//wp_enqueue_style('wpdm-admin-bootstrap', WPDM_BASE_URL . 'assets/bootstrap3/css/bootstrap.css');
@@ -1275,8 +1126,14 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			if ( ! is_user_logged_in() && ! $uid ) {
 				return false;
 			}
-			$uid     = $uid ? $uid : $current_user->ID;
-			$orderid = $wpdb->get_var( "select o.order_id from {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi  where uid='{$uid}' and o.order_id = oi.oid and oi.pid = {$pid} and order_status='Completed'" );
+			$uid     = $uid ? (int) $uid : (int) $current_user->ID;
+			$pid     = (int) $pid;
+			$orderid = $wpdb->get_var( $wpdb->prepare(
+				"SELECT o.order_id FROM {$wpdb->prefix}ahm_orders o
+				 INNER JOIN {$wpdb->prefix}ahm_order_items oi ON o.order_id = oi.oid
+				 WHERE o.uid = %d AND oi.pid = %d AND o.order_status = 'Completed'",
+				$uid, $pid
+			) );
 
 			return $orderid;
 		}
@@ -1378,9 +1235,9 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 					$zipped = \WPDM\__\FileSystem::zipFiles( $freefiles, get_the_title( $id ) );
 					\WPDM\__\FileSystem::downloadFile( $zipped, basename( $zipped ) );
 				} else {
-					header( "location: " . array_pop( $freefiles ) );
+					wp_redirect( array_pop( $freefiles ) );
 				}
-				die();
+				exit;
 			}
 		}
 
@@ -1590,10 +1447,9 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function wpdmpp_associate_invoice( $user_login, $user ) {
 			if ( isset( $_POST['invoice'] ) ) {
-				$order     = new Order();
-				$orderdata = $order->getOrder( sanitize_text_field( $_POST['invoice'] ) );
-				if ( $orderdata && intval( $orderdata->uid ) == 0 ) {
-					Order::Update( array( 'uid' => $user->ID ), sanitize_text_field( $_POST['invoice'] ) );
+				$orderdata = OrderService::instance()->getOrder( sanitize_text_field( $_POST['invoice'] ) );
+				if ( $orderdata && intval( $orderdata->getUserId() ) == 0 ) {
+					OrderService::instance()->updateOrder( array( 'uid' => $user->ID ), sanitize_text_field( $_POST['invoice'] ) );
 					do_action("wpdm_associate_invoice", $user->ID, $orderdata);
 				}
 			}
@@ -1606,11 +1462,10 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function wpdmpp_associate_invoice_signup( $user_id ) {
 			if ( isset( $_POST['invoice'] ) ) {
-				$order     = new Order();
-				$orderdata = $order->getOrder( sanitize_text_field( $_POST['invoice'] ) );
-				if ( $orderdata && intval( $orderdata->uid ) == 0 ) {
-					Order::Update( array( 'uid' => $user_id ), sanitize_text_field( $_POST['invoice'] ) );
-					User::addCustomer( $user_id );
+				$orderdata = OrderService::instance()->getOrder( sanitize_text_field( $_POST['invoice'] ) );
+				if ( $orderdata && intval( $orderdata->getUserId() ) == 0 ) {
+					OrderService::instance()->updateOrder( array( 'uid' => $user_id ), sanitize_text_field( $_POST['invoice'] ) );
+					\WPDMPP\Customer\CustomerService::getInstance()->addCustomer( $user_id );
 					do_action("wpdm_associate_invoice", $user_id, $orderdata);
 				}
 			}
@@ -1621,21 +1476,20 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function wpdmpp_resolveorder() {
 			$current_user = wp_get_current_user();
-			$order        = new Order();
-			$data         = $order->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
+			$data         = OrderService::instance()->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
 			if ( ! $data ) {
-				die( "Order not found!" );
+				wp_send_json_error( array( 'message' => __( 'Order not found!', 'wpdm-premium-packages' ) ) );
 			}
-			if ( $data->uid != 0 ) {
-				if ( $data->uid == $current_user->ID ) {
-					die( "The order is already linked to your account!" );
+			if ( $data->getUserId() != 0 ) {
+				if ( $data->getUserId() == $current_user->ID ) {
+					wp_send_json_error( array( 'message' => __( 'The order is already linked to your account!', 'wpdm-premium-packages' ) ) );
 				} else {
-					die( "The order is already linked to an account!" );
+					wp_send_json_error( array( 'message' => __( 'The order is already linked to an account!', 'wpdm-premium-packages' ) ) );
 				}
 			}
-			Order::Update( array( 'uid' => $current_user->ID ), $data->order_id );
-			User::addCustomer();
-			die( "ok" );
+			OrderService::instance()->updateOrder( array( 'uid' => $current_user->ID ), $data->getOrderId() );
+			\WPDMPP\Customer\CustomerService::getInstance()->addCustomer( $current_user->ID );
+			wp_send_json_success( array( 'message' => __( 'Order linked successfully!', 'wpdm-premium-packages' ) ) );
 		}
 
 		/**
@@ -1665,73 +1519,56 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 		function toggleAutoRenew() {
 			if ( isset( $_REQUEST['__arnonce'] ) && wp_verify_nonce( $_REQUEST['__arnonce'], NONCE_KEY ) ) {
-				$order = new Order( sanitize_text_field( $_REQUEST['orderid'] ) );
-				$renew = (int)$order->auto_renew === 1 ? 0 : 1;
-				$order->set( 'auto_renew', $renew );
-				$order->save();
+				$order = OrderService::instance()->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
+				$renew = (int)$order->hasAutoRenew() === 1 ? 0 : 1;
+				OrderService::instance()->updateOrder( array( 'auto_renew' => $renew ), $order->getOrderId() );
 				$dt = array( 'renew' => $renew );
-				$pm = "\WPDMPP\Libs\PaymentMethods\\" . $order->payment_method;
-				if ( class_exists( $pm ) && $renew == 0 ) {
-					$pm                   = new $pm();
-					$dt['payment_method'] = $order->payment_method;
-					if ( method_exists( $pm, 'cancelSubscription' ) ) {
-						$pm->cancelSubscription( $order->order_id );
+				if ( $renew == 0 ) {
+					$dt['payment_method'] = $order->getPaymentMethod();
+					if ( PaymentService::instance()->cancelSubscription( $order->getOrderId() ) ) {
 						$dt['canceled'] = 1;
 					}
-
 				}
-				header( "Content-type: application/json" );
-				echo json_encode( $dt );
+				wp_send_json( $dt );
 			} else {
-				echo json_encode( array( 'error' => 'Session Expired!' ) );
+				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
 			}
-			die();
 		}
 
 		function toggleManualRenew() {
 			if ( isset( $_REQUEST['__mrnonce'] ) && wp_verify_nonce( $_REQUEST['__mrnonce'], NONCE_KEY ) ) {
 				$orderID = sanitize_text_field( $_REQUEST['orderid'] );
-				$mrenew  = (int) Order::getMeta( $orderID, 'manual_renew' );
+				$mrenew  = (int) OrderService::instance()->getMeta( $orderID, 'manual_renew' );
 				$mrenew  = $mrenew ? 0 : 1;
-				Order::updateMeta( $orderID, 'manual_renew', $mrenew );
-				wp_send_json( [ 'success' => true, 'mrenew' => $mrenew ] );
+				OrderService::instance()->updateMeta( $orderID, 'manual_renew', $mrenew );
+				wp_send_json_success( array( 'mrenew' => $mrenew ) );
 			} else {
-				wp_send_json( [  'error' => 'Session Expired!' ] );
+				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
 			}
-			die();
 		}
 
 		function cancel_subscription() {
 			if ( isset( $_REQUEST['__cansub'] ) && wp_verify_nonce( $_REQUEST['__cansub'], NONCE_KEY ) ) {
-				$order = new Order( sanitize_text_field( $_REQUEST['orderid'] ) );
+				$order = OrderService::instance()->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
 				$renew = 0;
-				$order->set( 'auto_renew', $renew );
-				$order->save();
+				OrderService::instance()->updateOrder( array( 'auto_renew' => $renew ), $order->getOrderId() );
 				$dt = array( 'renew' => $renew );
-				$pm = "\WPDMPP\Libs\PaymentMethods\\" . $order->payment_method;
-				if ( class_exists( $pm ) ) {
-					$pm                   = new $pm();
-					$dt['payment_method'] = $order->payment_method;
-					if ( method_exists( $pm, 'cancelSubscription' ) ) {
-						$pm->cancelSubscription( $order->order_id );
-						$dt['canceled'] = 1;
-					}
-
+				$dt['payment_method'] = $order->getPaymentMethod();
+				if ( PaymentService::instance()->cancelSubscription( $order->getOrderId() ) ) {
+					$dt['canceled'] = 1;
 				}
-				$message = "Subscription Canceled For Order# {$order->oid}<br/><a style='background-color:#19B999;border:none;border-radius:3px;color:#ffffff !important;display:inline-block;font-size:14px;font-weight:bold;outline:none!important;padding:5px 15px;margin:10px auto;text-decoration:none;' href='" . admin_url( "/edit.php?post_type=wpdmpro&page=orders&task=vieworder&id={$order->oid}" ) . "'>View Order</a>";
+				$oid     = $order->getOrderId();
+				$message = "Subscription Canceled For Order# {$oid}<br/><a style='background-color:#19B999;border:none;border-radius:3px;color:#ffffff !important;display:inline-block;font-size:14px;font-weight:bold;outline:none!important;padding:5px 15px;margin:10px auto;text-decoration:none;' href='" . admin_url( "/edit.php?post_type=wpdmpro&page=orders&task=vieworder&id={$oid}" ) . "'>View Order</a>";
 				$params  = array(
-					'subject'  => "Subscription Canceled: Order# {$order->oid}",
+					'subject'  => "Subscription Canceled: Order# {$oid}",
 					'to_email' => get_option( "admin_email" ),
 					'message'  => $message
 				);
 				\WPDM\__\Email::send( 'default', $params );
-				header( "Content-type: application/json" );
-				echo json_encode( $dt );
-				die();
+				wp_send_json( $dt );
 			} else {
-				echo json_encode( array( 'error' => 'Session Expired!' ) );
+				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
 			}
-			die();
 		}
 
 
@@ -1765,37 +1602,92 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 
 		function expire_orders() {
-			if ( current_user_can( WPDMPP_ADMIN_CAP ) ) {
-				$oids = $_REQUEST['oids'];
+			// Verify nonce
+			if ( ! wp_verify_nonce( wpdm_query_var( '__wpdmpp_expire_nonce' ), 'wpdmpp_expire_orders' ) ) {
+				wp_send_json_error( array( 'message' => 'Security check failed' ), 403 );
+			}
+
+			// Check capability
+			if ( ! current_user_can( WPDMPP_ADMIN_CAP ) ) {
+				wp_send_json_error( array( 'message' => 'Permission denied' ), 403 );
+			}
+
+			$oids = wpdm_query_var( 'oids' );
+			if ( is_array( $oids ) ) {
+				$oids = array_map( 'sanitize_text_field', $oids );
 				foreach ( $oids as $oid ) {
-					Order::expireOrder( $oid );
+					if ( ! empty( $oid ) ) {
+						OrderService::instance()->expireOrder( $oid );
+					}
 				}
 			}
-			die( 'Done!' );
+			wp_send_json_success( array( 'message' => 'Done!' ) );
 		}
 
 		function email_payment_link() {
-			$price       = __::query_var( 'price', 'double' );
-			$name        = __::query_var( 'name', 'txt' );
-			$desc        = __::query_var( 'desc', 'txt' );
-			$plink       = home_url( "/??addtocart=dynamic&price={$price}&name={$name}&desc={$desc}&recurring=0" );
-			$paymentinfo = "<small style='color: #aaaaaa'>" . __( 'Reason', WPDMPP_TEXT_DOMAIN ) . "</small><br/>{$name}<hr style='border-top:0;border-bottom: 1px solid #dddddd;box-shadow: none'/><small style='color: #aaaaaa'>" . __( 'Description', WPDMPP_TEXT_DOMAIN ) . "</small><br/>{$desc}<hr style='border-top:0;border-bottom: 1px solid #dddddd;box-shadow: none'/><small style='color: #aaaaaa'>" . __( 'Payment Amount', WPDMPP_TEXT_DOMAIN ) . "</small><h3 style='margin: 0'>" . wpdmpp_price_format( $price ) . "</h3>";
+			// Verify nonce
+			if ( ! wp_verify_nonce( wpdm_query_var( '__wpdmpp_payment_link_nonce' ), 'wpdmpp_email_payment_link' ) ) {
+				wp_send_json_error( array( 'message' => 'Security check failed' ), 403 );
+			}
+
+			// Check capability - only admins can send payment links
+			if ( ! current_user_can( WPDMPP_ADMIN_CAP ) ) {
+				wp_send_json_error( array( 'message' => 'Permission denied' ), 403 );
+			}
+
+			$price       = abs( __::query_var( 'price', 'double' ) );
+			$name        = sanitize_text_field( __::query_var( 'name', 'txt' ) );
+			$desc        = sanitize_textarea_field( __::query_var( 'desc', 'txt' ) );
+			$emails      = sanitize_email( __::query_var( 'emails', 'txt' ) );
+
+			// Validate email
+			if ( ! is_email( $emails ) ) {
+				wp_send_json_error( array( 'message' => 'Invalid email address' ), 400 );
+			}
+
+			// Validate price
+			if ( $price <= 0 ) {
+				wp_send_json_error( array( 'message' => 'Invalid price' ), 400 );
+			}
+
+			$plink       = home_url( "/?" ) . http_build_query( array(
+				'addtocart' => 'dynamic',
+				'price'     => $price,
+				'name'      => $name,
+				'desc'      => $desc,
+				'recurring' => 0
+			) );
+			$paymentinfo = "<small style='color: #aaaaaa'>" . esc_html__( 'Reason', WPDMPP_TEXT_DOMAIN ) . "</small><br/>" . esc_html( $name ) . "<hr style='border-top:0;border-bottom: 1px solid #dddddd;box-shadow: none'/><small style='color: #aaaaaa'>" . esc_html__( 'Description', WPDMPP_TEXT_DOMAIN ) . "</small><br/>" . esc_html( $desc ) . "<hr style='border-top:0;border-bottom: 1px solid #dddddd;box-shadow: none'/><small style='color: #aaaaaa'>" . esc_html__( 'Payment Amount', WPDMPP_TEXT_DOMAIN ) . "</small><h3 style='margin: 0'>" . esc_html( wpdmpp_price_format( $price ) ) . "</h3>";
 			$msg         = __MailUI::panel( __( 'Payment request', WPDMPP_TEXT_DOMAIN ), [ wpautop( __::query_var( 'msg', 'kses' ) ) ] ) . "<div style='height: 15px;display: block'></div>";
-			$msg         .= __MailUI::panel( __( 'Payment details', WPDMPP_TEXT_DOMAIN ), [ $paymentinfo ] ) . '<a class="button" style="display:block;text-align:center" href="' . $plink . '">' . __( 'Proceed to payment', WPDMPP_TEXT_DOMAIN ) . '</a>';
+			$msg         .= __MailUI::panel( __( 'Payment details', WPDMPP_TEXT_DOMAIN ), [ $paymentinfo ] ) . '<a class="button" style="display:block;text-align:center" href="' . esc_url( $plink ) . '">' . esc_html__( 'Proceed to payment', WPDMPP_TEXT_DOMAIN ) . '</a>';
 			$params      = [
-				'to_email' => __::query_var( 'emails', 'txt' ),
+				'to_email' => $emails,
 				'subject'  => sprintf( __( 'Payment request from %s', WPDMPP_TEXT_DOMAIN ), get_option( 'blogname' ) ),
 				'message'  => $msg
 			];
 			Email::send( "default", $params );
-			wp_send_json( [ 'success' => true ] );
+			wp_send_json_success( array( 'message' => 'Email sent successfully' ) );
 		}
 
 		function active_payment_gateways() {
 			global $payment_methods;
 			$settings        = maybe_unserialize( get_option( '_wpdmpp_settings' ) );
 			$payment_methods = apply_filters( 'payment_method', $payment_methods );
-			$payment_methods = isset( $settings['pmorders'] ) && count( $settings['pmorders'] ) == count( $payment_methods ) ? $settings['pmorders'] : $payment_methods;
+
+			if ( ! empty( $settings['pmorders'] ) && is_array( $settings['pmorders'] ) ) {
+				$sorted = [];
+				foreach ( $settings['pmorders'] as $pm ) {
+					if ( in_array( $pm, $payment_methods, true ) ) {
+						$sorted[] = $pm;
+					}
+				}
+				foreach ( $payment_methods as $pm ) {
+					if ( ! in_array( $pm, $sorted, true ) ) {
+						$sorted[] = $pm;
+					}
+				}
+				$payment_methods = $sorted;
+			}
 
 			return $payment_methods;
 		}

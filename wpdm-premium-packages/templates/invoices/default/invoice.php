@@ -19,23 +19,29 @@ if ( ! is_user_logged_in() && ! \WPDM\__\Session::get('guest_order') ) {
     $orderurl   = wpdm_user_dashboard_url().'?udb_page=purchases/order/' . $orderid;
 
     ?><div class="require-login">Please <a href="<?php echo wp_login_url( $orderurl ); ?>"><b>Login or Register</b></a> to access this page.</div><?php
-    die();
+    wp_die();
 } else {
 
     global $wpdb, $current_user;
     $settings           = get_option('_wpdmpp_settings');
     $_ohtml             = "";
     $oid = sanitize_text_field($_GET['id']);
-    $order              = new \WPDMPP\Libs\Order();
+    $orderService       = \WPDMPP\Order\OrderService::instance();
     $oid                = is_user_logged_in() ? $oid : \WPDM\__\Session::get('guest_order');
-    $order              = $order->GetOrder($oid);
-$order->currency    = maybe_unserialize($order->currency);
-$csign              = is_array($order->currency) && isset($order->currency['sign']) ? $order->currency['sign'] : '$';
+    $order              = $orderService->getOrder($oid);
+
+    if (!is_object($order)) {
+        ?><div class="w3eden"><div class="alert alert-danger" style="margin: 40px auto; max-width: 500px; text-align: center;"><?php _e('Order not found.', 'wpdm-premium-packages'); ?></div></div><?php
+        wp_die();
+    }
+
+$currency           = $order->getCurrency();
+$csign              = is_array($currency) && isset($currency['sign']) ? $currency['sign'] : '$';
 $csign_before       = wpdmpp_currency_sign_position() == 'before' ? $csign : '';
 $csign_after        = wpdmpp_currency_sign_position() == 'after' ? $csign : '';
 
 //echo '<pre>';print_r($order);echo '</pre>';die();
-$user_billing = maybe_unserialize(get_user_meta($order->uid, 'user_billing_shipping', true));
+$user_billing = maybe_unserialize(get_user_meta($order->getUserId(), 'user_billing_shipping', true));
 $user_billing = isset($user_billing['billing'])?$user_billing['billing']:array();
 $billing_defaults =  array
 (
@@ -54,12 +60,12 @@ $billing_defaults =  array
 'taxid'         => ''
 );
 
-if ( ( isset( $settings['billing_address'] ) && $settings['billing_address'] == 1 ) || $order->uid == 0){
+if ( ( isset( $settings['billing_address'] ) && $settings['billing_address'] == 1 ) || $order->getUserId() == 0){
 
 // Asked billing address in checkout, Here we use order specific billing info
 // Or guest order invoice. Billing info is linked to the order
 
-$billing_info_from_order    = unserialize($order->billing_info);
+$billing_info_from_order    = $order->getBillingInfo();
 $billing_defaults               = shortcode_atts($billing_defaults, $user_billing);
 $billing_info               = shortcode_atts($billing_defaults, $billing_info_from_order);
 }
@@ -95,10 +101,10 @@ $nettotal_label     = __('Total', 'wpdm-premium-packages');
 $total_label        = __('Total', 'wpdm-premium-packages');
 $vat_label          = __('Tax', 'wpdm-premium-packages');
 
-$ordertotal         = number_format($order->total, 2);
-$unit_prices        = unserialize($order->unit_prices);
-$cart_discount      = number_format($order->discount, 2);
-$tax                = number_format($order->tax, 2);
+$ordertotal         = number_format($order->getTotal(), 2);
+$unit_prices        = [];
+$cart_discount      = number_format($order->getTotalDiscount(), 2);
+$tax                = number_format($order->getTax(), 2);
 
 $item_table         = <<<OTH
     <table class="info table table-borderless mb-0 position-relative bg-white" style="z-index: 2;">
@@ -130,7 +136,7 @@ $item_table         = <<<OTH
     </tfoot-->
     <tbody class="table-striped">
     OTH;
-    $items = \WPDMPP\Libs\Order::GetOrderItems($order->order_id);
+    $items = $orderService->getOrderItemsAsArrays($order->getOrderId());
     $total = 0;
     foreach ($items as $item) {
 
@@ -222,25 +228,25 @@ CINF;
 	                        <?php } ?>
                             <img class="corners img-fluid" style="filter: grayscale(1);" src="<?= WPDMPP_BASE_URL ?>templates/invoices/default/assets/corners.png" alt="Shape">
                         </div>
-        
+
                         <div class="invoice-to p-4 text-white">
                             <h6 class="mt-2">Invoice To:</h6>
 	                        <?php echo $invoice['client_info']; ?>
                         </div>
                     </div>
-        
+
                     <div class="col-sm-4 ms-auto">
                         <div class="invoice-id my-4 px-4  position-relative">
                             <h1 class="mb-1 text-accent"><?php echo __('INVOICE', WPDMPP_TEXT_DOMAIN) ?></h1>
-                            <p>#<?= $order->order_id ?></p>
-                            <p><?php _e('Date', WPDMPP_TEXT_DOMAIN); ?>: <?php echo wp_date(get_option('date_format'),(isset($_GET['renew']) ? (int)$_GET['renew'] : $order->date)); ?></p>
+                            <p>#<?php echo esc_html($order->getOrderId()); ?></p>
+                            <p><?php _e('Date', WPDMPP_TEXT_DOMAIN); ?>: <?php echo wp_date(get_option('date_format'),(isset($_GET['renew']) ? (int)$_GET['renew'] : $order->getDate())); ?></p>
 	                        <?php /* if(isset($_GET['renew'])){ ?>
                                 <p><?php _e('Order Renewed On','wpdm-premium-packages'); ?>
 	                                <?php echo wp_date(get_option('date_format'),(int)$_GET['renew']); ?>
                                 </p>
 	                        <?php } */ ?>
                         </div>
-        
+
                         <div class="invoice-from pb-5">
                             <h6><?php _e('Invoice From', WPDMPP_TEXT_DOMAIN); ?>:</h6>
                             <h4 class="mb-1"><?php bloginfo('sitename'); ?></h4>
@@ -249,28 +255,28 @@ CINF;
                     </div>
                 </div>
             </div>
-            
+
             <div class="container-fluid px-0">
                 <div class="table-wrap px-4 position-relative table-responsive-md">
                     <?php echo $item_table; ?>
                 </div>
             </div>
-    
+
             <div class="container-fluid px-0">
                 <div class="row gx-0">
                     <div class="col-sm-4 p-4 d-flex content-bg text-white">
                         <div class="invoice-method align-self-end">
                             <h6 class=""><?php _e('Payment Method', WPDMPP_TEXT_DOMAIN); ?>:</h6>
-                            <p><?php echo str_replace("WPDM_", "", $order->payment_method); ?></p>
+                            <p><?php echo str_replace("WPDM_", "", $order->getPaymentMethod()); ?></p>
                         </div>
                     </div>
-    
+
                     <div class="col-sm-8 px-4 pb-4">
                         <div class="row">
                             <div class="col pt-5 text-center align-self-end">
                                 <?php if ($sign) { ?>
                                <div class="sign mx-auto">
-                                <img class="img-fluid" src="<?= $sign ?>"  alt="signiture">
+                                <img class="img-fluid" src="<?php echo esc_url($sign); ?>"  alt="signiture">
                                 <h6 class="text-center pt-3 mt-3 border-top mb-4"><?php _e('AUTHORIZED SIGN', WPDMPP_TEXT_DOMAIN); ?></h6>
                                </div>
                                 <?php } ?>
@@ -279,22 +285,22 @@ CINF;
                                 <table class="total table table-borderless">
                                     <tbody class="table-striped">
                                         <tr>
-                                            <th><?= $net_subtotal_label ?></th>
-                                            <td><?= wpdmpp_price_format($order->subtotal); ?></td>
+                                            <th><?php echo esc_html($net_subtotal_label); ?></th>
+                                            <td><?php echo esc_html(wpdmpp_price_format($order->getSubtotal())); ?></td>
                                         </tr>
                                         <tr>
-                                            <th><?= $discount_label ?></th>
-                                            <td class="pb-4">-<?= wpdmpp_price_format($order->coupon_discount); ?></td>
+                                            <th><?php echo esc_html($discount_label); ?></th>
+                                            <td class="pb-4">-<?php echo esc_html(wpdmpp_price_format($order->getCouponDiscount())); ?></td>
                                         </tr>
                                         <?php if($tax > 0) { ?>
                                         <tr>
-                                            <th><?= $vat_label ?></th>
-                                            <td><?= $tax ?></td>
+                                            <th><?php echo esc_html($vat_label); ?></th>
+                                            <td><?php echo esc_html($tax); ?></td>
                                         </tr>
                                         <?php } ?>
                                         <tr class="sidebar-bg text-white sidebar-bg">
-                                            <th><?= $nettotal_label ?></th>
-                                            <td><?= wpdmpp_price_format($order->total); ?></td>
+                                            <th><?php echo esc_html($nettotal_label); ?></th>
+                                            <td><?php echo esc_html(wpdmpp_price_format($order->getTotal())); ?></td>
                                         </tr>
                                     </tbody>
                                 </table>
