@@ -241,7 +241,8 @@ class LicenseService {
         return [
             'status' => License::VALID,
             'error' => null,
-            'expire_date' => $license->getExpireDate(),
+            'license' => $license,
+            'expire_date' => $order ? (($order instanceof \WPDMPP\Order\Order) ? (int) $order->getExpireDate() : (int) ($order->expire_date ?? 0)) : $license->getExpireDate(),
             'activation_date' => $license->getActivationDate(),
             'order_status' => $order ? (($order instanceof \WPDMPP\Order\Order) ? $order->getOrderStatus() : ($order->order_status ?? '')) : '',
             'order_id' => $license->getOrderId(),

@@ -443,6 +443,11 @@ class LicenseEndpoint {
             'status' => $result['status'],
             'valid' => true,
             'domain_registered' => $result['domain_registered'] ?? false,
+            'order_id' => $result['order_id'] ?? '',
+            'order_status' => $result['order_status'] ?? '',
+            'auto_renew' => (int) ($result['auto_renew'] ?? 0),
+            'expire_date' => (int) ($result['expire_date'] ?? 0),
+            'activation_date' => (int) ($result['activation_date'] ?? 0),
         ];
 
         if (!empty($result['download_url'])) {

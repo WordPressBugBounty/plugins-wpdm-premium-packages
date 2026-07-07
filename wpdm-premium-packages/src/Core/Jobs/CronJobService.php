@@ -213,6 +213,9 @@ class CronJobService
      */
     public function runRenewalNotifications(): void
     {
+        if (!class_exists('\WPDM\__\Jobs\Job')) {
+            return;
+        }
         $job = new OrderRenewalNotificationJob();
         $job->handle([]);
     }
@@ -222,6 +225,9 @@ class CronJobService
      */
     public function runIncompleteOrderCleanup(): void
     {
+        if (!class_exists('\WPDM\__\Jobs\Job')) {
+            return;
+        }
         $job = new IncompleteOrderCleanupJob();
         $job->handle([]);
     }
@@ -231,6 +237,9 @@ class CronJobService
      */
     public function runDailySalesSummary(): void
     {
+        if (!class_exists('\WPDM\__\Jobs\Job')) {
+            return;
+        }
         $job = new DailySalesSummaryJob();
         $job->handle([]);
     }

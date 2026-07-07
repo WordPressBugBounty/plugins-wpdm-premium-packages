@@ -155,19 +155,20 @@ global $wpdb;
                 </div>
                 <div class="modal-body">
                     <div class="input-group">
-                        <div class="input-group-addon">License Server URL</div>
-                        <input type="text" readonly="readonly" style="background: #ffffff" class="form-control" value="<?php echo home_url('/'); ?>">
+                        <div class="input-group-addon"><?php _e('Validation Endpoint', 'wpdm-premium-packages'); ?></div>
+                        <input type="text" readonly="readonly" style="background: #ffffff" class="form-control" value="<?php echo esc_url( rest_url( 'wpdmpp/v1/license/validate' ) ); ?>" onclick="this.select()">
                     </div><br/>
                     <div class="panel panel-default">
-                        <div class="panel-heading">Requited Parameters</div>
+                        <div class="panel-heading"><?php _e('Required Parameters (HTTP POST)', 'wpdm-premium-packages'); ?></div>
                     <table class="table table-striped">
-                        <tr><th>Parameter Name</th><th>Parameter Value</th></tr>
-                        <tr><td>wpdmLicense</td><td>validate</td></tr>
-                        <tr><td>licenseKey</td><td>[license-key]</td></tr>
+                        <tr><th><?php _e('Parameter Name', 'wpdm-premium-packages'); ?></th><th><?php _e('Parameter Value', 'wpdm-premium-packages'); ?></th></tr>
+                        <tr><td>license_key</td><td>[license-key]</td></tr>
                         <tr><td>domain</td><td>[domain_name_or_ip]</td></tr>
-                        <tr><td>productId</td><td>[product_code]</td></tr>
                     </table>
                     </div>
+                    <p class="text-muted" style="margin-bottom: 0">
+                        <?php _e('The first successful validation registers the domain against the license automatically (while domain slots are available).', 'wpdm-premium-packages'); ?>
+                    </p>
 
                 </div>
                 <div class="modal-footer">
