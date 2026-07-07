@@ -6,14 +6,26 @@ jQuery(function ($) {
     var $body = $('body');
 
     $body.on('click', '.wpdm__rld', function () {
-        var pit = $(this).parent('li');
-        $(this).html(wpdm_js.spinner);
-        $.post(wpdm_url.ajax, {
-            action: 'wpdmpp_remove_domain',
-            domain: $(this).data('domain'),
-            license: $(this).data('license')
-        }, function (res) {
+        var btn = $(this), pit = btn.parent('li'), oldhtml = btn.html();
+        btn.html(wpdm_js.spinner);
+        fetch(wpdmppApi.root + 'license/' + encodeURIComponent(btn.data('license')) + '/domains', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-WP-Nonce': wpdmppApi.nonce
+            },
+            body: JSON.stringify({domain: btn.data('domain')})
+        })
+        .then(function (response) { return response.json(); })
+        .then(function (result) {
+            if (result && result.success === false) {
+                btn.html(oldhtml);
+                return;
+            }
             pit.hide();
+        })
+        .catch(function () {
+            btn.html(oldhtml);
         });
     });
 

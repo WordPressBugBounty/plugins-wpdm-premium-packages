@@ -542,7 +542,7 @@ class LicenseEndpoint {
             return RestApi::error(__('You do not have permission to modify this license.', 'wpdm-premium-packages'), 403);
         }
 
-        $result = $this->licenseService->removeDomain($license->getId(), $domain);
+        $result = $this->licenseService->removeDomain($licenseKey, $domain);
 
         if (!$result['success']) {
             return RestApi::error($result['message'], 400);
