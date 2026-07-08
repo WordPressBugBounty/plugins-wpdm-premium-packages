@@ -196,10 +196,14 @@ class LicenseAdminService
             'license_no'      => isset($raw['licenseno']) ? sanitize_text_field($raw['licenseno']) : '',
             'order_id'        => isset($raw['oid']) ? sanitize_text_field($raw['oid']) : '',
             'product_id'      => isset($raw['pid']) ? (int) $raw['pid'] : 0,
-            'domain_limit'    => isset($raw['domain_limit']) ? (int) $raw['domain_limit'] : 1,
             'activation_date' => isset($raw['activation_date']) ? sanitize_text_field($raw['activation_date']) : '',
             'expire_date'     => isset($raw['expire_date']) ? sanitize_text_field($raw['expire_date']) : '',
         ];
+
+        // Empty field → LicenseService derives the limit from the purchased license.
+        if (isset($raw['domain_limit']) && $raw['domain_limit'] !== '') {
+            $data['domain_limit'] = (int) $raw['domain_limit'];
+        }
 
         // Domains textarea → array of trimmed, non-empty lines.
         if (isset($raw['domain']) && trim((string) $raw['domain']) !== '') {

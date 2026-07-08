@@ -387,22 +387,8 @@ class LicenseEndpoint {
             return RestApi::error(__('You do not have permission to access this order.', 'wpdm-premium-packages'), 403);
         }
 
-        // Get domain limit from order item's license config
-        $domainLimit = 1;
-        $orderItem = $wpdb->get_row($wpdb->prepare(
-            "SELECT license FROM {$wpdb->prefix}ahm_order_items WHERE oid = %s AND pid = %d",
-            $orderId, $productId
-        ));
-
-        if ($orderItem && !empty($orderItem->license)) {
-            $licenseTypes = get_option('_wpdmpp_license', []);
-            $licenseId = $orderItem->license;
-            if (is_array($licenseTypes) && isset($licenseTypes[$licenseId]['domain'])) {
-                $domainLimit = (int) $licenseTypes[$licenseId]['domain'];
-            }
-        }
-
-        $result = $this->licenseService->getOrCreateLicense($orderId, $productId, $domainLimit);
+        // Domain limit is derived from the order item's purchased license
+        $result = $this->licenseService->getOrCreateLicense($orderId, $productId);
 
         if (!$result['success'] || !$result['license']) {
             return RestApi::error(

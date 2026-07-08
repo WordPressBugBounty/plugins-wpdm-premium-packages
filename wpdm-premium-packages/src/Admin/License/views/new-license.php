@@ -47,7 +47,8 @@ if ( $wpdmpp_license_form_error ) {
                             </div></div>
                         <div class="col-md-4"><div class="form-group">
                                 <label><?php _e('Domain Limit:','wpdm-premium-packages'); ?></label>
-                                <input class="form-control" type="number" size="5" min="0" step="1"  name="license[domain_limit]" value="1"/>
+                                <input class="form-control" type="number" size="5" min="0" step="1"  name="license[domain_limit]" value="" placeholder="<?php esc_attr_e('Auto', 'wpdm-premium-packages'); ?>"/>
+                                <em><?php _e('Leave empty to set it from the purchased license', 'wpdm-premium-packages'); ?></em>
                             </div></div>
 
                     </div>

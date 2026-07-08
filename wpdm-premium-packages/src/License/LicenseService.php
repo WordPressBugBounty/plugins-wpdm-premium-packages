@@ -490,14 +490,88 @@ class LicenseService {
     // =========================================================================
 
     /**
-     * Generate or get license for an order item
+     * Resolve the domain limit from the license purchased with an order item
+     *
+     * Order items store a snapshot of the license selected at purchase time —
+     * either the flat array from Product::getLicenseInfo() (has `domain_limit`)
+     * or the legacy ['id' => ..., 'info' => ['use' => N]] shape. Falls back to
+     * the current global license type config when the snapshot lacks a limit.
+     * Unlimited-type licenses with no configured limit resolve to 999.
      *
      * @param string $orderId   Order ID
      * @param int    $productId Product ID
-     * @param int    $domainLimit Domain limit (from order item)
+     * @return int|null Domain limit, or null when it cannot be determined
+     */
+    public function resolveDomainLimit(string $orderId, int $productId): ?int {
+        if ($orderId === '' || !$productId || !class_exists('\WPDMPP\Order\OrderService')) {
+            return null;
+        }
+
+        $order = OrderService::instance()->getOrder($orderId);
+        if (!$order) {
+            return null;
+        }
+
+        $license = [];
+        foreach ($order->getItems() as $item) {
+            if ($item->getProductId() === $productId) {
+                $license = $item->getLicense();
+                break;
+            }
+        }
+
+        if (empty($license)) {
+            return null;
+        }
+
+        // Purchase-time snapshot first, then the current global license type config
+        $sources = [$license, $license['info'] ?? null];
+
+        $licenseId = isset($license['id']) ? (string) $license['id'] : '';
+        if ($licenseId !== '' && function_exists('wpdmpp_get_licenses')) {
+            $types = wpdmpp_get_licenses();
+            if (isset($types[$licenseId]) && is_array($types[$licenseId])) {
+                $sources[] = $types[$licenseId];
+            }
+        }
+
+        foreach ($sources as $info) {
+            if (!is_array($info)) {
+                continue;
+            }
+            foreach (['domain_limit', 'use', 'domain'] as $key) {
+                if (isset($info[$key]) && is_numeric($info[$key])) {
+                    return (int) $info[$key];
+                }
+            }
+        }
+
+        // No limit configured anywhere — unlimited-type licenses get a 999 cap
+        // instead of the callers' default of 1.
+        $labels = [$licenseId];
+        foreach ($sources as $info) {
+            if (is_array($info) && isset($info['name'])) {
+                $labels[] = (string) $info['name'];
+            }
+        }
+        foreach ($labels as $label) {
+            if ($label !== '' && stripos($label, 'unlimited') !== false) {
+                return 999;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate or get license for an order item
+     *
+     * @param string   $orderId   Order ID
+     * @param int      $productId Product ID
+     * @param int|null $domainLimit Domain limit; null derives it from the purchased license
      * @return array ['success' => bool, 'license' => License|null, 'message' => string]
      */
-    public function getOrCreateLicense(string $orderId, int $productId, int $domainLimit = 1): array {
+    public function getOrCreateLicense(string $orderId, int $productId, ?int $domainLimit = null): array {
         // Check if license already exists
         $existing = $this->repository->findByOrderAndProduct($orderId, $productId);
         if ($existing) {
@@ -507,6 +581,10 @@ class LicenseService {
                 'message' => __('License retrieved.', 'wpdm-premium-packages'),
                 'created' => false,
             ];
+        }
+
+        if ($domainLimit === null) {
+            $domainLimit = $this->resolveDomainLimit($orderId, $productId) ?? 1;
         }
 
         // Generate new license
@@ -582,6 +660,17 @@ class LicenseService {
                     'license' => null,
                     'errors' => ['license_no' => __('License key already exists.', 'wpdm-premium-packages')],
                 ];
+            }
+        }
+
+        // No explicit limit — derive it from the license purchased with the order
+        if (!isset($data['domain_limit']) || $data['domain_limit'] === '') {
+            unset($data['domain_limit']);
+            if (!empty($data['order_id']) && !empty($data['product_id'])) {
+                $resolved = $this->resolveDomainLimit((string) $data['order_id'], (int) $data['product_id']);
+                if ($resolved !== null) {
+                    $data['domain_limit'] = $resolved;
+                }
             }
         }
 
