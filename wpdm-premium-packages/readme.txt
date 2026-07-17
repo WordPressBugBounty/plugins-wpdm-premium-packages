@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.0
-Stable tag: 7.0.3
+Stable tag: 7.0.5
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,13 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.0.5 - 2026.07.17 =
+* Security: Fixed an authenticated (admin+) SQL injection in the order renewals list, where the orderby parameter was interpolated into the ORDER BY clause unescaped; sortable columns are now restricted to a fixed allow-list and every filter value ( order id, customer, status, payment status, date range ) is bound with $wpdb->prepare() ( Reported by Wordfence )
+* Security: Fixed an unauthenticated authentication bypass in the premium download handler, where a base64/JSON download token was accepted with no signature and could mint a login session for the order owner; the session-issuing code path has been removed so a download link can no longer log anyone in ( Reported by Wordfence )
+
+= 7.0.4 - 2026.07.12 =
+* Fixed clearing all domains from a license - the license is now reactivated at the same time, so a deactivated license becomes usable again without a separate status change
 
 = 7.0.3 - 2026.07.08 =
 * Improved license creation - the domain limit is now set automatically from the purchased license type across the admin New License form, the REST API, and customer license key generation

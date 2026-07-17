@@ -471,6 +471,7 @@ class LicenseService {
         }
 
         $license->clearDomains();
+        $license->setStatus(1);
         $saved = $this->repository->save($license);
 
         if ($saved) {

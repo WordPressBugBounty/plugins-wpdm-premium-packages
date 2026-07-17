@@ -8,49 +8,73 @@ global $wpdb;
 
 // getAllRenews() joins ahm_order_renews (alias r) with ahm_orders (alias o).
 // Filters on order columns must be qualified with o.* and renewal-date filters with r.*.
-if ( isset( $_REQUEST['oid'] ) && $_REQUEST['oid'] ) {
-	$qry[] = "o.order_id='" . sanitize_text_field( $_REQUEST['oid'] ) . "'";
+// Every user-supplied value is bound through $wpdb->prepare(); sanitize_text_field()
+// alone does not escape quotes and left these clauses open to SQL injection.
+$qry = array();
+
+if ( wpdm_query_var( 'oid', 'txt' ) != '' ) {
+	$qry[] = $wpdb->prepare( "o.order_id = %s", wpdm_query_var( 'oid', 'txt' ) );
 }
-if ( isset( $_REQUEST['customer'] ) && $_REQUEST['customer'] != '' ) {
-	$customer = esc_sql( $_REQUEST['customer'] );
+if ( wpdm_query_var( 'customer', 'txt' ) != '' ) {
+	$customer = wpdm_query_var( 'customer', 'txt' );
 	if ( is_email( $customer ) ) {
 		$customer = email_exists( $customer );
 	}
-	$qry[] = "o.uid='{$customer}'";
+	$qry[] = $wpdb->prepare( "o.uid = %d", absint( $customer ) );
 }
-if ( wpdm_query_var( 'ost' ) != 'Expiring' ) {
-	if ( isset( $_REQUEST['ost'] ) && $_REQUEST['ost'] ) {
-		$qry[] = "o.order_status='" . sanitize_text_field( $_REQUEST['ost'] ) . "'";
+if ( wpdm_query_var( 'ost', 'txt' ) != 'Expiring' ) {
+	if ( wpdm_query_var( 'ost', 'txt' ) != '' ) {
+		$qry[] = $wpdb->prepare( "o.order_status = %s", wpdm_query_var( 'ost', 'txt' ) );
 	}
-	if ( isset( $_REQUEST['pst'] ) && $_REQUEST['pst'] ) {
-		$qry[] = "o.payment_status='" . sanitize_text_field( $_REQUEST['pst'] ) . "'";
+	if ( wpdm_query_var( 'pst', 'txt' ) != '' ) {
+		$qry[] = $wpdb->prepare( "o.payment_status = %s", wpdm_query_var( 'pst', 'txt' ) );
 	}
 
-	if ( isset( $_REQUEST['sdate'], $_REQUEST['edate'] ) && ( $_REQUEST['sdate'] != '' || $_REQUEST['edate'] != '' ) ) {
-		$_REQUEST['edate'] = $_REQUEST['edate'] ? $_REQUEST['edate'] : $_REQUEST['sdate'];
-		$_REQUEST['sdate'] = $_REQUEST['sdate'] ? $_REQUEST['sdate'] : $_REQUEST['edate'];
-		$sdate             = strtotime( $_REQUEST['sdate'] );
-		$edate             = strtotime( $_REQUEST['edate'] );
-		$qry[]             = "(r.`date` >=$sdate and r.`date` <=$edate)";
+	$sdate_input = wpdm_query_var( 'sdate', 'txt' );
+	$edate_input = wpdm_query_var( 'edate', 'txt' );
+	if ( $sdate_input != '' || $edate_input != '' ) {
+		$edate_input = $edate_input ? $edate_input : $sdate_input;
+		$sdate_input = $sdate_input ? $sdate_input : $edate_input;
+		$sdate       = strtotime( sanitize_text_field( $sdate_input ) );
+		$edate       = strtotime( sanitize_text_field( $edate_input ) );
+		if ( $sdate && $edate ) {
+			$qry[] = $wpdb->prepare( "(r.`date` >= %d AND r.`date` <= %d)", $sdate, $edate );
+		}
 	}
 } else {
-	$qry[] = "o.order_status='Completed'";
-	$sdate = wpdm_query_var( 'sdate' ) != '' ? strtotime( wpdm_query_var( 'sdate' ) ) : time();
-	$edate = wpdm_query_var( 'edate' ) != '' ? strtotime( wpdm_query_var( 'edate' ) ) : strtotime( "+7 days" );
-	$qry[] = "(o.`expire_date` >=$sdate and o.`expire_date` <=$edate)";
+	$qry[] = "o.order_status = 'Completed'";
+	$sdate = wpdm_query_var( 'sdate', 'txt' ) != '' ? strtotime( wpdm_query_var( 'sdate', 'txt' ) ) : time();
+	$edate = wpdm_query_var( 'edate', 'txt' ) != '' ? strtotime( wpdm_query_var( 'edate', 'txt' ) ) : strtotime( "+7 days" );
+	$sdate = $sdate ?: time();
+	$edate = $edate ?: strtotime( "+7 days" );
+	$qry[] = $wpdb->prepare( "(o.`expire_date` >= %d AND o.`expire_date` <= %d)", $sdate, $edate );
 
 }
 
-if ( isset( $qry ) ) {
+if ( ! empty( $qry ) ) {
 	$qry = "where " . implode( " and ", $qry );
 } else {
 	$qry = "";
 }
 
-if ( wpdm_query_var( 'orderby' ) != '' ) {
-	$orderby = sanitize_text_field( wpdm_query_var( 'orderby' ) );
-	$_order  = wpdm_query_var( 'order' ) == 'asc' ? 'asc' : 'desc';
-	$qry     = $qry . " order by {$orderby} $_order";
+// Whitelist sortable columns. The value never reaches SQL - only a fixed,
+// code-defined expression from this map does - so ORDER BY cannot be injected.
+$renew_sort_map = array(
+	'renew_id'       => 'r.ID',
+	'renew_date'     => 'r.`date`',
+	'renew_total'    => 'r.total',
+	'order_id'       => 'o.order_id',
+	'date'           => 'o.`date`',
+	'total'          => 'o.total',
+	'order_status'   => 'o.order_status',
+	'payment_status' => 'o.payment_status',
+	'expire_date'    => 'o.`expire_date`',
+);
+$orderby_input = wpdm_query_var( 'orderby', 'txt' );
+if ( isset( $renew_sort_map[ $orderby_input ] ) ) {
+	$orderby = $renew_sort_map[ $orderby_input ];
+	$_order  = strtolower( wpdm_query_var( 'order', 'txt' ) ) === 'asc' ? 'asc' : 'desc';
+	$qry     = $qry . " order by {$orderby} {$_order}";
 } else {
 	$qry = "$qry order by r.`date` desc";
 }
