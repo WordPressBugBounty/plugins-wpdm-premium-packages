@@ -1343,6 +1343,15 @@ function wpdmpp_update_guest_billing() {
     );
     $sbillinginfo = wpdm_sanitize_array( $_POST['billing'] );
     $billinginfo  = shortcode_atts( $billinginfo, $sbillinginfo );
+
+    // Defense in depth: the email fields are rendered in the admin orders screens,
+    // so only keep values that are valid emails. Anything else (e.g. an XSS payload
+    // smuggled through the text sanitizer) is discarded before storage.
+    foreach ( array( 'order_email', 'email' ) as $email_field ) {
+        $clean_email                 = sanitize_email( $billinginfo[ $email_field ] );
+        $billinginfo[ $email_field ] = is_email( $clean_email ) ? $clean_email : '';
+    }
+
     $oid          = \WPDM\__\Crypt::decrypt( wpdm_query_var( 'oid' ) );
     \WPDMPP\Order\OrderService::instance()->updateOrder( array( 'billing_info' => maybe_serialize( $billinginfo ) ), $oid );
     wp_die( esc_html__( 'Billing info saved successfully!', 'wpdm-premium-packages' ) );

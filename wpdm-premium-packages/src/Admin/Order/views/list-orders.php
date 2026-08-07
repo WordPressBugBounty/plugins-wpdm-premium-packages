@@ -616,13 +616,13 @@ if(!wpdm_query_var('customer', 'txt') && !wpdm_query_var('oid', 'txt')) {
 						</td>
 						<td class="" data-label="<?php esc_attr_e('Customer','wpdm-premium-packages'); ?>">
 							<?php if(is_object($user_info)){ ?>
-								<a class="ol-cust-name" href="edit.php?post_type=wpdmpro&page=customers&view=profile&id=<?php echo $user_info->ID; ?>"><?php echo $user_info->display_name; ?></a>
-								<a class="text-filter" title="<?php _e('All orders placed by this customer','wpdm-premium-packages'); ?>" href="edit.php?post_type=wpdmpro&page=orders&customer=<?php echo $user_info->ID; ?>&focus=<?php echo $order->order_id ?>"><?php echo Icons::get('search', 13); ?></a><br/>
-								<a class="ol-cust-email" href="mailto:<?php echo $user_info->user_email; ?>"><?php echo $user_info->user_email; ?></a>
+								<a class="ol-cust-name" href="edit.php?post_type=wpdmpro&page=customers&view=profile&id=<?php echo (int) $user_info->ID; ?>"><?php echo esc_html($user_info->display_name); ?></a>
+								<a class="text-filter" title="<?php _e('All orders placed by this customer','wpdm-premium-packages'); ?>" href="edit.php?post_type=wpdmpro&page=orders&customer=<?php echo (int) $user_info->ID; ?>&focus=<?php echo esc_attr($order->order_id) ?>"><?php echo Icons::get('search', 13); ?></a><br/>
+								<a class="ol-cust-email" href="mailto:<?php echo esc_attr($user_info->user_email); ?>"><?php echo esc_html($user_info->user_email); ?></a>
 							<?php } else { ?>
-								<span class="ol-cust-name"><?php echo $billing['first_name'].' '.$billing['last_name']; ?></span>
-								<a class="text-filter" href="edit.php?post_type=wpdmpro&page=orders&customer=<?php echo $billing['order_email']; ?>"><?php echo Icons::get('search', 13); ?></a><br/>
-								<a class="ol-cust-email" href="mailto:<?php echo $billing['order_email']; ?>"><?php echo $billing['order_email']; ?></a>
+								<span class="ol-cust-name"><?php echo esc_html($billing['first_name'].' '.$billing['last_name']); ?></span>
+								<a class="text-filter" href="edit.php?post_type=wpdmpro&page=orders&customer=<?php echo esc_attr($billing['order_email']); ?>"><?php echo Icons::get('search', 13); ?></a><br/>
+								<a class="ol-cust-email" href="mailto:<?php echo esc_attr($billing['order_email']); ?>"><?php echo esc_html($billing['order_email']); ?></a>
 							<?php }?>
 						</td>
 						<td class="ol-date" data-label="<?php esc_attr_e('Order Date','wpdm-premium-packages'); ?>"><span class="ol-date__stack"><span class="ol-date__d"><?php echo wp_date(get_option('date_format'), $order->date); ?></span><span class="ol-date__t"><?php echo wp_date(get_option('time_format'), $order->date); ?></span></span></td>

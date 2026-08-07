@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.0
-Stable tag: 7.0.5
+Stable tag: 7.0.6
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,9 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.0.6 - 2026.08.07 =
+* Security: Fixed an unauthenticated stored XSS via the guest billing order_email field, where a payload submitted through the guest billing update endpoint was rendered unescaped in the admin orders list and executed in the administrator's browser; all customer name and email values in the orders list are now escaped on output, and the guest billing handler now validates email fields with is_email() before storing them ( Reported by Wordfence )
 
 = 7.0.5 - 2026.07.17 =
 * Security: Fixed an authenticated (admin+) SQL injection in the order renewals list, where the orderby parameter was interpolated into the ORDER BY clause unescaped; sortable columns are now restricted to a fixed allow-list and every filter value ( order id, customer, status, payment status, date range ) is bound with $wpdb->prepare() ( Reported by Wordfence )
