@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.0
-Stable tag: 7.0.6
+Stable tag: 7.0.7
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,12 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.0.7 - 2026.08.08 =
+* Security: Fixed a missing balance validation in the withdrawal/payout system, where a withdrawal request was never checked against the seller's actual earned balance; any logged-in user could submit a payout request for an arbitrary amount, and a seller with any earnings at all could request an unlimited amount. Withdrawal amounts are now validated server-side against real matured earnings, and the check and the insert are serialised per user so concurrent requests cannot draw on the same funds twice ( Reported by Farid Narimanov )
+* Security: Added nonce verification to the front-end withdrawal request handler, which previously accepted a plain POST on every page load and was open to cross-site request forgery ( Reported by Farid Narimanov )
+* Seller balances are now calculated in a single place ( PayoutService ), so the amount shown on the earnings dashboard always matches the amount the server will authorise
+* The admin Payouts > Dues list now shows each seller's total earnings alongside the requested amount, and flags any request that exceeds them
 
 = 7.0.6 - 2026.08.07 =
 * Security: Fixed an unauthenticated stored XSS via the guest billing order_email field, where a payload submitted through the guest billing update endpoint was rendered unescaped in the admin orders list and executed in the administrator's browser; all customer name and email values in the orders list are now escaped on output, and the guest billing handler now validates email fields with is_email() before storing them ( Reported by Wordfence )

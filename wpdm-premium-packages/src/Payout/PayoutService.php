@@ -266,6 +266,135 @@ class PayoutService
     }
 
     /**
+     * Calculate a seller's balances
+     *
+     * Earnings are derived from completed orders on packages authored by the
+     * given user, less the site commission for that user's role. Every existing
+     * withdrawal row (pending or paid) encumbers the balance, so an amount can
+     * never be requested twice.
+     *
+     * "Matured" earnings are those from orders older than the configured payout
+     * duration; only matured funds may be withdrawn.
+     *
+     * @param int $userId User ID (0 for current user)
+     * @return array ['total_sales', 'total_earning', 'total_withdraws', 'balance', 'matured', 'pending']
+     */
+    public function getSellerBalances(int $userId = 0): array
+    {
+        global $wpdb;
+
+        if ($userId <= 0) {
+            $userId = get_current_user_id();
+        }
+
+        if ($userId <= 0) {
+            return [
+                'total_sales' => 0.0,
+                'total_earning' => 0.0,
+                'total_withdraws' => 0.0,
+                'balance' => 0.0,
+                'matured' => 0.0,
+                'pending' => 0.0,
+            ];
+        }
+
+        $salesSql = "SELECT SUM(i.price * i.quantity)
+             FROM {$wpdb->prefix}ahm_orders o,
+                  {$wpdb->prefix}ahm_order_items i,
+                  {$wpdb->prefix}posts p
+             WHERE p.post_author = %d
+             AND i.oid = o.order_id
+             AND i.pid = p.ID
+             AND i.quantity > 0
+             AND o.payment_status = 'Completed'";
+
+        $totalSales = (float) $wpdb->get_var($wpdb->prepare($salesSql, $userId));
+
+        $commission = (float) wpdmpp_site_commission($userId);
+        $totalEarning = $totalSales - ($totalSales * $commission / 100);
+
+        // Every withdrawal row holds funds — pending requests included.
+        $totalWithdraws = (float) $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(amount) FROM {$wpdb->prefix}ahm_withdraws WHERE uid = %d",
+            $userId
+        ));
+
+        $balance = $totalEarning - $totalWithdraws;
+
+        // Matured earnings: orders placed before the payout duration cutoff.
+        $payoutDuration = (int) get_option('wpdmpp_payout_duration');
+        $maturedTime = time() - ($payoutDuration * DAY_IN_SECONDS);
+
+        $maturedSales = (float) $wpdb->get_var($wpdb->prepare(
+            $salesSql . ' AND o.date < %d',
+            $userId,
+            $maturedTime
+        ));
+
+        $maturedEarning = $maturedSales - ($maturedSales * $commission / 100);
+        $matured = $maturedEarning - $totalWithdraws;
+
+        return [
+            'total_sales' => $totalSales,
+            'total_earning' => $totalEarning,
+            'total_withdraws' => $totalWithdraws,
+            'balance' => $balance,
+            'matured' => $matured,
+            'pending' => $balance - $matured,
+        ];
+    }
+
+    /**
+     * Get the amount a user is currently allowed to withdraw
+     *
+     * @param int $userId User ID (0 for current user)
+     * @return float
+     */
+    public function getAvailableBalance(int $userId = 0): float
+    {
+        $balances = $this->getSellerBalances($userId);
+
+        return max(0.0, (float) $balances['matured']);
+    }
+
+    /**
+     * Acquire an advisory lock scoped to a user's payout balance
+     *
+     * Returns the lock name on success, or null if the lock could not be taken
+     * (the caller still proceeds — the balance check alone remains correct for
+     * everything except a same-user race).
+     *
+     * @param int $userId User ID
+     * @return string|null
+     */
+    private function acquireUserLock(int $userId): ?string
+    {
+        global $wpdb;
+
+        $name = substr('wpdmpp_payout_' . DB_NAME . '_' . $userId, 0, 64);
+
+        $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $name, 10));
+
+        return ((int) $acquired === 1) ? $name : null;
+    }
+
+    /**
+     * Release a lock taken by acquireUserLock()
+     *
+     * @param string|null $name Lock name
+     */
+    private function releaseUserLock(?string $name): void
+    {
+        if ($name === null) {
+            return;
+        }
+
+        global $wpdb;
+
+        $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $name));
+    }
+
+    /**
      * Request a withdrawal
      *
      * @param int    $userId        User ID
@@ -323,20 +452,55 @@ class PayoutService
             ];
         }
 
-        // Create withdrawal request
+        // Serialize the balance check and the insert for this user, so two
+        // concurrent requests cannot each be approved against the same funds.
+        $lock = $this->acquireUserLock($userId);
+
+        // Validate the request against real, matured earnings. This is the
+        // authoritative check — never trust a client-supplied amount.
+        $available = $this->getAvailableBalance($userId);
+
+        if ($available <= 0) {
+            $this->releaseUserLock($lock);
+
+            return [
+                'success' => false,
+                'message' => __('You have no matured balance available for withdrawal.', 'wpdm-premium-packages'),
+                'withdrawal' => null,
+            ];
+        }
+
+        if ($amount > $available) {
+            $this->releaseUserLock($lock);
+
+            return [
+                'success' => false,
+                'message' => sprintf(
+                    __('Requested amount exceeds your available balance of %s.', 'wpdm-premium-packages'),
+                    wpdmpp_price_format($available)
+                ),
+                'withdrawal' => null,
+            ];
+        }
+
+        // Create withdrawal request. `status` is an integer column:
+        // 0 = pending, 1 = paid.
         $data = [
             'uid' => $userId,
             'amount' => $amount,
             'payment_method' => $paymentMethod,
-            'status' => Withdraw::STATUS_PENDING,
+            'payment_account' => is_scalar($accounts[$paymentMethod]) ? (string) $accounts[$paymentMethod] : '',
+            'status' => 0,
             'date' => time(),
         ];
 
         $result = $wpdb->insert(
             $wpdb->prefix . 'ahm_withdraws',
             $data,
-            ['%d', '%f', '%s', '%s', '%d']
+            ['%d', '%f', '%s', '%s', '%d', '%d']
         );
+
+        $this->releaseUserLock($lock);
 
         if (!$result) {
             return [

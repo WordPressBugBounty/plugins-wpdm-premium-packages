@@ -628,120 +628,68 @@ function wpdmpp_notify_product_accepted( $post_id ) {
  * @return array $seller_balances Array of balances. Access using `pending` and `matured`
  * @since 3.8.9
  */
-function wpdmpp_seller_balances() {
-    global $wpdb, $current_user;
-    $current_user = wp_get_current_user();
-    $uid          = (int) $current_user->ID;
+function wpdmpp_seller_balances( $uid = null ) {
+    $balances = \WPDMPP\Payout\PayoutService::getInstance()->getSellerBalances( (int) $uid );
 
-    $total_sales = $wpdb->get_var( $wpdb->prepare(
-            "SELECT SUM(i.price * i.quantity)
-         FROM {$wpdb->prefix}ahm_orders o,
-              {$wpdb->prefix}ahm_order_items i,
-              {$wpdb->prefix}posts p
-         WHERE p.post_author = %d
-         AND i.oid = o.order_id
-         AND i.pid = p.ID
-         AND i.quantity > 0
-         AND o.payment_status = 'Completed'",
-            $uid
-    ) );
-
-    $commission       = wpdmpp_site_commission();
-    $total_commission = $total_sales * $commission / 100;
-    $total_earning    = $total_sales - $total_commission;
-
-    $total_withdraws = $wpdb->get_var( $wpdb->prepare(
-            "SELECT SUM(amount) FROM {$wpdb->prefix}ahm_withdraws WHERE uid = %d",
-            $uid
-    ) );
-    $balance         = $total_earning - $total_withdraws;
-
-    //finding matured balance
-    $payout_duration = (int) get_option( "wpdmpp_payout_duration" );
-    $dt              = $payout_duration * 24 * 60 * 60;
-    $matured_time    = time() - $dt;
-
-    $tempbalance = $wpdb->get_var( $wpdb->prepare(
-            "SELECT SUM(i.price * i.quantity)
-         FROM {$wpdb->prefix}ahm_orders o,
-              {$wpdb->prefix}ahm_order_items i,
-              {$wpdb->prefix}posts p
-         WHERE p.post_author = %d
-         AND i.oid = o.order_id
-         AND i.pid = p.ID
-         AND i.quantity > 0
-         AND o.payment_status = 'Completed'
-         AND o.date < %d",
-            $uid, $matured_time
-    ) );
-
-    $tempbalance     = $tempbalance - ( $tempbalance * $commission / 100 );
-    $matured_balance = $tempbalance - $total_withdraws;
-
-    //finding pending balance
-    $pending_balance = $balance - $matured_balance;
-
-    $seller_balances            = array();
-    $seller_balances['pending'] = $pending_balance;
-    $seller_balances['matured'] = $matured_balance;
-
-    return $seller_balances;
+    // Preserve the historical return shape.
+    return array(
+            'pending' => $balances['pending'],
+            'matured' => $balances['matured'],
+    );
 }
 
 //for withdraw request
 function wpdmpp_withdraw_request() {
-    global $wpdb, $current_user;
 
-    $current_user = wp_get_current_user();
-
-    $uid = $current_user->ID;
-
-    if ( isset( $_POST['withdraw'], $_POST['withdraw_amount'] ) && $_POST['withdraw'] == 1 && $_POST['withdraw_amount'] > 0 ) {
-
-        // Check if matured balance is greater than 0
-        $seller_balances = wpdmpp_seller_balances();
-        if ( $seller_balances['matured'] <= 0 ) {
-            if ( wpdm_is_ajax() ) {
-                wp_send_json( [ 'success' => false, 'denied' => true, 'msg' => __( 'Request denied. Matured balance is 0!', 'wpdm-premium-packages' ) ] );
-            }
-            wp_die( 'denied' );
-        }
-        $payout_method   = wpdm_query_var( 'payout_method', 'txt' );
-        $payment_account = wpdm_valueof( WPDMPP()->withdraws->payoutAccounts( $current_user->ID ), $payout_method );
-        if ( ! $payment_account || ! $payout_method ) {
-            wp_send_json( [
-                    'success' => false,
-                    'msg'     => __( "Withdrawal Request Failed. No payout option selected!", "wpdm-premium-packages" )
-            ] );
-        }
-        $wpdb->insert(
-                "{$wpdb->prefix}ahm_withdraws",
-                array(
-                        'uid'             => $uid,
-                        'date'            => time(),
-                        'amount'          => absint( $_POST['withdraw_amount'] ),
-                        'payment_method'  => $payout_method,
-                        'payment_account' => $payment_account,
-                        'status'          => 0
-                ),
-                array(
-                        '%d',
-                        '%d',
-                        '%f',
-                        '%s',
-                        '%s',
-                        '%d'
-                )
-        );
-
-        if ( wpdm_is_ajax() ) {
-            wp_send_json( [ 'success' => true, 'msg' => __( "Withdrawal Request Sent!", "wpdm-premium-packages" ) ] );
-        }
-        $return = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( $_SERVER['HTTP_REFERER'] ) : home_url( '/' );
-        wp_safe_redirect( $return );
-        exit;
+    if ( ! isset( $_POST['withdraw'], $_POST['withdraw_amount'] ) || $_POST['withdraw'] != 1 ) {
+        return;
     }
 
+    $fail = function ( $message ) {
+        if ( wpdm_is_ajax() ) {
+            wp_send_json( [ 'success' => false, 'msg' => $message ] );
+        }
+        wp_die( esc_html( $message ) );
+    };
+
+    if ( ! is_user_logged_in() ) {
+        $fail( __( 'Please log in.', 'wpdm-premium-packages' ) );
+    }
+
+    // Verify the request actually originated from our form.
+    if ( ! wp_verify_nonce( wpdm_query_var( '__wpdmpp_withdraw_nonce', 'txt' ), 'wpdmpp_withdraw_request' ) ) {
+        $fail( __( 'Security token is expired! Refresh the page and try again.', 'wpdm-premium-packages' ) );
+    }
+
+    $amount        = (float) wpdm_query_var( 'withdraw_amount', 'float' );
+    $payout_method = wpdm_query_var( 'payout_method', 'txt' );
+
+    if ( $amount <= 0 ) {
+        $fail( __( 'Please enter a valid withdrawal amount.', 'wpdm-premium-packages' ) );
+    }
+
+    if ( ! $payout_method ) {
+        $fail( __( "Withdrawal Request Failed. No payout option selected!", "wpdm-premium-packages" ) );
+    }
+
+    // Delegate to the service so the balance is validated server-side.
+    $result = \WPDMPP\Payout\PayoutService::getInstance()->requestWithdrawal(
+            get_current_user_id(),
+            $amount,
+            $payout_method
+    );
+
+    if ( ! $result['success'] ) {
+        $fail( $result['message'] );
+    }
+
+    if ( wpdm_is_ajax() ) {
+        wp_send_json( [ 'success' => true, 'msg' => $result['message'] ] );
+    }
+
+    $return = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( $_SERVER['HTTP_REFERER'] ) : home_url( '/' );
+    wp_safe_redirect( $return );
+    exit;
 }
 
 function wpdmpp_redirect( $url ) {

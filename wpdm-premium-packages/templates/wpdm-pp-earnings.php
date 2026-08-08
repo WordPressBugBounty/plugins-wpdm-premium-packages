@@ -27,42 +27,18 @@ $sql          = "select p.*,i.*, o.date from {$wpdb->prefix}ahm_orders o,
 
 $sales = $wpdb->get_results( $sql );
 
-$sql = "select sum(i.price*i.quantity) from {$wpdb->prefix}ahm_orders o,
-                      {$wpdb->prefix}ahm_order_items i,
-                      {$wpdb->prefix}posts p
-                      where p.post_author=$uid and
-                            i.oid=o.order_id and
-                            i.pid=p.ID and
-                            i.quantity > 0 and
-                            o.payment_status='Completed'";
+// Balances come from PayoutService — the same code path that authorises a
+// withdrawal request, so what is displayed always matches what is allowed.
+$balances        = \WPDMPP\Payout\PayoutService::getInstance()->getSellerBalances( $uid );
+$total_sales     = $balances['total_sales'];
+$total_earning   = $balances['total_earning'];
+$total_withdraws = $balances['total_withdraws'];
+$balance         = $balances['balance'];
+$matured_balance = $balances['matured'];
+$pending_balance = $balances['pending'];
 
-$total_sales      = $wpdb->get_var( $sql );
-$commission       = wpdmpp_site_commission();
-$total_commission = $total_sales * $commission / 100;
-$total_earning    = $total_sales - $total_commission;
-$sql              = "select sum(amount) from {$wpdb->prefix}ahm_withdraws where uid=$uid";
-$total_withdraws  = $wpdb->get_var( $sql );
-$balance          = $total_earning - $total_withdraws;
-
-//finding matured balance
-$payout_duration = get_option( "wpdmpp_payout_duration" );
-$dt              = $payout_duration * 24 * 60 * 60;
-$sqlm            = "select sum(i.price*i.quantity) from {$wpdb->prefix}ahm_orders o,
-                      {$wpdb->prefix}ahm_order_items i,
-                      {$wpdb->prefix}posts p
-                      where p.post_author=$uid and
-                            i.oid=o.order_id and
-                            i.pid=p.ID and
-                            i.quantity > 0 and
-                            o.payment_status='Completed'
-                            and (o.date+($dt))<" . time() . "";
-
-$tempbalance     = $wpdb->get_var( $sqlm );
-$tempbalance     = $tempbalance - ( $tempbalance * $commission / 100 );
-$matured_balance = $tempbalance - $total_withdraws;
-
-//finding pending balance
-$pending_balance = $balance - $matured_balance;
+$commission       = wpdmpp_site_commission( $uid );
+$total_commission = $total_sales - $total_earning;
 
 // Build the withdrawal request form (rendered inside the WPDM modal via JS)
 $form          = 0;
@@ -105,6 +81,7 @@ ob_start();
 			$form = 1;
 			?>
 			<input type="hidden" name="withdraw" value="1">
+			<input type="hidden" name="__wpdmpp_withdraw_nonce" value="<?php echo esc_attr( wp_create_nonce( 'wpdmpp_withdraw_request' ) ); ?>">
 			<div class="wpe-field">
 				<label class="wpe-field__label"><?php esc_html_e( 'Payment Option', WPDMPP_TEXT_DOMAIN ); ?></label>
 				<div class="wpe-pom-list">
@@ -126,7 +103,8 @@ ob_start();
 			</div>
 			<div class="wpe-field">
 				<label class="wpe-field__label" for="withdraw_amount"><?php esc_html_e( 'Amount', WPDMPP_TEXT_DOMAIN ); ?></label>
-				<input type="number" name="withdraw_amount" id="withdraw_amount" required="required" value="<?php echo floor( $matured_balance ); ?>" min="10" max="<?php echo floor( $matured_balance ); ?>" class="wpe-input">
+				<?php $withdrawable = max( 0, floor( $matured_balance ) ); ?>
+				<input type="number" name="withdraw_amount" id="withdraw_amount" required="required" value="<?php echo esc_attr( $withdrawable ); ?>" min="10" max="<?php echo esc_attr( $withdrawable ); ?>" class="wpe-input">
 			</div>
 			<?php
 		}
