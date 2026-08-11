@@ -206,6 +206,28 @@ class CartService {
     }
 
     /**
+     * Build a single item in cart-item shape without touching the cart.
+     *
+     * Buy Now purchases one product straight from its page, so it needs an
+     * item priced exactly as the cart would price it — same licence tier,
+     * extra gigs, file selection and role discount — but must not disturb
+     * whatever the shopper already has in their cart.
+     *
+     * @param int   $productId Product ID
+     * @param array $data      Same shape addItem() accepts (license, quantity, extra_gigs, files)
+     * @return array Item array keyed by product ID, ready for OrderService::createFromCart()
+     */
+    public function buildStandaloneItem(int $productId, array $data = []): array {
+        $itemData = $this->buildItemData($productId, $data);
+        $item = new CartItem($productId, $itemData);
+
+        // Same extension point add-to-cart uses, so pricing add-ons still apply.
+        $item = apply_filters('wpdmpp_before_addtocart_item', $item, $productId, $data);
+
+        return [$productId => $item->toArray()];
+    }
+
+    /**
      * Add a dynamic item to cart (non-product items like subscriptions)
      *
      * @param int|string $itemId

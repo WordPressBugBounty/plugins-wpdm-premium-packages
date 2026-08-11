@@ -30,6 +30,7 @@ use WPDMPP\Admin\Customer\CustomerAdminService;
 use WPDMPP\Admin\Log\LogAdminService;
 use WPDMPP\Admin\Coupon\CouponAdminService;
 use WPDMPP\Admin\Package\PackageColumnsService;
+use WPDMPP\Admin\Package\PackageFilterService;
 use WPDMPP\Admin\Order\OrderNoteTemplateService;
 use WPDMPP\Core\CurrencyService;
 use WPDMPP\Core\Jobs\CronJobService;
@@ -223,6 +224,11 @@ class Plugin {
                 return PackageColumnsService::getInstance();
             });
 
+            // Package Filter Service
+            $this->container->singleton(PackageFilterService::class, function ($c) {
+                return PackageFilterService::getInstance();
+            });
+
             // Order Note Template Service
             $this->container->singleton(OrderNoteTemplateService::class, function ($c) {
                 return OrderNoteTemplateService::getInstance();
@@ -310,6 +316,10 @@ class Plugin {
         // Register package columns service
         $packageColumns = $this->container->get(PackageColumnsService::class);
         $packageColumns->register();
+
+        // Register package list filters
+        $packageFilter = $this->container->get(PackageFilterService::class);
+        $packageFilter->register();
 
         // Register order note template AJAX handlers
         $noteTemplates = $this->container->get(OrderNoteTemplateService::class);

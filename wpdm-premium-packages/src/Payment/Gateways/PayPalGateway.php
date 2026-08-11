@@ -1074,11 +1074,18 @@ class PayPalGateway extends AbstractGateway {
      * Returns full HTML+JS block that loads the PayPal SDK and initializes
      * paypal.Buttons() using REST API endpoints for create/capture.
      *
+     * Both the one-off and the subscription button resolve their order (and,
+     * for subscriptions, their plan) through REST when clicked, so this method
+     * makes no PayPal API calls and is safe to render on a product page.
+     *
      * @param string $orderId Local order ID (empty string to auto-create)
-     * @param float $amount Order amount (0 to calculate from cart)
+     * @param float $amount Retained for signature compatibility; the amount is
+     *                      taken from the cart or order server-side at click time
+     * @param int $productId Buy Now only: bill this product instead of the cart
+     * @param string $license Buy Now only: licence tier selected for that product
      * @return string HTML+JS for PayPal Smart Buttons, empty if not configured
      */
-    public function renderCheckoutButton(string $orderId = '', float $amount = 0): string {
+    public function renderCheckoutButton(string $orderId = '', float $amount = 0, int $productId = 0, string $license = ''): string {
         $clientId = $this->getClientId();
         if (empty($clientId)) {
             return '';
@@ -1089,40 +1096,18 @@ class PayPalGateway extends AbstractGateway {
         $captureUrl = rest_url('wpdmpp/v1/checkout/paypal/capture');
         $nonce = wp_create_nonce('wp_rest');
 
-        // Check for recurring/subscription
-        $recurring = false;
-        $planId = '';
-        if (CartService::instance()->isRecurring()) {
-            $recurring = true;
-            if ($orderId) {
-                $order = OrderService::instance()->getOrder($orderId);
-                if (!$order) {
-                    return '';
-                }
-                $interval = $this->calculateBillingInterval();
+        // Check for recurring/subscription.
+        //
+        // The plan is NOT built here. A PayPal plan needs an order, and this
+        // button also renders on the product page where no order exists yet —
+        // baking in an empty plan id made PayPal reject the subscription with
+        // INVALID_PARAMETER_SYNTAX on /plan_id. Instead the button asks
+        // /checkout/paypal/create-subscription for a plan when it is clicked,
+        // the same way the one-off branch below asks for an order. That also
+        // keeps two PayPal API calls off every page render.
+        $recurring = CartService::instance()->isRecurring();
 
-                // Check cart items for trial/membership metadata
-                $trialDays = 0;
-                $fullPrice = 0;
-                $cart = CartService::instance()->getCart();
-                foreach ($cart as $item) {
-                    $info = $item->getInfo();
-                    if (!empty($info['trial_days'])) {
-                        $trialDays = (int) $info['trial_days'];
-                        $fullPrice = (float) ($info['full_price'] ?? 0);
-                        break;
-                    }
-                }
-
-                $productId = $this->createSubscriptionProduct($order->getTitle(), $orderId);
-                if ($productId) {
-                    // For trial subscriptions, use full price as recurring amount (not $0 order total)
-                    $orderTotal = $trialDays > 0 && $fullPrice > 0 ? $fullPrice : ($amount > 0 ? $amount : $order->getTotal());
-                    $planId = $this->createSubscriptionPlan($productId, $orderTotal, $interval['count'], $interval['unit'], $trialDays);
-                }
-            }
-        }
-
+        $createSubscriptionUrl = rest_url('wpdmpp/v1/checkout/paypal/create-subscription');
         $activateUrl = rest_url('wpdmpp/v1/checkout/paypal/activate-subscription');
 
         // Build SDK URL
@@ -1146,6 +1131,19 @@ class PayPalGateway extends AbstractGateway {
         </style>
         <script>
         jQuery(function($) {
+            // Set when the subscription is created, so onApprove can activate
+            // the right order — on the product page the order does not exist
+            // until the button is clicked.
+            var subscriptionOrderId = <?php echo wp_json_encode($orderId); ?>;
+
+            // Buy Now bills one product rather than the cart. Empty on the
+            // checkout page, where the cart is what is being paid for.
+            var buyNowItem = <?php echo wp_json_encode(
+                $productId > 0
+                    ? ['product_id' => $productId, 'license' => $license]
+                    : new \stdClass()
+            ); ?>;
+
             function pmf_is_email(email) {
                 return /^([a-zA-Z0-9_.+-])+@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,4})+$/.test(email);
             }
@@ -1182,7 +1180,7 @@ class PayPalGateway extends AbstractGateway {
                         return fetch(<?php echo wp_json_encode($createUrl); ?> + '?' + formData, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': <?php echo wp_json_encode($nonce); ?> },
-                            body: JSON.stringify({ order_id: <?php echo wp_json_encode($orderId); ?> })
+                            body: JSON.stringify(Object.assign({ order_id: <?php echo wp_json_encode($orderId); ?> }, buyNowItem))
                         }).then(function(r) { return r.json(); }).then(function(result) {
                             if (!result.success) throw new Error(result.message || 'Error');
                             var d = result.data || result;
@@ -1212,7 +1210,19 @@ class PayPalGateway extends AbstractGateway {
                     style: { layout: 'horizontal', size: 'responsive', shape: 'rect', color: 'blue', tagline: false },
                     funding: { allowed: [paypal.FUNDING.CARD], disallowed: [paypal.FUNDING.CREDIT] },
                     createSubscription: function(data, actions) {
-                        return actions.subscription.create({ 'plan_id': <?php echo wp_json_encode($planId); ?> });
+                        var formData = jQuery('#payment_form').serialize();
+                        return fetch(<?php echo wp_json_encode($createSubscriptionUrl); ?> + (formData ? '?' + formData : ''), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': <?php echo wp_json_encode($nonce); ?> },
+                            body: JSON.stringify(Object.assign({ order_id: <?php echo wp_json_encode($orderId); ?> }, buyNowItem))
+                        }).then(function(r) { return r.json(); }).then(function(result) {
+                            if (!result.success) throw new Error(result.message || 'Error');
+                            var d = result.data || result;
+                            if (!d.plan_id) throw new Error(<?php echo wp_json_encode(__('Could not start the subscription. Please try again.', 'wpdm-premium-packages')); ?>);
+                            // Remember which order this subscription belongs to.
+                            subscriptionOrderId = d.order_id || <?php echo wp_json_encode($orderId); ?>;
+                            return actions.subscription.create({ 'plan_id': d.plan_id });
+                        });
                     },
                     onApprove: function(data, actions) {
                         $('#selected-payment-gateway-action').addClass('blockui');
@@ -1220,7 +1230,7 @@ class PayPalGateway extends AbstractGateway {
                         return fetch(<?php echo wp_json_encode($activateUrl); ?>, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': <?php echo wp_json_encode($nonce); ?> },
-                            body: JSON.stringify({ subscription_id: data.subscriptionID, order_id: <?php echo wp_json_encode($orderId); ?> })
+                            body: JSON.stringify({ subscription_id: data.subscriptionID, order_id: subscriptionOrderId })
                         }).then(function(r) { return r.json(); }).then(function(result) {
                             if (result.success) {
                                 var d = result.data || result;
@@ -1230,6 +1240,10 @@ class PayPalGateway extends AbstractGateway {
                                 $('#selected-payment-gateway-action').removeClass('blockui');
                             }
                         });
+                    },
+                    onError: function(err) {
+                        $('#selected-payment-gateway-action').removeClass('blockui');
+                        console.log(err);
                     }
                 }).render('#wpdm-paypal-button-container');
             });

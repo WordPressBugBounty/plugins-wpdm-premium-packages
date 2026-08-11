@@ -31,6 +31,38 @@ defined('ABSPATH') || exit;
 class CheckoutEndpoint {
 
     /**
+     * Signed-in buyer's saved billing profile, memoised per request.
+     *
+     * @var array|null
+     */
+    private ?array $savedBilling = null;
+
+    /**
+     * Items a PayPal create call should bill for.
+     *
+     * Buy Now names the product it sits on, so the order is built from that
+     * product and licence alone, leaving the shopper's cart untouched.
+     * Everything else bills the cart as before.
+     *
+     * @param \WP_REST_Request $request
+     * @return array{items: array, direct: bool}
+     */
+    private function resolveOrderItems(\WP_REST_Request $request): array {
+        $productId = (int) $request->get_param('product_id');
+
+        if ($productId > 0 && get_post_type($productId) === 'wpdmpro') {
+            $items = CartService::instance()->buildStandaloneItem($productId, [
+                'license'  => (string) ($request->get_param('license') ?: ''),
+                'quantity' => max(1, (int) ($request->get_param('quantity') ?: 1)),
+            ]);
+
+            return ['items' => $items, 'direct' => true];
+        }
+
+        return ['items' => \wpdmpp_get_cart_data(), 'direct' => false];
+    }
+
+    /**
      * Register checkout routes
      */
     public function register(): void {
@@ -84,6 +116,23 @@ class CheckoutEndpoint {
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
             ],
+        ]);
+
+        // Buy Now - raise an order for one product and hand it to a gateway.
+        // Gateway-agnostic on purpose: add-ons that render their own Buy Now
+        // button (via the wpdmpp_buynow_options filter) post here instead of
+        // reimplementing order creation.
+        register_rest_route($namespace, '/checkout/buy-now', [
+            'methods' => \WP_REST_Server::CREATABLE,
+            'callback' => [$this, 'buyNow'],
+            'permission_callback' => '__return_true',
+            'args' => array_merge($this->getBillingArgs(), [
+                'payment_method' => [
+                    'required' => true,
+                    'type' => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ]),
         ]);
 
         // PayPal - Create subscription
@@ -154,9 +203,32 @@ class CheckoutEndpoint {
      */
     private function getBillingArgs(): array {
         return [
-            'first_name' => [
-                'required' => true,
+            // Present only for Buy Now, which bills one product straight from
+            // its page instead of the shopper's cart.
+            'product_id' => [
+                'type' => 'integer',
+                'default' => 0,
+                'sanitize_callback' => 'absint',
+            ],
+            'license' => [
                 'type' => 'string',
+                'default' => '',
+                'sanitize_callback' => 'sanitize_text_field',
+            ],
+            'quantity' => [
+                'type' => 'integer',
+                'default' => 1,
+                'sanitize_callback' => 'absint',
+            ],
+            // first_name and email are not marked required at the route level.
+            // The Buy Now button on a product page has no billing form to post,
+            // and for a logged-in buyer both values are already known from the
+            // account. Marking them required here rejected the request before
+            // the callback could fall back. validateBillingData() still refuses
+            // a request that has no usable name or address after that fallback.
+            'first_name' => [
+                'type' => 'string',
+                'default' => '',
                 'sanitize_callback' => 'sanitize_text_field',
             ],
             'last_name' => [
@@ -165,10 +237,14 @@ class CheckoutEndpoint {
                 'sanitize_callback' => 'sanitize_text_field',
             ],
             'email' => [
-                'required' => true,
                 'type' => 'string',
+                'default' => '',
                 'sanitize_callback' => 'sanitize_email',
                 'validate_callback' => function($value) {
+                    // Empty is allowed here so the account fallback can supply it.
+                    if ($value === '' || $value === null) {
+                        return true;
+                    }
                     return is_email($value) ? true : new \WP_Error('invalid_email', __('Please enter a valid email address.', 'wpdm-premium-packages'));
                 },
             ],
@@ -228,18 +304,82 @@ class CheckoutEndpoint {
      */
     private function buildBillingInfo(\WP_REST_Request $request): array {
         return [
-            'first_name'  => $request->get_param('first_name'),
-            'last_name'   => $request->get_param('last_name') ?: '',
-            'order_email' => $request->get_param('email'),
-            'company'     => $request->get_param('company') ?: '',
-            'country'     => $request->get_param('country') ?: '',
-            'state'       => $request->get_param('state') ?: '',
-            'address_1'   => $request->get_param('address_1') ?: '',
-            'address_2'   => $request->get_param('address_2') ?: '',
-            'city'        => $request->get_param('city') ?: '',
-            'postcode'    => $request->get_param('postcode') ?: '',
-            'phone'       => $request->get_param('phone') ?: '',
+            'first_name'  => $this->billingParam($request, 'first_name'),
+            'last_name'   => $this->billingParam($request, 'last_name'),
+            'order_email' => $this->billingParam($request, 'email'),
+            'company'     => $this->billingParam($request, 'company'),
+            'country'     => $this->billingParam($request, 'country'),
+            'state'       => $this->billingParam($request, 'state'),
+            'address_1'   => $this->billingParam($request, 'address_1'),
+            'address_2'   => $this->billingParam($request, 'address_2'),
+            'city'        => $this->billingParam($request, 'city'),
+            'postcode'    => $this->billingParam($request, 'postcode'),
+            'phone'       => $this->billingParam($request, 'phone'),
         ];
+    }
+
+    /**
+     * Read a billing value from the request, falling back sensibly.
+     *
+     * Checkout posts flat fields (first_name, email). The older checkout
+     * templates post them nested as billing[first_name] / billing[order_email].
+     * The Buy Now button on a product page posts neither, because there is no
+     * billing form there — for a signed-in buyer the account already holds the
+     * name and email, so use those rather than rejecting the purchase.
+     *
+     * @param \WP_REST_Request $request
+     * @param string           $key Flat field name
+     * @return string
+     */
+    private function billingParam(\WP_REST_Request $request, string $key): string {
+        $value = $request->get_param($key);
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        // Nested billing[...] shape used by the legacy checkout templates.
+        $billing = $request->get_param('billing');
+        if (is_array($billing)) {
+            // billing[] calls the email field order_email.
+            $nestedKey = $key === 'email' ? 'order_email' : $key;
+            if (!empty($billing[$nestedKey]) && is_string($billing[$nestedKey])) {
+                return $key === 'email'
+                    ? sanitize_email($billing[$nestedKey])
+                    : sanitize_text_field($billing[$nestedKey]);
+            }
+        }
+
+        // Fall back to the buyer's saved billing profile. This is the same
+        // record the checkout page prefills from, and it already merges the
+        // account's name and email over anything the profile is missing.
+        $saved = $this->savedBilling();
+        if (!empty($saved[$key]) && is_string($saved[$key])) {
+            return $key === 'email'
+                ? sanitize_email($saved[$key])
+                : sanitize_text_field($saved[$key]);
+        }
+
+        return '';
+    }
+
+    /**
+     * Saved billing profile of the signed-in buyer, resolved once per request.
+     *
+     * @return array
+     */
+    private function savedBilling(): array {
+        if ($this->savedBilling !== null) {
+            return $this->savedBilling;
+        }
+
+        $userId = get_current_user_id();
+        if ($userId > 0 && class_exists('\WPDMPP\Customer\BillingInfoService')) {
+            $this->savedBilling = \WPDMPP\Customer\BillingInfoService::getInstance()->getBillingInfo($userId);
+        } else {
+            $this->savedBilling = [];
+        }
+
+        return $this->savedBilling;
     }
 
     /**
@@ -441,12 +581,14 @@ class CheckoutEndpoint {
     private function validateBillingData(\WP_REST_Request $request) {
         $errors = [];
 
-        $first_name = $request->get_param('first_name');
+        // Resolve through the same fallbacks buildBillingInfo() uses, so a
+        // signed-in buyer is not asked for details the account already has.
+        $first_name = $this->billingParam($request, 'first_name');
         if (empty($first_name)) {
             $errors['first_name'] = __('First name is required.', 'wpdm-premium-packages');
         }
 
-        $email = $request->get_param('email');
+        $email = $this->billingParam($request, 'email');
         if (empty($email)) {
             $errors['email'] = __('Email is required.', 'wpdm-premium-packages');
         } elseif (!is_email($email)) {
@@ -456,19 +598,19 @@ class CheckoutEndpoint {
         // When tax calculation is enabled, the billing location is required so the
         // correct rate can be applied. Strict check matches CartService::calculateTax.
         if (function_exists('get_wpdmpp_option') && (int) get_wpdmpp_option('tax/enable', 0, 'int') === 1) {
-            if (empty($request->get_param('country'))) {
+            if (empty($this->billingParam($request, 'country'))) {
                 $errors['country'] = __('Country is required.', 'wpdm-premium-packages');
             }
-            if (empty($request->get_param('state'))) {
+            if (empty($this->billingParam($request, 'state'))) {
                 $errors['state'] = __('State / province is required.', 'wpdm-premium-packages');
             }
-            if (empty($request->get_param('address_1'))) {
+            if (empty($this->billingParam($request, 'address_1'))) {
                 $errors['address_1'] = __('Address is required.', 'wpdm-premium-packages');
             }
-            if (empty($request->get_param('city'))) {
+            if (empty($this->billingParam($request, 'city'))) {
                 $errors['city'] = __('City is required.', 'wpdm-premium-packages');
             }
-            if (empty($request->get_param('postcode'))) {
+            if (empty($this->billingParam($request, 'postcode'))) {
                 $errors['postcode'] = __('Zip / postal code is required.', 'wpdm-premium-packages');
             }
         }
@@ -517,8 +659,9 @@ class CheckoutEndpoint {
             );
         }
 
-        // Check cart
-        $cart_items = \wpdmpp_get_cart_data();
+        // Buy Now bills the product it sits on; checkout bills the cart.
+        $resolved   = $this->resolveOrderItems($request);
+        $cart_items = $resolved['items'];
         if (empty($cart_items)) {
             return RestApi::error(__('Your cart is empty.', 'wpdm-premium-packages'), 400);
         }
@@ -526,7 +669,9 @@ class CheckoutEndpoint {
         // Create local order via OrderService
         $billingInfo = $this->buildBillingInfo($request);
         $orderService = OrderService::instance();
-        $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal');
+        $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal', [
+            'use_cart_coupon' => !$resolved['direct'],
+        ]);
 
         if (!$order) {
             return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
@@ -617,6 +762,76 @@ class CheckoutEndpoint {
     }
 
     /**
+     * Buy Now: raise an order for a single product and hand it to a gateway.
+     *
+     * Gateways that redirect (Stripe Checkout, and offline methods) can drive
+     * Buy Now through this one call. PayPal does not use it, because its Smart
+     * Buttons need the order id back before the popup opens.
+     *
+     * @param \WP_REST_Request $request
+     * @return \WP_REST_Response
+     */
+    public function buyNow(\WP_REST_Request $request): \WP_REST_Response {
+        $method = (string) $request->get_param('payment_method');
+
+        $paymentService = PaymentService::instance();
+        $gateway = $paymentService->getGateway(strtolower($method));
+        if (!$gateway || !$gateway->isEnabled()) {
+            return RestApi::error(__('Payment gateway is not available.', 'wpdm-premium-packages'), 400);
+        }
+
+        // Validate billing (falls back to the signed-in buyer's saved profile)
+        $validation = $this->validateBillingData($request);
+        if (is_wp_error($validation)) {
+            return RestApi::error(
+                $validation->get_error_message(),
+                400,
+                ['errors' => $validation->get_error_data()]
+            );
+        }
+
+        // This route always bills a named product. resolveOrderItems() falls
+        // back to the cart when the id is missing or not a package, which is
+        // right for the checkout routes but would silently charge for the
+        // wrong thing here.
+        $resolved = $this->resolveOrderItems($request);
+        if (!$resolved['direct'] || empty($resolved['items'])) {
+            return RestApi::error(__('Product not found.', 'wpdm-premium-packages'), 400);
+        }
+
+        $billingInfo = $this->buildBillingInfo($request);
+        $order = OrderService::instance()->createFromCart(
+            $resolved['items'],
+            $billingInfo,
+            $method,
+            ['use_cart_coupon' => !$resolved['direct']]
+        );
+
+        if (!$order) {
+            return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
+        }
+
+        $orderId = $order->getOrderId();
+        $result = $paymentService->processPayment(strtolower($method), [
+            'order_id' => $orderId,
+            'billing'  => $billingInfo,
+        ]);
+
+        if (empty($result['success'])) {
+            return RestApi::error(
+                $result['message'] ?? __('Payment could not be started.', 'wpdm-premium-packages'),
+                400,
+                ['order_id' => $orderId]
+            );
+        }
+
+        return RestApi::success([
+            'order_id'     => $orderId,
+            'redirect_url' => $result['redirect_url'] ?? ($result['redirect'] ?? ''),
+        ], $result['message'] ?? '');
+    }
+
+    /**
      * PayPal: Create subscription (plan + product)
      *
      * @param \WP_REST_Request $request
@@ -633,8 +848,9 @@ class CheckoutEndpoint {
             );
         }
 
-        // Check cart
-        $cart_items = \wpdmpp_get_cart_data();
+        // Buy Now bills the product it sits on; checkout bills the cart.
+        $resolved   = $this->resolveOrderItems($request);
+        $cart_items = $resolved['items'];
         if (empty($cart_items)) {
             return RestApi::error(__('Your cart is empty.', 'wpdm-premium-packages'), 400);
         }
@@ -642,7 +858,9 @@ class CheckoutEndpoint {
         // Create local order via OrderService
         $billingInfo = $this->buildBillingInfo($request);
         $orderService = OrderService::instance();
-        $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal');
+        $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal', [
+            'use_cart_coupon' => !$resolved['direct'],
+        ]);
 
         if (!$order) {
             return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
@@ -654,15 +872,19 @@ class CheckoutEndpoint {
         try {
             $paypal = new PayPalGateway();
 
-            // Inspect the cart for membership metadata (trial, full price, billing period).
+            // Inspect the items being billed for membership metadata (trial,
+            // full price, billing period). For Buy Now these are the single
+            // resolved product, not the cart, so an unrelated membership
+            // sitting in the cart cannot impose its trial on this purchase.
             $trialDays = 0;
             $fullPrice = 0;
             $membershipPeriod = 0;
             $membershipUnit = '';
-            $cart = CartService::instance()->getCart();
-            foreach ($cart as $item) {
-                $info = $item->getInfo();
-                if (empty($info)) {
+            foreach ($cart_items as $item) {
+                $info = is_array($item)
+                    ? ($item['info'] ?? [])
+                    : (is_object($item) && method_exists($item, 'getInfo') ? $item->getInfo() : []);
+                if (empty($info) || !is_array($info)) {
                     continue;
                 }
                 if (!empty($info['trial_days'])) {

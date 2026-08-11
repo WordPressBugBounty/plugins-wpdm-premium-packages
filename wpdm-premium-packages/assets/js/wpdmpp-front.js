@@ -88,6 +88,7 @@ jQuery(function ($) {
             WPDM.blockUI('.__wpdmpp_buy_now_zone_' + pid);
             $('.__wpdmpp_buy_now_zone_' + pid).load(wpdm_url.ajax, {
                 pid: pid,
+                license: al,
                 action: 'wpdmpp_load_buynow_button'
             }, function (res) {
                 WPDM.unblockUI('.__wpdmpp_buy_now_zone_' + pid);
@@ -133,6 +134,7 @@ jQuery(function ($) {
             WPDM.blockUI('.__wpdmpp_buy_now_zone_' + pid);
             $('.__wpdmpp_buy_now_zone_' + pid).load(wpdm_url.ajax, {
                 pid: pid,
+                license: al,
                 action: 'wpdmpp_load_buynow_button'
             }, function (res) {
                 WPDM.unblockUI('.__wpdmpp_buy_now_zone_' + pid);

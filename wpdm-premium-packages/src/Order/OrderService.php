@@ -79,10 +79,14 @@ class OrderService {
      * @param string $paymentMethod Payment method
      * @return Order|false
      */
-    public function createFromCart(array $cartItems, array $billingInfo = [], string $paymentMethod = '') {
+    public function createFromCart(array $cartItems, array $billingInfo = [], string $paymentMethod = '', array $options = []) {
         if (empty($cartItems)) {
             return false;
         }
+
+        // A direct purchase (Buy Now) is not the shopper's cart, so a coupon
+        // sitting on that cart must not discount it.
+        $useCartCoupon = !array_key_exists('use_cart_coupon', $options) || $options['use_cart_coupon'];
 
         // Get billing info from request if not provided
         if (empty($billingInfo) && function_exists('wpdm_query_var')) {
@@ -110,7 +114,7 @@ class OrderService {
 
         // Get coupon code and cart-level discount from cart
         $couponCode = '';
-        if (function_exists('WPDMPP') && is_callable([WPDMPP()->cart, 'getCoupon'])) {
+        if ($useCartCoupon && function_exists('WPDMPP') && is_callable([WPDMPP()->cart, 'getCoupon'])) {
             $couponCode = WPDMPP()->cart->getCoupon('code') ?? '';
 
             // If per-item coupon discount is 0 but cart has a coupon applied,

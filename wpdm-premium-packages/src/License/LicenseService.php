@@ -584,7 +584,7 @@ class LicenseService {
             ];
         }
 
-        if ($domainLimit === null) {
+        if ($domainLimit === null || (int) $domainLimit < 1) {
             $domainLimit = $this->resolveDomainLimit($orderId, $productId) ?? 1;
         }
 

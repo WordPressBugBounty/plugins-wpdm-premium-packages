@@ -16,12 +16,13 @@ class Withdraw
 {
     /**
      * Withdrawal statuses
+     *
+     * These mirror the `status` column of `ahm_withdraws`, which is an
+     * integer. There is no rejected/cancelled state in the schema — a payout
+     * is either awaiting payment or paid.
      */
-    public const STATUS_PENDING = 'pending';
-    public const STATUS_PROCESSING = 'processing';
-    public const STATUS_COMPLETED = 'completed';
-    public const STATUS_REJECTED = 'rejected';
-    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_PENDING = 0;
+    public const STATUS_PAID = 1;
 
     /**
      * Withdrawal ID
@@ -54,12 +55,16 @@ class Withdraw
     /**
      * Status
      *
-     * @var string
+     * @var int
      */
-    private string $status = self::STATUS_PENDING;
+    private int $status = self::STATUS_PENDING;
 
     /**
      * Transaction ID (from payment processor)
+     *
+     * Note: `ahm_withdraws` has no column for this, so it is always empty when
+     * hydrated from the database. Kept because it is part of the toArray()
+     * shape that templates and add-ons consume.
      *
      * @var string
      */
@@ -75,12 +80,18 @@ class Withdraw
     /**
      * Processed date
      *
+     * Note: `ahm_withdraws` has no column for this, so it is always 0/empty
+     * when hydrated from the database. Kept for toArray() compatibility.
+     *
      * @var int
      */
     private int $processedDate = 0;
 
     /**
      * Note/reason
+     *
+     * Note: `ahm_withdraws` has no column for this, so it is always 0/empty
+     * when hydrated from the database. Kept for toArray() compatibility.
      *
      * @var string
      */
@@ -106,7 +117,7 @@ class Withdraw
         $withdraw->userId = (int) ($row->uid ?? $row->user_id ?? 0);
         $withdraw->amount = (float) ($row->amount ?? 0);
         $withdraw->paymentMethod = $row->payment_method ?? '';
-        $withdraw->status = $row->status ?? self::STATUS_PENDING;
+        $withdraw->status = (int) ($row->status ?? self::STATUS_PENDING);
         $withdraw->transactionId = $row->trans_id ?? $row->transaction_id ?? '';
         $withdraw->requestDate = (int) ($row->date ?? $row->request_date ?? 0);
         $withdraw->processedDate = (int) ($row->processed_date ?? 0);
@@ -133,7 +144,7 @@ class Withdraw
         $withdraw->userId = (int) ($data['uid'] ?? $data['user_id'] ?? 0);
         $withdraw->amount = (float) ($data['amount'] ?? 0);
         $withdraw->paymentMethod = $data['payment_method'] ?? '';
-        $withdraw->status = $data['status'] ?? self::STATUS_PENDING;
+        $withdraw->status = (int) ($data['status'] ?? self::STATUS_PENDING);
         $withdraw->transactionId = $data['trans_id'] ?? $data['transaction_id'] ?? '';
         $withdraw->requestDate = (int) ($data['date'] ?? $data['request_date'] ?? time());
         $withdraw->processedDate = (int) ($data['processed_date'] ?? 0);
@@ -182,7 +193,7 @@ class Withdraw
         return $this->paymentMethod;
     }
 
-    public function getStatus(): string
+    public function getStatus(): int
     {
         return $this->status;
     }
@@ -191,13 +202,10 @@ class Withdraw
     {
         $labels = [
             self::STATUS_PENDING => __('Pending', 'wpdm-premium-packages'),
-            self::STATUS_PROCESSING => __('Processing', 'wpdm-premium-packages'),
-            self::STATUS_COMPLETED => __('Completed', 'wpdm-premium-packages'),
-            self::STATUS_REJECTED => __('Rejected', 'wpdm-premium-packages'),
-            self::STATUS_CANCELLED => __('Cancelled', 'wpdm-premium-packages'),
+            self::STATUS_PAID => __('Paid', 'wpdm-premium-packages'),
         ];
 
-        return $labels[$this->status] ?? $this->status;
+        return $labels[$this->status] ?? (string) $this->status;
     }
 
     public function getTransactionId(): string
@@ -240,34 +248,14 @@ class Withdraw
         return $this->status === self::STATUS_PENDING;
     }
 
-    public function isProcessing(): bool
+    public function isPaid(): bool
     {
-        return $this->status === self::STATUS_PROCESSING;
-    }
-
-    public function isCompleted(): bool
-    {
-        return $this->status === self::STATUS_COMPLETED;
-    }
-
-    public function isRejected(): bool
-    {
-        return $this->status === self::STATUS_REJECTED;
-    }
-
-    public function isCancelled(): bool
-    {
-        return $this->status === self::STATUS_CANCELLED;
-    }
-
-    public function canProcess(): bool
-    {
-        return $this->isPending() || $this->isProcessing();
+        return $this->status === self::STATUS_PAID;
     }
 
     // Setters (fluent)
 
-    public function setStatus(string $status): self
+    public function setStatus(int $status): self
     {
         $this->status = $status;
         return $this;
@@ -327,15 +315,13 @@ class Withdraw
      */
     public function toDatabase(): array
     {
+        // Only columns that exist in `ahm_withdraws`.
         return [
             'uid' => $this->userId,
             'amount' => $this->amount,
             'payment_method' => $this->paymentMethod,
             'status' => $this->status,
-            'trans_id' => $this->transactionId,
             'date' => $this->requestDate,
-            'processed_date' => $this->processedDate,
-            'note' => $this->note,
         ];
     }
 }

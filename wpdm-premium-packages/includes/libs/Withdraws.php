@@ -149,7 +149,9 @@ class Withdraws
     /**
      * Process payout (placeholder)
      *
-     * @deprecated 7.0.0 Use PayoutService::completeWithdrawal()
+     * Payouts are marked paid from the admin Payouts screen via the
+     * `wpdmpp_change_payout_status` AJAX action.
+     *
      * @param object $request Payout request
      */
     function processPayout($request)
@@ -216,30 +218,6 @@ class Withdraws
     public static function requestWithdrawal($userId, $amount, $paymentMethod)
     {
         return self::service()->requestWithdrawal($userId, $amount, $paymentMethod);
-    }
-
-    /**
-     * Complete a withdrawal
-     *
-     * @param int    $withdrawalId  Withdrawal ID
-     * @param string $transactionId Transaction ID
-     * @return array
-     */
-    public static function completeWithdrawal($withdrawalId, $transactionId = '')
-    {
-        return self::service()->completeWithdrawal($withdrawalId, $transactionId);
-    }
-
-    /**
-     * Reject a withdrawal
-     *
-     * @param int    $withdrawalId Withdrawal ID
-     * @param string $reason       Reason
-     * @return array
-     */
-    public static function rejectWithdrawal($withdrawalId, $reason = '')
-    {
-        return self::service()->rejectWithdrawal($withdrawalId, $reason);
     }
 
     /**

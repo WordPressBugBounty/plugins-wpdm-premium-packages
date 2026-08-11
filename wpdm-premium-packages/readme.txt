@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.0
-Stable tag: 7.0.7
+Stable tag: 7.0.8
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,13 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.0.8 - 2026.08.11 =
+* Added a Premium/Free filter to the package list in admin, so the list can be narrowed to packages that have a price. A package counts as premium when its base price or an active sale price is above zero, matching what the front end treats as paid
+* Fixed the PayPal Buy Now button failing with "Request is not well-formed" when auto renew is enabled. The button was built with an empty subscription plan id on the product page, where no order exists yet; it now requests the plan when it is clicked, the same way the checkout page already did. This also removes two blocking PayPal API calls from every render of the button
+* Added a gateway-agnostic Buy Now checkout route, so payment add-ons can contribute their own button to the Buy Now box through the existing wpdmpp_buynow_options filter without reimplementing order creation. The Stripe add-on uses it for a Pay with Card button from version 3.0.2
+* Fixed Buy Now charging for the wrong product. The button built its order from the shopper's cart, so it billed whatever was already in there - buying from a product page with another item in the cart charged for that other item instead, and an empty cart failed outright. Buy Now now builds the order from the product and licence tier on the page, priced exactly as the cart would price it, and leaves the cart untouched. A coupon applied to the cart no longer discounts a Buy Now purchase
+* Fixed the PayPal Buy Now button being rejected for missing billing details. Buy Now has no checkout form, so a signed-in buyer's name, email and address now come from their saved billing profile, and a guest is asked for name and email beside the button. The checkout endpoints also accept the older nested billing[...] field names. Where tax calculation is on, Buy Now is hidden for guests, since a full address cannot be collected there - Add to Cart handles that case
 
 = 7.0.7 - 2026.08.08 =
 * Security: Fixed a missing balance validation in the withdrawal/payout system, where a withdrawal request was never checked against the seller's actual earned balance; any logged-in user could submit a payout request for an arbitrary amount, and a seller with any earnings at all could request an unlimited amount. Withdrawal amounts are now validated server-side against real matured earnings, and the check and the insert are serialised per user so concurrent requests cannot draw on the same funds twice ( Reported by Farid Narimanov )
