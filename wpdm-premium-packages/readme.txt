@@ -3,8 +3,8 @@ Contributors: w3eden, codename065, shahriar0822, shafayat-alam, shimo16ab
 Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
-Tested up to: 7.0
-Stable tag: 7.0.8
+Tested up to: 7.1
+Stable tag: 7.0.9
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,12 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.0.9 - 2026.08.13 =
+* Fixed add to cart failing with a server error on PHP 8.0 and above. The /cart and /cart/dynamic REST routes registered floatval() directly as a sanitize callback, but WordPress passes three arguments to sanitize callbacks and floatval() accepts one, which throws an ArgumentCountError. The /cart route was affected through the default value of iwantopay, so every REST add to cart request returned HTTP 500
+* Fixed payment gateways always charging in US dollars when the store currency was set to anything else. The shared gateway base class read the currency from a _wpdmpp_currency option that is never written, so it always fell back to USD; it now reads the configured store currency and honours the wpdmpp_currency_code filter. This affected the Stripe and 2Checkout add-ons, where the checkout page showed USD regardless of the store setting. PayPal was not affected
+* Security: Fixed an unauthenticated price manipulation flaw in the /cart/dynamic REST route. The route was registered with a public permission callback and took the line item price straight from the request body, so any visitor could place a paid package in their cart at a price of their choosing and check out at that amount. Because the supplied item id was stored as the order item's package id, a completed order also unlocked the real package. The route is now restricted to administrators, and dynamic line items no longer satisfy a purchase check for a package that shares their id ( Reported by Shikhali Jamalzade )
+* Security: Applied the same restriction to the legacy ?addtocart=dynamic request handler, which took its price from the query string on every page load with no capability check and no nonce
 
 = 7.0.8 - 2026.08.11 =
 * Added a Premium/Free filter to the package list in admin, so the list can be narrowed to packages that have a price. A package counts as premium when its base price or an active sale price is above zero, matching what the front end treats as paid

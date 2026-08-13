@@ -137,10 +137,17 @@ class CartEndpoint {
         ]);
 
         // Add dynamic item (for subscriptions, etc.)
+        //
+        // Admin-only: this route takes the line-item price from the request
+        // body instead of resolving it from the catalog, so exposing it to
+        // unauthenticated visitors would let anyone set their own price.
+        // Integrations that legitimately need dynamic items (e.g. membership
+        // plans) build them server-side via CartService::addDynamicItem(),
+        // where the price comes from trusted data — not from this route.
         register_rest_route($namespace, '/cart/dynamic', [
             'methods' => \WP_REST_Server::CREATABLE,
             'callback' => [$this, 'addDynamicItem'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [RestApi::class, 'checkAdminCap'],
             'args' => [
                 'item_id' => [
                     'required' => true,
@@ -155,7 +162,12 @@ class CartEndpoint {
                 'price' => [
                     'required' => true,
                     'type' => 'number',
-                    'sanitize_callback' => 'floatval',
+                    // Wrapped: WP passes ($value, $request, $param) to sanitize
+                    // callbacks, and floatval() is an internal single-arg
+                    // function, which throws ArgumentCountError on PHP 8+.
+                    'sanitize_callback' => function ($value) {
+                        return floatval($value);
+                    },
                 ],
                 'recurring' => [
                     'type' => 'boolean',
@@ -226,7 +238,11 @@ class CartEndpoint {
             'iwantopay' => [
                 'type' => 'number',
                 'default' => 0,
-                'sanitize_callback' => 'floatval',
+                // See note on the /cart/dynamic price arg: floatval() cannot be
+                // used directly as a sanitize_callback on PHP 8+.
+                'sanitize_callback' => function ($value) {
+                    return floatval($value);
+                },
             ],
         ];
     }

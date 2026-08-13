@@ -616,11 +616,15 @@ class DatabaseRepository implements OrderRepositoryInterface {
             return false;
         }
 
+        // Dynamic line items are priced by the caller and are not a catalog
+        // purchase, so they must not satisfy an entitlement check for a
+        // product with the same id. IFNULL keeps legacy rows qualifying.
         $count = $this->db->get_var($this->db->prepare(
             "SELECT COUNT(*)
             FROM {$this->itemsTable} oi
             INNER JOIN {$this->ordersTable} o ON o.order_id = oi.oid
-            WHERE oi.pid = %d AND o.uid = %d AND o.order_status IN ('Completed', 'Expired')",
+            WHERE oi.pid = %d AND o.uid = %d AND o.order_status IN ('Completed', 'Expired')
+            AND IFNULL(oi.product_type, '') <> 'dynamic'",
             $productId,
             $userId
         ));

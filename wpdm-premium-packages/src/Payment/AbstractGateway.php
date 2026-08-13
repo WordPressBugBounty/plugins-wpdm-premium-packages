@@ -246,10 +246,22 @@ abstract class AbstractGateway implements PaymentGatewayInterface {
     /**
      * Get currency code
      *
+     * Reads the store currency the same way the rest of the plugin does, via
+     * wpdmpp_currency_code(), so a gateway charges in the configured currency
+     * and honours the wpdmpp_currency_code filter. This previously read a
+     * standalone _wpdmpp_currency option that is never written, so every
+     * gateway built on this class silently charged in USD.
+     *
      * @return string
      */
     protected function getCurrency(): string {
-        return get_option('_wpdmpp_currency', 'USD');
+        if (function_exists('wpdmpp_currency_code')) {
+            return wpdmpp_currency_code();
+        }
+
+        $settings = get_option('_wpdmpp_settings');
+
+        return !empty($settings['currency']) ? $settings['currency'] : 'USD';
     }
 
     /**

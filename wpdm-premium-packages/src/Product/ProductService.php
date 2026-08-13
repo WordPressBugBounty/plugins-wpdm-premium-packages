@@ -635,6 +635,9 @@ class ProductService {
             return false;
         }
 
+        // Dynamic line items are priced by the caller and do not represent a
+        // catalog purchase, so they never grant access to a product that
+        // shares their id. IFNULL keeps legacy rows (NULL/empty) qualifying.
         $orderId = $wpdb->get_var($wpdb->prepare(
             "SELECT o.order_id
              FROM {$wpdb->prefix}ahm_orders o
@@ -642,6 +645,7 @@ class ProductService {
              WHERE o.uid = %d
              AND oi.pid = %d
              AND o.order_status = 'Completed'
+             AND IFNULL(oi.product_type, '') <> 'dynamic'
              ORDER BY o.date DESC
              LIMIT 1",
             $userId,

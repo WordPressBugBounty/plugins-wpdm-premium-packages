@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.0.8
+ * Version: 7.0.9
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.0.8' );
+	define( 'WPDMPP_VERSION', '7.0.9' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -1112,10 +1112,15 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			}
 			$uid     = $uid ? (int) $uid : (int) $current_user->ID;
 			$pid     = (int) $pid;
+			// Dynamic line items carry a caller-supplied price and are not a
+			// purchase of a catalog package, so they must never unlock one --
+			// even when their id happens to match a package ID. IFNULL keeps
+			// legacy rows (NULL/empty product_type) counting as real purchases.
 			$orderid = $wpdb->get_var( $wpdb->prepare(
 				"SELECT o.order_id FROM {$wpdb->prefix}ahm_orders o
 				 INNER JOIN {$wpdb->prefix}ahm_order_items oi ON o.order_id = oi.oid
-				 WHERE o.uid = %d AND oi.pid = %d AND o.order_status = 'Completed'",
+				 WHERE o.uid = %d AND oi.pid = %d AND o.order_status = 'Completed'
+				 AND IFNULL(oi.product_type, '') <> 'dynamic'",
 				$uid, $pid
 			) );
 

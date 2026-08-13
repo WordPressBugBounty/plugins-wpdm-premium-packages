@@ -75,8 +75,14 @@ function wpdmpp_add_to_cart(){
 
         if(get_post_type(wpdm_query_var('addtocart', 'int')) === 'wpdmpro')
             $cart_data = WPDMPP()->cart->addItem(wpdm_query_var('addtocart', 'int'), wpdm_query_var('license', 'txt'), $_REQUEST);
-        else if(wpdm_query_var('addtocart', 'txt') === 'dynamic')
+        else if(wpdm_query_var('addtocart', 'txt') === 'dynamic') {
+            // The price here comes straight off the query string, so this
+            // branch is admin-only — otherwise any visitor could add a
+            // line item to their cart at a price of their choosing.
+            if(!current_user_can(WPDMPP_ADMIN_CAP))
+                return;
             $cart_data = WPDMPP()->cart->addDynamicItem("DP_".time(), wpdm_query_var('name'), wpdm_query_var('price'), $_REQUEST);
+        }
 
         WPDMPP()->cart->clearCoupon();
 
