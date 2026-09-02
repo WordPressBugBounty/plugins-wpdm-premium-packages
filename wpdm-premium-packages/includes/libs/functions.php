@@ -1856,3 +1856,50 @@ function wpdmpp_search_products( $keyword = '' ) {
 }
 
 
+
+/**
+ * Build a safely escaped link to a gateway's dashboard entry for a transaction.
+ *
+ * Provided for payment gateway add-ons hooking wpdmpp_admin_order_details_trans_id,
+ * so every gateway escapes the URL and the visible id the same way.
+ *
+ * @param string $url      Dashboard URL for the transaction.
+ * @param string $trans_id Transaction id, shown as the link text.
+ * @param string $title    Optional title attribute.
+ *
+ * @return string Anchor markup.
+ */
+function wpdmpp_trans_id_link( $url, $trans_id, $title = '' ) {
+    return sprintf(
+        '<a href="%s" target="_blank" rel="noopener noreferrer"%s>%s</a>',
+        esc_url( $url ),
+        $title !== '' ? ' title="' . esc_attr( $title ) . '"' : '',
+        esc_html( $trans_id )
+    );
+}
+
+/**
+ * Render an order's transaction id for the admin screens.
+ *
+ * Gateways turn the id into a link to their own dashboard through the
+ * wpdmpp_admin_order_details_trans_id filter. A filter returns markup, so the
+ * result cannot be escaped wholesale; when nothing filtered the id it is escaped
+ * here instead, so an unlinked id is never echoed raw.
+ *
+ * @param string $trans_id       Raw transaction id.
+ * @param string $payment_method Gateway name stored on the order.
+ *
+ * @return string Ready to echo markup.
+ */
+function wpdmpp_admin_trans_id_html( $trans_id, $payment_method = '' ) {
+    $trans_id = (string) $trans_id;
+
+    if ( $trans_id === '' ) {
+        return '';
+    }
+
+    $filtered = apply_filters( 'wpdmpp_admin_order_details_trans_id', $trans_id, $payment_method );
+
+    // Untouched by every gateway: still a plain id, so escape it.
+    return $filtered === $trans_id ? esc_html( $trans_id ) : $filtered;
+}

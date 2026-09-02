@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.1.0
+Stable tag: 7.1.1
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,12 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.1.1 - 2026.09.02 =
+* Transaction ids on the admin orders list, order details and renewed orders screens now link to the entry in the payment gateway's own dashboard. PayPal is handled in core, and points at the billing subscription or the payment activity page depending on what the id refers to, using the sandbox dashboard for sandbox orders; the Stripe add-on links its own from version 3.0.4. Gateway add-ons can do the same by hooking wpdmpp_admin_order_details_trans_id and building the link with the new wpdmpp_trans_id_link() helper. On the renewed orders tab such links were previously escaped and shown as raw markup
+* Fixed pagination on the Renewed Orders tab ignoring the search filters. The page count came from a count of every row in the renewals table rather than the filtered set, so searching - by date range, status or customer - listed the right renewals but still offered pages for the whole history, and following one led to an empty page. The count now applies the same filter and the same join as the result query
+* Fixed the product on a coupon not saving when an existing coupon was edited. The admin form posts the field as "product" while the update routine only looked for "product_id", so the value was dropped on every edit - creating a coupon was unaffected, because the coupon model already accepted either name. Update now accepts both, and clearing the field back to a global coupon works too
+* Fixed an order note attachment needing a page refresh before it could be downloaded. The note markup returned straight after adding a note rendered each attachment as a dead "#" link, so the file only became reachable once the page was reloaded and the template built the real download token. The admin AJAX handler and the REST note endpoint now build the same token the page-load template does
 
 = 7.1.0 - 2026.09.02 =
 * Fixed the "Disable Product Coupon Field" setting doing nothing. Like the role discount toggle it was written by the settings page and never read. The separate per-product coupon input the setting was named for is no longer rendered anywhere - the checkout summary coupon box is the only coupon input left - so the setting now hides that box. The coupon REST routes are unchanged, so a coupon that is already applied or auto-applied still counts against the order

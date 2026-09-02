@@ -292,9 +292,19 @@ class OrderService {
      *
      * @return int
      */
-    public function totalRenews(): int {
+    public function totalRenews(string $query = ''): int {
         global $wpdb;
-        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}ahm_order_renews");
+        // Strip ORDER BY from count query
+        $countQuery = preg_replace('/\s+ORDER BY\s+.+$/i', '', $query);
+        // Same INNER JOIN as getAllRenews(): the admin filter constrains o.* columns
+        // (order status, payment status, customer), so counting the renewals table
+        // alone would both fail on those columns and ignore the filter entirely.
+        return (int) $wpdb->get_var(
+            "SELECT COUNT(*)
+               FROM {$wpdb->prefix}ahm_order_renews r
+               INNER JOIN {$wpdb->prefix}ahm_orders o ON o.order_id = r.order_id
+               {$countQuery}"
+        );
     }
 
     /**

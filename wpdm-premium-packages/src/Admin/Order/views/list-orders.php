@@ -607,7 +607,7 @@ if(!wpdm_query_var('customer', 'txt') && !wpdm_query_var('oid', 'txt')) {
 							<a class="ol-order-id" title="<?php echo esc_attr($order->order_id); ?> — <?php echo esc_attr__( "View Order Details", WPDMPP_TEXT_DOMAIN ) ?>" href="edit.php?post_type=wpdmpro&page=orders&task=vieworder&id=<?php echo $order->order_id; ?>"><?php echo $order->order_id; ?></a>
 							<div class="ol-sub">
 								<span class="ol-sub__items"><span class="ttip" title="<?php echo esc_attr($product_names); ?>"><?php echo Icons::get('list', 13); ?></span> <?php echo (int)$items; ?> <?php $items > 1 ? _e("items","wpdm-premium-packages"):_e("item","wpdm-premium-packages");?></span>
-								<?php if($order->trans_id !== '') { ?><span class="ol-sub__txn ttip" title="<?php echo esc_attr__( "Transaction ID", WPDMPP_TEXT_DOMAIN ) ?>: <?php echo esc_attr($order->trans_id); ?>"><?php echo Icons::get('bullseye', 13); ?> <?php echo apply_filters("wpdmpp_admin_order_details_trans_id", $order->trans_id, $order->payment_method); ?></span><?php } ?>
+								<?php if($order->trans_id !== '') { ?><span class="ol-sub__txn ttip" title="<?php echo esc_attr__( "Transaction ID", WPDMPP_TEXT_DOMAIN ) ?>: <?php echo esc_attr($order->trans_id); ?>"><?php echo Icons::get('bullseye', 13); ?> <?php echo wpdmpp_admin_trans_id_html( $order->trans_id, $order->payment_method ); ?></span><?php } ?>
 							</div>
 						</td>
 						<td class="ol-total-cell" data-label="<?php esc_attr_e('Total','wpdm-premium-packages'); ?>">

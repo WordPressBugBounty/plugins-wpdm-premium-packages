@@ -592,3 +592,45 @@ $settings = \WPDMPP\Cart\MiniCart\MiniCartService::getInstance()->getSettings();
     </script>
     <?php
 }
+
+/**
+ * Link a PayPal transaction id to its entry in the PayPal dashboard.
+ *
+ * PayPal stores two different things in trans_id depending on how the order was
+ * paid: a billing subscription id ("I-..." for auto renewing orders) or a capture
+ * id for a one off payment. They live on different dashboard pages, so the id
+ * shape decides the URL. Sandbox orders point at the sandbox dashboard, since the
+ * live one has no record of them.
+ *
+ * Gateway add-ons link their own transactions the same way - see
+ * wpdmpp_trans_id_link() - by hooking this filter for their own payment method.
+ */
+add_filter( 'wpdmpp_admin_order_details_trans_id', 'wpdmpp_paypal_trans_id_link', 10, 2 );
+function wpdmpp_paypal_trans_id_link( $trans_id, $payment_method ) {
+    // Orders record the method as "Paypal", "PayPal" or "WPDM_PayPal" depending on
+    // the version that wrote them, so match loosely rather than on one spelling.
+    if ( stripos( (string) $payment_method, 'paypal' ) === false ) {
+        return $trans_id;
+    }
+
+    $trans_id = trim( (string) $trans_id );
+
+    if ( $trans_id === '' || ! preg_match( '/^[A-Za-z0-9-]+$/', $trans_id ) ) {
+        return $trans_id;
+    }
+
+    $host = get_wpdmpp_option( 'PayPal/Paypal_mode', 'production' ) === 'sandbox'
+        ? 'https://www.sandbox.paypal.com'
+        : 'https://www.paypal.com';
+
+    // "I-" prefixed ids are billing subscriptions; anything else is a capture.
+    $path = stripos( $trans_id, 'I-' ) === 0
+        ? '/billing/subscriptions/'
+        : '/activity/payment/';
+
+    return wpdmpp_trans_id_link(
+        $host . $path . rawurlencode( $trans_id ),
+        $trans_id,
+        __( 'View in PayPal', 'wpdm-premium-packages' )
+    );
+}

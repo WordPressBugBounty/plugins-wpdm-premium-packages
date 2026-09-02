@@ -321,7 +321,7 @@ list( $wod_pc, $wod_pb ) = $wod_stcolor( $order->payment_status );
                     <div>
                         <div class="wod-field__label"><?php _e( "Transaction ID", "wpdm-premium-packages" ); ?></div>
                         <div class="wod-field__val">
-                            <span class="wod-mono wod-tnid" id="tnid" style="font-size:14px;"<?php echo $order->trans_id ? ' title="' . esc_attr( $order->trans_id ) . '"' : ''; ?>><?php echo $order->trans_id ? apply_filters( "wpdmpp_admin_order_details_trans_id", $order->trans_id, $wod_pm ) : '—'; ?></span>
+                            <span class="wod-mono wod-tnid" id="tnid" style="font-size:14px;"<?php echo $order->trans_id ? ' title="' . esc_attr( $order->trans_id ) . '"' : ''; ?>><?php echo $order->trans_id ? wpdmpp_admin_trans_id_html( $order->trans_id, $wod_pm ) : '—'; ?></span>
                             <button type="button" class="wod-iconbtn ttip" data-toggle="modal" data-target="#changetrannid" title="<?php esc_attr_e( 'Change Transaction ID', 'wpdm-premium-packages' ); ?>"><?php echo Icons::get('pencil', 12); ?></button>
                         </div>
                     </div>
@@ -921,7 +921,8 @@ list( $wod_pc, $wod_pb ) = $wod_stcolor( $order->payment_status );
                 trans_id: $('#changetid').val(),
                 ctinonce: '<?php echo wp_create_nonce( WPDM_PRI_NONCE );?>'
             }, function (res) {
-                $('#tnid').html("( " + $('#changetid').val() + " )");
+                // Plain text until the next page load rebuilds the gateway link.
+                $('#tnid').text($('#changetid').val());
                 WPDM.unblockUI('#changetrannid .modal-content');
                 alert(res);
                 $('#changetrannid').modal('hide');

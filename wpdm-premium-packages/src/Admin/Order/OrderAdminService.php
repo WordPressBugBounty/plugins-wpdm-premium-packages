@@ -592,8 +592,11 @@ class OrderAdminService
             </div>
             <?php if (isset($data['file']) && is_array($data['file'])) { ?>
                 <div class="panel-footer card-footer text-right">
-                    <?php foreach ($data['file'] as $file) { ?>
-                        <a href="#" style="margin-left: 10px"><?php echo \WPDMPP\UI\Icons::get('paperclip', 14); ?> <?php echo esc_attr($file); ?></a> &nbsp;
+                    <?php foreach ($data['file'] as $file) {
+                        // Same token the page-load template builds, so a freshly
+                        // added attachment is downloadable without a refresh.
+                        $aid = \WPDM\__\Crypt::Encrypt($id . "|||" . $time . "|||" . $file); ?>
+                        <a href="<?php echo esc_url(home_url("/?oid=" . $id . "&_atcdl=" . $aid)); ?>" style="margin-left: 10px"><?php echo \WPDMPP\UI\Icons::get('paperclip', 14); ?> <?php echo esc_html($file); ?></a> &nbsp;
                     <?php } ?>
                 </div>
             <?php } ?>

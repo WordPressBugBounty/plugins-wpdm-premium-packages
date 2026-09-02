@@ -693,8 +693,11 @@ class CouponService {
         if (isset($data['max_order_amount'])) {
             $coupon->setMaxOrderAmount((float) $data['max_order_amount']);
         }
-        if (isset($data['product_id'])) {
-            $coupon->setProductId((int) $data['product_id']);
+        // The admin form posts 'product' while the REST routes send 'product_id'.
+        // Accept either, with the same precedence Coupon::create() already uses,
+        // so editing a coupon saves the product the way creating one does.
+        if (isset($data['product']) || isset($data['product_id'])) {
+            $coupon->setProductId((int) ($data['product'] ?? $data['product_id']));
         }
         if (isset($data['allowed_emails'])) {
             $emails = $data['allowed_emails'];

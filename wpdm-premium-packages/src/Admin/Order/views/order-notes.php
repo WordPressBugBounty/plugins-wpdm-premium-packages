@@ -31,7 +31,7 @@ if(isset($order_notes['messages'])){
             <?php if(isset($order_note['file']) && is_array($order_note['file'])){ ?>
                 <div class="panel-footer text-right">
                     <?php foreach($order_note['file'] as $id => $file){ $aid = \WPDM\__\Crypt::Encrypt($order->order_id."|||".$time."|||".$file); ?>
-                        <a href="<?php echo home_url("/?oid=".$order->order_id."&_atcdl=".$aid); ?>" style="margin-left: 10px"><?php echo Icons::get('paperclip', 14); ?> <?php echo $file; ?></a> &nbsp;
+                        <a href="<?php echo esc_url(home_url("/?oid=".$order->order_id."&_atcdl=".$aid)); ?>" style="margin-left: 10px"><?php echo Icons::get('paperclip', 14); ?> <?php echo esc_html($file); ?></a> &nbsp;
                     <?php } ?>
                 </div>
             <?php } ?>
