@@ -197,16 +197,17 @@ class Plugin {
             return PaymentService::instance();
         });
 
+        // Metabox Service. Registered on both sides: the admin metabox and the
+        // front-end author dashboard package form share its pricing renderer.
+        $this->container->singleton(MetaboxService::class, function ($c) {
+            return MetaboxService::getInstance();
+        });
+
         // Admin-only services
         if (is_admin()) {
             // Dashboard Service
             $this->container->singleton(DashboardService::class, function ($c) {
                 return DashboardService::getInstance();
-            });
-
-            // Metabox Service
-            $this->container->singleton(MetaboxService::class, function ($c) {
-                return MetaboxService::getInstance();
             });
 
             // Settings Service
@@ -262,6 +263,11 @@ class Plugin {
         // Register abandoned order recovery handler (runs on both frontend and admin)
         $abandonedOrderService = $this->container->get(AbandonedOrderService::class);
         $abandonedOrderService->register();
+
+        // Pricing & Discounts tab on the author dashboard package form. Only the
+        // package-form hooks are registered here — the admin metabox and sales
+        // overview AJAX stay in initAdminServices().
+        $this->container->get(MetaboxService::class)->registerPackageFormHooks();
 
         // NOTE: BillingInfoService is registered earlier (init priority 1, in the main
         // plugin file) rather than here. Its save hook listens on 'wpdm_update_profile',

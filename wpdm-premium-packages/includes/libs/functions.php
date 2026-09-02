@@ -1370,6 +1370,12 @@ function wpdmpp_effective_price( $pid ) {
     $sales_price = wpdmpp_sales_price( $pid );
     $price       = (double) ( $sales_price ) > 0 ? $sales_price : $base_price;
     $role        = is_user_logged_in() && is_array( $current_user->roles ) && isset( $current_user->roles[0] ) ? $current_user->roles[0] : 'guest';
+
+    // Role discount switched off site wide - the sale/base price stands.
+    if ( wpdmpp_role_discount_disabled() ) {
+        return number_format( (float) $price, 2, ".", "" );
+    }
+
     $discount    = maybe_unserialize( get_post_meta( $pid, '__wpdm_discount', true ) );
     if ( ! is_array( $discount ) || count( $discount ) == 0 ) {
         return number_format( (float) $price, 2, ".", "" );
@@ -1397,6 +1403,10 @@ function wpdmpp_role_discount( $pid, $name = false ) {
     $current_user  = wp_get_current_user();
     $role_discount = 0;
     $role_name     = '';
+
+    if ( wpdmpp_role_discount_disabled() ) {
+        return $name ? $role_name : $role_discount;
+    }
     //$role = ?$current_user->roles[0]:'guest';
     $discount = maybe_unserialize( get_post_meta( $pid, '__wpdm_discount', true ) );
 
@@ -1419,6 +1429,19 @@ function wpdmpp_role_discount( $pid, $name = false ) {
     }
 
     return $name ? $role_name : $role_discount;
+}
+
+/**
+ * Whether role based discount is switched off site wide.
+ *
+ * Settings > Basic Options > "Disable Role-based Discount". Consulted wherever a
+ * role discount is applied, so the toggle holds for the price on the package
+ * page, the add to cart form, the cart totals and the product API alike.
+ *
+ * @return bool
+ */
+function wpdmpp_role_discount_disabled() {
+    return (int) get_wpdmpp_option( 'no_role_discount', 0, 'int' ) === 1;
 }
 
 

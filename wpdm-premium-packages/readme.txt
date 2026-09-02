@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.0.9
+Stable tag: 7.1.0
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,13 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.1.0 - 2026.09.02 =
+* Fixed the "Disable Product Coupon Field" setting doing nothing. Like the role discount toggle it was written by the settings page and never read. The separate per-product coupon input the setting was named for is no longer rendered anywhere - the checkout summary coupon box is the only coupon input left - so the setting now hides that box. The coupon REST routes are unchanged, so a coupon that is already applied or auto-applied still counts against the order
+* Fixed the "Disable Role-based Discount" setting doing nothing. The option was written by the settings page but never read anywhere in the plugin, so role discounts carried on being applied whether it was on or off. Every place that applies one now honours it - the price shown on the package page, the discount notice on the add to cart form, the per item and total discount in the cart, and the product REST data. Discounts already recorded against past orders are left untouched
+* Fixed the Pricing & Discounts tab missing from the package settings when editing a package in the front-end author dashboard, which left sellers with no way to set a price outside wp-admin. The tab was registered only for admin requests - the metabox service was not loaded on the front end at all, and its tab callback returned early outside admin - even though the author dashboard template and the pricing template itself were both already written to render it there. The pricing panel also no longer rebinds the global post object while it renders, which would have altered the rest of the dashboard page
+* Fixed the billing address never appearing at checkout when tax calculation was turned off. The checkout template gated the whole address block on the tax setting alone, so a store that asked for a billing address but did not charge tax collected no address at all. The address is now shown whenever tax is enabled or the billing address setting is on, and the checkout script collects, validates and pre-fills the state list on the same condition rather than only when tax is active
+* Fixed the archive name when a customer downloads a purchased package that holds more than one file. The zip arrived as "-123.zip" instead of "Product Name-123.zip", because the premium download path handed the package to the download handler with only post_title set while the handler builds the archive name from title. On PHP 8 this also logged an undefined array key notice on every such download
 
 = 7.0.9 - 2026.08.13 =
 * Fixed add to cart failing with a server error on PHP 8.0 and above. The /cart and /cart/dynamic REST routes registered floatval() directly as a sanitize callback, but WordPress passes three arguments to sanitize callbacks and floatval() accepts one, which throws an ArgumentCountError. The /cart route was affected through the default value of iwantopay, so every REST add to cart request returned HTTP 500

@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.0.9
+ * Version: 7.1.0
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.0.9' );
+	define( 'WPDMPP_VERSION', '7.1.0' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -595,33 +595,6 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
 				$_REQUEST['oid'] = $OID;
 
-				/*
-                if (wpdm_query_var('preact') === 'login') {
-                    $user = wp_signon(array('user_login' => wpdm_query_var('user'), 'user_password' => wpdm_query_var('pass')));
-                    if (!$user->ID)
-                        \WPDM_Messages::error(__( "Login failed!", "wpdm-premium-packages" ), 1);
-                    else {
-                        wp_set_current_user($user->ID);
-                        Session::set('guest_order', $OID, 18000);
-                    }
-                }
-
-                if (wpdm_query_var('wpdm_access_token') != '') {
-                    $at = wpdm_query_var('wpdm_access_token');
-                    if (!$at) die(json_encode(array('error' => 'Invalid Access Token!')));
-                    $atx = explode("x", $at);
-                    $uid = end($atx);
-                    $uid = (int)$uid;
-                    if (!$uid) die(json_encode(array('error' => 'Invalid Access Token!')));
-                    $sat = get_user_meta($uid, '__wpdm_access_token', true);
-                    if ($sat === '') die(json_encode(array('error' => 'Invalid Access Token!')));
-                    if ($sat === $at)
-                        wp_set_current_user($uid);
-                    else
-                        die(json_encode(array('error' => 'Invalid Access Token!')));
-                }*/
-
-
 				global $wpdb;
 				$current_user = wp_get_current_user();
 				$settings     = get_option( '_wpdmpp_settings' );
@@ -683,13 +656,13 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 					include( WPDM_SRC_DIR . "wpdm-start-download.php" );
 				}
 
-
+                //wpdmdd($PID);
 				//Member's Download
 				if ( @in_array( $PID, $items ) && $OID != '' && is_user_logged_in() && $current_user->ID == $odata->getUserId() && $odata->getOrderStatus() == 'Completed' ) {
 					//for premium item
 
 					OrderService::instance()->updateOrder( array( 'download' => 1 ), $OID );
-
+                    //wpdmdd($cfiles);
 					if ( count( $cfiles ) > 0 && ! isset( $cfiles[ wpdm_query_var( 'ind' ) ] ) ) {
 						if ( count( $cfiles ) > 1 ) {
 							$zipped = \WPDM\__\FileSystem::zipFiles( $cfiles, $package['post_title'] . " " . $odata->getOrderId() );
@@ -706,6 +679,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 					} else {
 						Session::set( '__wpdmpp_authorized_download', 1 );
 						$package['access'] = array( 'guest' );
+                        $package['title'] = $package['post_title'];
 						include( WPDM_SRC_DIR . "wpdm-start-download.php" );
 					}
 				}

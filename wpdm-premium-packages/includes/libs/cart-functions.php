@@ -796,7 +796,7 @@ function wpdmpp_get_cart_discount(){
         $opt = get_post_meta($pid,'wpdmpp_list_opts',true);
         $prices = 0;
         $lprices = array();
-        $discount = get_post_meta($pid,"__wpdm_discount",true);
+        $discount = wpdmpp_role_discount_disabled() ? [] : get_post_meta($pid,"__wpdm_discount",true);
         $base_price = get_post_meta($pid,"__wpdm_base_price",true);
         $sales_price = wpdmpp_sales_price($pid);
         $price_variation = get_post_meta($pid,"__wpdm_price_variation",true);
@@ -1230,7 +1230,7 @@ function wpdmpp_add_to_cart_form( $product_id , $template = ''){
 
     $settings = $wpdmpp_settings;
     $currency_sign = wpdmpp_currency_sign();
-    $discount = is_user_logged_in() && isset($current_user->roles[0]) && isset($discount[$current_user->roles[0]]) ? $discount[$current_user->roles[0]] : 0;
+    $discount = !wpdmpp_role_discount_disabled() && is_user_logged_in() && isset($current_user->roles[0]) && isset($discount[$current_user->roles[0]]) ? $discount[$current_user->roles[0]] : 0;
     $role = is_user_logged_in() && isset($current_user->roles[0])?$current_user->roles[0]:'';
     $base_price = (double)$base_price;
     $prices_text = apply_filters('price_text',__('Price','wpdm-premium-packages'));

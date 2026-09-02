@@ -555,6 +555,12 @@ class Product {
      * @return float|string|null
      */
     public function getRoleDiscount(bool $returnName = false) {
+        // Honour the site-wide "Disable Role-based Discount" setting. Guarded because
+        // this class can be autoloaded before the legacy function file is included.
+        if (function_exists('wpdmpp_role_discount_disabled') && \wpdmpp_role_discount_disabled()) {
+            return $returnName ? null : 0.0;
+        }
+
         if (empty($this->roleDiscounts)) {
             return $returnName ? null : 0.0;
         }

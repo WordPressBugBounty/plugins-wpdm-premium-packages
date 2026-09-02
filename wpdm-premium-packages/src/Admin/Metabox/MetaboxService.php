@@ -38,6 +38,14 @@ class MetaboxService
     }
 
     /**
+     * Guards registerPackageFormHooks(), which is reached from both the front-end
+     * and admin init paths in admin requests.
+     *
+     * @var bool
+     */
+    private $packageFormHooksRegistered = false;
+
+    /**
      * Private constructor
      */
     private function __construct()
@@ -55,13 +63,31 @@ class MetaboxService
         add_action('wpdm-package-form-left', [$this, 'renderPricingMetabox']);
 
         // Package settings tabs (Pricing & Discounts tab)
-        add_filter('wpdm_package_settings_tabs', [$this, 'addPricingTab']);
+        $this->registerPackageFormHooks();
 
         // Sales Overview metabox in sidebar
         add_filter('wpdm_meta_box', [$this, 'addSalesOverviewMetabox']);
 
         // AJAX handler for sales overview content
         add_action('wp_ajax_product_sales_overview', [$this, 'ajaxLoadSalesOverview']);
+    }
+
+    /**
+     * Register the hooks that render pricing on a package edit form.
+     *
+     * Shared by the admin metabox and the front-end author dashboard, which
+     * renders the same tab set through wpdm_package_settings_tabs.
+     *
+     * @return void
+     */
+    public function registerPackageFormHooks(): void
+    {
+        if ($this->packageFormHooksRegistered) {
+            return;
+        }
+        $this->packageFormHooksRegistered = true;
+
+        add_filter('wpdm_package_settings_tabs', [$this, 'addPricingTab']);
     }
 
     /**
@@ -72,10 +98,6 @@ class MetaboxService
      */
     public function addPricingTab(array $tabs): array
     {
-        if (!is_admin()) {
-            return $tabs;
-        }
-
         $tabs['pricing'] = [
             'icon' => '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-dollar-sign-icon lucide-badge-dollar-sign"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
             'name' => __('Pricing & Discounts', 'wpdm-premium-packages'),
@@ -92,7 +114,13 @@ class MetaboxService
      */
     public function renderPricingMetabox(): void
     {
-        global $post;
+        // Admin passes the edited package through the global. On the front end the
+        // template resolves it from the adb_page query var, and binding the global
+        // here would let that assignment clobber the real post mid-render.
+        if (is_admin()) {
+            global $post;
+        }
+
         $templatePath = Template::locate('metaboxes/wpdm-pp-settings.php', WPDMPP_TPL_DIR);
         if ($templatePath && file_exists($templatePath)) {
             include $templatePath;

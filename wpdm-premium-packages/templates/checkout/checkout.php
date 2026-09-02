@@ -137,6 +137,12 @@ if ($tax_active && !empty($billing['country'])) {
 }
 $total_with_tax = $total + $tax;
 
+// Whether to collect a billing address. Tax needs a country/state to price
+// against, so it forces the address on regardless of the billing setting; with
+// tax off, the store's own "billing address" setting decides.
+$billing_address_enabled = (int) get_wpdmpp_option('billing_address', 0, 'int') === 1;
+$show_billing_address    = $tax_active || $billing_address_enabled;
+
 // Allowed countries for the billing dropdown (falls back to all countries).
 $allowed_countries = $tax_active ? get_wpdmpp_option('allow_country') : [];
 $all_countries     = function_exists('wpdmpp_countries') ? wpdmpp_countries() : [];
@@ -172,6 +178,7 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
     'currency' => $currency,
     'currencyCode' => $currency_code,
     'taxActive' => $tax_active,
+    'collectBillingAddress' => $show_billing_address,
     'dataUrl' => WPDMPP_BASE_URL . 'assets/js/data/',
     'hasPayPal' => $has_paypal,
     'paypalClientId' => $paypal_client_id,
@@ -245,8 +252,8 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                         <p class="wpdmpp-checkout__hint"><?php _e('Order confirmation will be sent to this email.', 'wpdm-premium-packages'); ?></p>
                     </div>
 
-                    <?php if ($tax_active): ?>
-                    <!-- Billing Address (required for tax calculation) -->
+                    <?php if ($show_billing_address): ?>
+                    <!-- Billing Address (required for tax, or requested by the billing address setting) -->
                     <div class="wpdmpp-checkout__field">
                         <label for="checkout-country" class="wpdmpp-checkout__label">
                             <?php _e('Country', 'wpdm-premium-packages'); ?> <span class="required">*</span>
@@ -536,7 +543,13 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                 // Coupon (hidden for trial checkouts)
                 $cart_coupon = wpdmpp_get_cart_coupon();
                 $applied_coupon_code = is_array($cart_coupon) && !empty($cart_coupon['code']) ? $cart_coupon['code'] : '';
+
+                // Settings > Basic Options > "Disable Product Coupon Field" hides the
+                // coupon input. The coupon REST routes stay open, so an already applied
+                // or auto-applied coupon is still honoured - only the field goes away.
+                $coupon_field_enabled = (int) get_wpdmpp_option('no_product_coupon', 0, 'int') !== 1;
                 ?>
+                <?php if ($coupon_field_enabled): ?>
                 <!-- Coupon Section -->
                 <div class="wpdmpp-checkout__coupon" id="checkout-coupon" <?php if ($checkout_trial_days > 0) echo 'style="display:none;"'; ?>>
                     <?php if ($applied_coupon_code): ?>
@@ -568,6 +581,7 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                     <?php endif; ?>
                     <span class="wpdmpp-checkout__coupon-msg" id="coupon-msg"></span>
                 </div>
+                <?php endif; ?>
 
                 <!-- Totals -->
                 <div class="wpdmpp-checkout__totals">

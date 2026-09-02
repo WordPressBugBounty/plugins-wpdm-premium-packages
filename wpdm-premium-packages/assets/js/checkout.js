@@ -17,6 +17,17 @@
     }
 
     const config = wpdmppCheckout;
+
+    /**
+     * Whether the billing address block is on the page. Tax forces it on; with
+     * tax off the store's billing address setting decides. Falls back to
+     * taxActive so a stale cached config behaves as it did before.
+     */
+    function collectsBillingAddress() {
+        return typeof config.collectBillingAddress !== 'undefined'
+            ? !!config.collectBillingAddress
+            : !!config.taxActive;
+    }
     let paypalButtonsRendered = false;
     let isProcessing = false;
     let currentOrderId = null; // Track local order ID for PayPal flow
@@ -28,7 +39,7 @@
         bindEvents();
         bindCartEvents();
         initPaymentMethodSelection();
-        initTax();
+        initBillingAddress();
 
         // Load PayPal SDK and toggle buttons if PayPal is selected and available
         if (config.hasPayPal && config.paypalClientId) {
@@ -421,8 +432,8 @@
             privacy_agreed: $('#checkout-privacy').is(':checked')
         };
 
-        // Billing address (only collected when tax is enabled)
-        if (config.taxActive) {
+        // Billing address — collected whenever the block is rendered
+        if (collectsBillingAddress()) {
             data.country = $('#checkout-country').val() || '';
             data.state = getSelectedState();
             data.city = $('#checkout-city').val().trim();
@@ -465,8 +476,8 @@
             isValid = false;
         }
 
-        // Billing address (required for tax calculation)
-        if (config.taxActive) {
+        // Billing address — required whenever the block is rendered
+        if (collectsBillingAddress()) {
             if (!$('#checkout-country').val()) {
                 showFieldError('country', config.strings.validationError);
                 isValid = false;
@@ -534,10 +545,12 @@
     // -------------------------------------------------------------------------
 
     /**
-     * Initialize tax: populate states for the saved country and compute tax.
+     * Populate the state list for the saved country on load. Runs whenever the
+     * address block is rendered — otherwise the state select stays visible but
+     * empty and validation blocks checkout until the country is touched.
      */
-    function initTax() {
-        if (!config.taxActive) return;
+    function initBillingAddress() {
+        if (!collectsBillingAddress()) return;
         const country = $('#checkout-country').val();
         if (country) {
             populateStates(country);
