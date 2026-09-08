@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.2.0
+Stable tag: 7.2.1
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,11 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.1 - 2026.09.08 =
+* Security: PayPal webhook events are now verified with PayPal before being acted on. Both the REST endpoint and the legacy listener accepted any JSON posted to them, so an unauthenticated request could forge a payment event to mark an order paid and extend its expiry, or forge a cancellation event to stop a customer's subscription renewing. Each event is now checked against PayPal's verify-webhook-signature API using the transmission headers and the site's stored webhook id, and anything unverified is refused. Sites using PayPal should update
+* Security: renewing an order no longer completes one that was never paid. A renewal continues a subscription that has been paid for at least once, so an order still awaiting payment is left alone unless an administrator renews it deliberately
+* Reported by Farid Narimanov
 
 = 7.2.0 - 2026.09.07 =
 * Shoppers can now choose the currency they see prices in. Package pages, the cart and the checkout all convert at the live exchange rate, while the payment itself is taken in your store currency - the checkout says so and names the exact amount that will be billed, so nothing changes about how money reaches you

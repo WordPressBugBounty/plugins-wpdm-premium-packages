@@ -231,7 +231,8 @@ class OrderAdminService
         if ($status == 'Renew') {
             $orderService = OrderService::instance();
             $order = $orderService->getOrder($order_id);
-            $orderService->renewOrder($order_id, $order ? $order->getTransactionId() : '', false);
+            // Admin-initiated, so an unpaid order may be renewed deliberately.
+            $orderService->renewOrder($order_id, $order ? $order->getTransactionId() : '', false, null, null, true);
 
             wp_die(esc_html__('Order Renewed Successfully!', 'wpdm-premium-packages'));
         }
@@ -328,7 +329,7 @@ class OrderAdminService
                 $renewdate_timestamp = time();
             }
             //wpdmdd($renewdate, $renewdate_timestamp);
-            $_renewdate = $orderService->renewOrder($order_id, $order ? $order->getTransactionId() : '', false, $renewdate_timestamp);
+            $_renewdate = $orderService->renewOrder($order_id, $order ? $order->getTransactionId() : '', false, $renewdate_timestamp, null, true);
 
             $display_date = wp_date(get_option('date_format')." ".get_option('time_format'), $_renewdate);
         } else {

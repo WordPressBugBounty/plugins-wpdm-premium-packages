@@ -457,6 +457,139 @@ class PayPalGateway extends AbstractGateway {
     }
 
     /**
+     * The webhook id PayPal issued for this site.
+     *
+     * @return string
+     */
+    public function getWebhookId(): string {
+        $stored = json_decode((string) get_option('wpdmpp_paypal_webhook', ''), true);
+
+        return is_array($stored) && !empty($stored['id']) ? (string) $stored['id'] : '';
+    }
+
+    /**
+     * Collect the PAYPAL-* headers of the current request.
+     *
+     * @param array<string, string> $headers Pre-read headers, keyed lower case with
+     *                                       dashes; empty to read from $_SERVER.
+     *
+     * @return array<string, string>
+     */
+    public static function collectWebhookHeaders(array $headers = []): array {
+        if (!empty($headers)) {
+            return array_change_key_case($headers, CASE_LOWER);
+        }
+
+        $collected = [];
+        foreach ($_SERVER as $key => $value) {
+            if (strpos($key, 'HTTP_PAYPAL_') === 0) {
+                $name = strtolower(str_replace('_', '-', substr($key, 5)));
+                $collected[$name] = is_array($value) ? reset($value) : (string) $value;
+            }
+        }
+
+        return $collected;
+    }
+
+    /**
+     * Check a webhook really came from PayPal.
+     *
+     * The payload alone proves nothing: anyone can POST JSON to the webhook URL,
+     * so an event is only acted on once PayPal itself confirms it signed it.
+     *
+     * The raw request body is spliced in verbatim rather than re-encoded. The
+     * signature covers the exact bytes PayPal sent, and decoding then re-encoding
+     * changes escaping and key order, which would fail verification for genuine
+     * events.
+     *
+     * Fails closed: any missing header, absent webhook id, credential problem or
+     * unreachable API means the event is not acted on.
+     *
+     * @param string                $rawBody Exact request body as received.
+     * @param array<string, string> $headers Lower-case header map.
+     *
+     * @return bool
+     */
+    public function verifyWebhookSignature(string $rawBody, array $headers): bool {
+        $webhookId = $this->getWebhookId();
+
+        if ($webhookId === '') {
+            $this->log('Webhook rejected: no webhook id stored, so nothing can be verified against', [], 'error');
+            return false;
+        }
+
+        $map = [
+            'auth_algo'         => 'paypal-auth-algo',
+            'cert_url'          => 'paypal-cert-url',
+            'transmission_id'   => 'paypal-transmission-id',
+            'transmission_sig'  => 'paypal-transmission-sig',
+            'transmission_time' => 'paypal-transmission-time',
+        ];
+
+        $fields = [];
+        foreach ($map as $field => $header) {
+            if (empty($headers[$header])) {
+                $this->log('Webhook rejected: missing header', ['header' => $header], 'error');
+                return false;
+            }
+            $fields[$field] = (string) $headers[$header];
+        }
+
+        // The certificate is fetched by PayPal, not by us, but refusing anything
+        // that is not on their domain keeps a forged header from pointing their
+        // verifier somewhere else.
+        if (!preg_match('#^https://[A-Za-z0-9.-]+\.paypal\.com/#', $fields['cert_url'])) {
+            $this->log('Webhook rejected: cert_url is not a PayPal address', ['cert_url' => $fields['cert_url']], 'error');
+            return false;
+        }
+
+        $token = $this->getAccessToken();
+        if (!$token) {
+            $this->log('Webhook rejected: could not obtain an access token to verify with', [], 'error');
+            return false;
+        }
+
+        $body = sprintf(
+            '{"auth_algo":%s,"cert_url":%s,"transmission_id":%s,"transmission_sig":%s,"transmission_time":%s,"webhook_id":%s,"webhook_event":%s}',
+            wp_json_encode($fields['auth_algo']),
+            wp_json_encode($fields['cert_url']),
+            wp_json_encode($fields['transmission_id']),
+            wp_json_encode($fields['transmission_sig']),
+            wp_json_encode($fields['transmission_time']),
+            wp_json_encode($webhookId),
+            $rawBody
+        );
+
+        $response = wp_remote_post("https://{$this->getApiDomain()}/v1/notifications/verify-webhook-signature", [
+            'timeout' => 30,
+            'headers' => [
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $token,
+            ],
+            'body'    => $body,
+        ]);
+
+        if (is_wp_error($response)) {
+            $this->log('Webhook rejected: verification request failed', ['error' => $response->get_error_message()], 'error');
+            return false;
+        }
+
+        $code   = (int) wp_remote_retrieve_response_code($response);
+        $result = json_decode(wp_remote_retrieve_body($response), true);
+        $status = is_array($result) ? ($result['verification_status'] ?? '') : '';
+
+        if ($code !== 200 || $status !== 'SUCCESS') {
+            $this->log('Webhook rejected: PayPal did not confirm the signature', [
+                'http_code'           => $code,
+                'verification_status' => $status !== '' ? $status : 'unknown',
+            ], 'error');
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function getCheckoutFields(): string {
@@ -676,10 +809,18 @@ class PayPalGateway extends AbstractGateway {
      * @return array
      */
     public function handleWebhook(): array {
-        $payload = json_decode(file_get_contents('php://input'), true);
+        $rawBody = (string) file_get_contents('php://input');
+        $payload = json_decode($rawBody, true);
 
         if (!$payload || !isset($payload['event_type'])) {
             return $this->errorResponse('Invalid webhook payload');
+        }
+
+        // Same rule as the REST route: this is reachable by anyone, so an event is
+        // only acted on once PayPal confirms it signed it.
+        if (!$this->verifyWebhookSignature($rawBody, self::collectWebhookHeaders())) {
+            status_header(401);
+            return $this->errorResponse('Webhook signature verification failed');
         }
 
         $eventType = $payload['event_type'];

@@ -479,7 +479,8 @@ class OrderService {
         string $subscriptionId = '',
         bool $sendEmail = true,
         ?int $timestamp = null,
-        ?string $invoice = null
+        ?string $invoice = null,
+        bool $allowUnpaid = false
     ): int|bool {
         $order = null;
 
@@ -494,6 +495,25 @@ class OrderService {
 
         if (!$order) {
             return false;
+        }
+
+        // A renewal continues something that was paid for at least once. Letting it
+        // also complete an order that never was would mean a single replayed or
+        // forged gateway event could grant access that was never bought, so that
+        // stays an explicit admin action rather than something a webhook can do.
+        if (!$allowUnpaid) {
+            $paidStatuses = [Order::PAYMENT_COMPLETED, Order::STATUS_EXPIRED];
+
+            if (!in_array($order->getPaymentStatus(), $paidStatuses, true)) {
+                if (class_exists('\WPDMPP\Libs\Logger')) {
+                    \WPDMPP\Libs\Logger::warning('Refused to renew an order that was never paid', [
+                        'order_id'       => $order->getOrderId(),
+                        'payment_status' => $order->getPaymentStatus(),
+                    ]);
+                }
+
+                return false;
+            }
         }
 
         // Calculate new expiration date

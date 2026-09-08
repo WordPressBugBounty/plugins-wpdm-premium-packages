@@ -36,11 +36,19 @@ class PayPalWebhookEndpoint {
      * @return \WP_REST_Response
      */
     public function handleWebhook(\WP_REST_Request $request): \WP_REST_Response {
-        $payload = json_decode($request->get_body(), true);
+        $rawBody = $request->get_body();
+        $payload = json_decode($rawBody, true);
 
         if (!$payload || !isset($payload['event_type'])) {
             $this->log('Invalid webhook payload', [], 'error');
             return new \WP_REST_Response(['error' => 'Invalid webhook payload'], 400);
+        }
+
+        // The route is necessarily public - PayPal calls it with no credentials of
+        // ours - so the signature is the only thing separating a real event from a
+        // forged one. Nothing below this point may run on an unverified payload.
+        if (!$this->isVerified($rawBody, $request)) {
+            return new \WP_REST_Response(['error' => 'Webhook signature verification failed'], 401);
         }
 
         $eventType = $payload['event_type'];
@@ -67,6 +75,30 @@ class PayPalWebhookEndpoint {
                 $this->log('Unhandled webhook event', ['event_type' => $eventType]);
                 return new \WP_REST_Response(['received' => true], 200);
         }
+    }
+
+    /**
+     * Confirm PayPal signed this event.
+     *
+     * @param string            $rawBody
+     * @param \WP_REST_Request $request
+     *
+     * @return bool
+     */
+    private function isVerified(string $rawBody, \WP_REST_Request $request): bool {
+        $gateway = \WPDMPP\Payment\PaymentService::instance()->getGateway('paypal');
+
+        if (!$gateway || !method_exists($gateway, 'verifyWebhookSignature')) {
+            $this->log('Webhook rejected: the PayPal gateway is unavailable to verify with', [], 'error');
+            return false;
+        }
+
+        $headers = [];
+        foreach ($request->get_headers() as $name => $values) {
+            $headers[strtolower(str_replace('_', '-', $name))] = is_array($values) ? reset($values) : $values;
+        }
+
+        return $gateway->verifyWebhookSignature($rawBody, $headers);
     }
 
     /**
