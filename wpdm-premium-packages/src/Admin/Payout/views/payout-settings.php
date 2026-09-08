@@ -62,7 +62,7 @@ if(!is_array($active_pom)) $active_pom = [];
                         <td><?php echo esc_html($method['name']); ?></td>
                         <td style="width: 150px">
                             <div class="input-group">
-                                <div class="input-group-addon"><?php echo esc_html(wpdmpp_currency_sign()); ?></div>
+                                <div class="input-group-addon"><?php echo esc_html(wpdmpp_store_currency_sign()); ?></div>
                                 <input class="form-control input-sm" style="width: 80px;display: inline" type="number"
                                        name="payout_min_amount[<?php echo esc_attr($method['id']); ?>]" value="<?php echo (int)wpdm_valueof($payout_min_amount, $method['id']); ?>">
                             </div>

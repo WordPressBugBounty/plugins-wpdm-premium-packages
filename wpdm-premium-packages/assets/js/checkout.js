@@ -659,7 +659,7 @@
     function applyTax(tax, data) {
         const $taxRow = $('#checkout-tax-row');
         if (tax > 0) {
-            $('#checkout-tax').text((data && data.tax_formatted) ? data.tax_formatted : (config.currency + tax.toFixed(2)));
+            $('#checkout-tax').text((data && data.tax_formatted) ? data.tax_formatted : (config.chargeSymbol + tax.toFixed(2)));
             $taxRow.show();
         } else {
             $taxRow.hide();
@@ -1029,11 +1029,12 @@
         var totalDiscount = (parseFloat(cart.role_discount) || 0) + (parseFloat(cart.coupon_discount) || 0);
         var $discountRow = $('#checkout-discount-row');
         if (totalDiscount > 0) {
-            var discountFormatted = config.currency + totalDiscount.toFixed(2);
-            // Try to use formatted values from API
-            if (cart.role_discount_formatted && cart.coupon_discount_formatted) {
-                // Just show combined
-            }
+            // The raw figures are in the store currency, so adding them up here and
+            // prefixing the displayed symbol produced a store-currency number wearing
+            // the shopper's currency. The server sends this already converted.
+            var discountFormatted = cart.discount_formatted
+                ? cart.discount_formatted
+                : (config.chargeSymbol + totalDiscount.toFixed(2));
             $('#checkout-discount').text('-' + discountFormatted);
             $discountRow.show();
         } else {

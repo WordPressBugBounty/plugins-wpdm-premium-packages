@@ -298,7 +298,7 @@ class DatabaseRepository implements OrderRepositoryInterface {
         // Save order items
         $items = $order->getItems();
         if (!empty($items)) {
-            $this->saveItems($orderId, $items);
+            $this->saveItems($orderId, $items, $order->getExchangeRate());
         }
 
         return true;
@@ -391,13 +391,19 @@ class DatabaseRepository implements OrderRepositoryInterface {
     /**
      * @inheritDoc
      */
-    public function saveItems(string $orderId, array $items): bool {
+    public function saveItems(string $orderId, array $items, float $exchangeRate = 0.0): bool {
         // Delete existing items first
         $this->deleteItems($orderId);
 
         foreach ($items as $item) {
             if (!($item instanceof OrderItem)) {
                 continue;
+            }
+
+            // Items convert at their order's rate, not at whatever the rate happens to
+            // be when the row is written, so line items always reconcile to the total.
+            if ($exchangeRate > 0) {
+                $item->setExchangeRate($exchangeRate);
             }
 
             $data = $item->toDatabase();
@@ -514,12 +520,27 @@ class DatabaseRepository implements OrderRepositoryInterface {
     /**
      * @inheritDoc
      */
-    public function addRenewal(string $orderId, float $total, string $subscriptionId = '', string $invoice = '', int $date = 0): bool {
+    public function addRenewal(
+        string $orderId,
+        float $total,
+        string $subscriptionId = '',
+        string $invoice = '',
+        int $date = 0,
+        string $currency = '',
+        float $exchangeRate = 0.0
+    ): bool {
+        // A renewal is charged in the currency the subscription started in, and is
+        // converted for reporting at the rate captured on the original order. Using
+        // today's rate would make the same recurring charge report a different
+        // figure every cycle, purely from currency drift.
         $data = [
             'order_id' => $orderId,
             'total' => $total,
             'subscription_id' => $subscriptionId,
             'date' => $date ?: time(),
+            'currency_code' => $currency,
+            'exchange_rate' => $exchangeRate > 0 ? $exchangeRate : 1.0,
+            'base_total' => round($total * ($exchangeRate > 0 ? $exchangeRate : 1.0), 4),
         ];
 
         if (!empty($invoice)) {
@@ -642,7 +663,7 @@ class DatabaseRepository implements OrderRepositoryInterface {
         $formats = [];
 
         $intColumns = ['uid', 'date', 'expire_date', 'auto_renew', 'download'];
-        $floatColumns = ['subtotal', 'coupon_discount', 'cart_discount', 'tax', 'total', 'refund'];
+        $floatColumns = ['subtotal', 'coupon_discount', 'cart_discount', 'tax', 'total', 'refund', 'exchange_rate', 'base_total'];
 
         foreach (array_keys($data) as $key) {
             if (in_array($key, $intColumns)) {
@@ -667,7 +688,7 @@ class DatabaseRepository implements OrderRepositoryInterface {
         $formats = [];
 
         $intColumns = ['pid', 'quantity', 'sid', 'cid', 'year', 'month', 'day'];
-        $floatColumns = ['price', 'coupon_discount', 'role_discount', 'site_commission'];
+        $floatColumns = ['price', 'coupon_discount', 'role_discount', 'site_commission', 'base_price', 'base_site_commission'];
 
         foreach (array_keys($data) as $key) {
             if (in_array($key, $intColumns)) {
@@ -715,7 +736,7 @@ class DatabaseRepository implements OrderRepositoryInterface {
         $whereClause = implode(' AND ', $where);
 
         $total = $this->db->get_var($this->db->prepare(
-            "SELECT SUM(oi.price * oi.quantity)
+            "SELECT SUM(oi.base_price * oi.quantity)
             FROM {$this->itemsTable} oi
             INNER JOIN {$this->ordersTable} o ON oi.oid = o.order_id
             WHERE {$whereClause}",
@@ -761,7 +782,7 @@ class DatabaseRepository implements OrderRepositoryInterface {
         $startDate = strtotime("-{$days} days");
 
         $results = $this->db->get_results($this->db->prepare(
-            "SELECT DATE(FROM_UNIXTIME(date)) as sale_date, SUM(total) as total, COUNT(*) as count
+            "SELECT DATE(FROM_UNIXTIME(date)) as sale_date, SUM(base_total) as total, COUNT(*) as count
             FROM {$this->ordersTable}
             WHERE date >= %d AND (payment_status = 'Completed' OR payment_status = 'Expired')
             GROUP BY sale_date

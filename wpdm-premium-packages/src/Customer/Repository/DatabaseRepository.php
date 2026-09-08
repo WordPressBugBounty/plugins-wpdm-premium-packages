@@ -316,8 +316,8 @@ class DatabaseRepository implements CustomerRepositoryInterface
         // Single optimized query with prepared statements
         $totals = $wpdb->get_row($wpdb->prepare(
             "SELECT
-                (SELECT COALESCE(SUM(total), 0) FROM {$wpdb->prefix}ahm_orders WHERE uid = %d AND order_status = 'Completed') AS order_total,
-                (SELECT COALESCE(SUM(r.total), 0) FROM {$wpdb->prefix}ahm_orders o
+                (SELECT COALESCE(SUM(base_total), 0) FROM {$wpdb->prefix}ahm_orders WHERE uid = %d AND order_status = 'Completed') AS order_total,
+                (SELECT COALESCE(SUM(r.base_total), 0) FROM {$wpdb->prefix}ahm_orders o
                  INNER JOIN {$wpdb->prefix}ahm_order_renews r ON o.order_id = r.order_id
                  WHERE o.uid = %d) AS renew_total",
             $userId,
@@ -507,7 +507,7 @@ class DatabaseRepository implements CustomerRepositoryInterface
 
         // Total revenue from all customers
         $totalRevenue = $wpdb->get_var(
-            "SELECT SUM(total) FROM {$wpdb->prefix}ahm_orders WHERE order_status = 'Completed'"
+            "SELECT SUM(base_total) FROM {$wpdb->prefix}ahm_orders WHERE order_status = 'Completed'"
         );
 
         // Average order value

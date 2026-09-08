@@ -32,7 +32,9 @@ $payouts = $wpdb->get_results($sql);
 
 	    $payment_account = WPDMPP()->withdraws->getPaymentAccount($payout);
 	    $payout_method = $payment_account['method'];
-	    $currency_sign = wpdmpp_currency_sign();
+	    // Balances are aggregated in the reporting currency, so they are labelled
+	    // with its symbol rather than whatever the current request is priced in.
+	    $currency_sign = wpdmpp_base_currency_sign();
 
 	    // Show what this seller has actually earned, so a request that exceeds
 	    // real earnings is visible before it is paid.
@@ -49,6 +51,18 @@ $payouts = $wpdb->get_results($sql);
 
         echo "<tr><td><a href='user-edit.php?user_id={$payout->uid}' >".get_userdata($payout->uid)->display_name."</a></td><td>{$payment_account['name']} [ {$payment_account['account']} ]</td><td >{$currency_sign}{$payout->amount}</td><td >{$earned_cell}</td><td >{$pstatus}</td><td >".$payout_method->payoutLink($payout, $payment_account)."</td></tr>";
     }
+
+    if (empty($payouts)) { ?>
+        <tr class="wpdmpp-po-empty">
+            <td colspan="6">
+                <div class="wpdmpp-po-empty__inner">
+                    <div class="wpdmpp-po-empty__icon"><?php echo \WPDMPP\UI\Icons::get('check-circle', 24); ?></div>
+                    <div class="wpdmpp-po-empty__title"><?php _e('No payouts due', 'wpdm-premium-packages'); ?></div>
+                    <div class="wpdmpp-po-empty__hint"><?php _e('Pending payout requests appear here, waiting to be paid. Everything requested so far has been settled.', 'wpdm-premium-packages'); ?></div>
+                </div>
+            </td>
+        </tr>
+    <?php }
     ?>
     </tbody>
 </table>

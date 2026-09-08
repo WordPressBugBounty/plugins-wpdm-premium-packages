@@ -444,8 +444,8 @@ class CartEndpoint {
             'cart' => $this->formatCartData($cart),
             'coupon' => $cart->getCoupon(),
             'discount' => $result['discount'],
-            'discount_formatted' => function_exists('wpdmpp_price_format')
-                ? wpdmpp_price_format($result['discount'])
+            'discount_formatted' => function_exists('wpdmpp_display_price')
+                ? wpdmpp_display_price($result['discount'])
                 : number_format($result['discount'], 2),
         ], $result['message']);
     }
@@ -597,10 +597,21 @@ class CartEndpoint {
      * @return array
      */
     private function getCurrencyData(): array {
+        $position = function_exists('wpdmpp_currency_sign_position') ? wpdmpp_currency_sign_position() : 'left';
+
         return [
+            // What the shopper is charged in. Code and symbol describe the same
+            // currency, which was not true while one followed the selection.
             'code' => function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD',
-            'symbol' => function_exists('wpdmpp_currency_sign') ? wpdmpp_currency_sign() : '$',
-            'position' => function_exists('wpdmpp_currency_sign_position') ? wpdmpp_currency_sign_position() : 'left',
+            'symbol' => function_exists('wpdmpp_store_currency_sign') ? wpdmpp_store_currency_sign() : '$',
+            'position' => $position,
+            // What prices are displayed in. Pair this only with amounts that have
+            // been converted - the *_formatted strings above, never the raw ones.
+            'display' => [
+                'code' => function_exists('wpdmpp_presentment_currency_code') ? wpdmpp_presentment_currency_code() : 'USD',
+                'symbol' => function_exists('wpdmpp_currency_sign') ? wpdmpp_currency_sign() : '$',
+                'position' => $position,
+            ],
         ];
     }
 
@@ -611,8 +622,10 @@ class CartEndpoint {
      * @return string
      */
     private function formatPrice(float $price): string {
-        if (function_exists('wpdmpp_price_format')) {
-            return wpdmpp_price_format($price);
+        // Cart amounts are in the store currency and these strings are shown to the
+        // shopper, so they are converted rather than merely given a symbol.
+        if (function_exists('wpdmpp_display_price')) {
+            return wpdmpp_display_price($price);
         }
         return '$' . number_format($price, 2);
     }

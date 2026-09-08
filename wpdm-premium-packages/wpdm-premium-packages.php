@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.1.1
+ * Version: 7.2.0
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.1.1' );
+	define( 'WPDMPP_VERSION', '7.2.0' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -127,6 +127,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			add_action( 'wpdm_template_editor_menu', [ $this, 'template_editor_menu' ] );
 
 			add_action( 'admin_notices', array( $this, 'notice' ) );
+			add_action( 'admin_notices', array( $this, 'currencyMismatchNotice' ) );
 			add_action( 'admin_notices', array( $this, 'wpdmpp_run_setup_wizard_notice' ) );
 
 			// Register billing-info profile hooks early (priority 1). Its save handler
@@ -137,6 +138,16 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			add_action( 'init', function () {
 				if ( class_exists( '\WPDMPP\Customer\BillingInfoService' ) ) {
 					\WPDMPP\Customer\BillingInfoService::getInstance()->register();
+				}
+
+				// Prices must be converted before anything reads one. The add to cart
+				// handlers run on init at priority 10, the same priority as
+				// Plugin::init(), and are hooked first — so registering this there
+				// installed the filter after the cart had already captured the price.
+				// The result was a cart holding unconverted amounts while the page
+				// around it displayed converted ones.
+				if ( class_exists( '\WPDMPP\Currency\PriceFilter' ) ) {
+					\WPDMPP\Currency\PriceFilter::getInstance()->register();
 				}
 			}, 1 );
 
@@ -1653,6 +1664,78 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			}
 
 			return $payment_methods;
+		}
+
+		/**
+		 * Warn when historical orders were recorded in a currency other than the one
+		 * reports are expressed in.
+		 *
+		 * Those orders were backfilled at a rate of 1.0, because converting them at
+		 * today's rate would invent a figure nobody was ever charged. Their amounts are
+		 * therefore counted at face value in a total labelled with the base currency,
+		 * which overstates or understates it. Only the admin knows the right rate, so
+		 * the discrepancy is surfaced rather than silently resolved.
+		 *
+		 * @return void
+		 */
+		function currencyMismatchNotice() {
+			if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+				return;
+			}
+			if ( \WPDMPP_INSTALLER::dbUpdateRequired() || ! method_exists( '\WPDMPP_INSTALLER', 'countLegacyForeignOrders' ) ) {
+				return;
+			}
+			if ( get_option( '__wpdmpp_currency_mismatch_dismissed' ) ) {
+				return;
+			}
+
+			// A changed reporting currency leaves existing base totals denominated in
+			// the old one, so the numbers stop matching the symbol beside them. This
+			// is louder than the face-value warning because the figures look right.
+			if ( class_exists( '\\WPDMPP\\Currency\\ExchangeRateService' ) ) {
+				$mismatched = \WPDMPP\Currency\ExchangeRateService::getInstance()->getMismatchedBaseCurrencies();
+				if ( ! empty( $mismatched ) ) {
+					$parts = [];
+					foreach ( $mismatched as $code => $n ) {
+						$parts[] = sprintf( '%d in %s', $n, $code );
+					}
+					printf(
+						'<div class="notice notice-error w3eden"><div class="media" style="padding:20px;line-height:22px"><div class="media-body"><strong>%1$s</strong><br/>%2$s</div></div></div>',
+						esc_html__( 'Premium Packages: reporting currency does not match your sales data', WPDMPP_TEXT_DOMAIN ),
+						esc_html( sprintf(
+							/* translators: 1: list like "57 in EUR", 2: configured currency */
+							__( 'Sales totals are shown in %2$s, but existing orders were recorded against a different reporting currency (%1$s). Those totals are being labelled with the wrong symbol. Set the reporting currency back, or restate the affected orders.', WPDMPP_TEXT_DOMAIN ),
+							implode( ', ', $parts ),
+							function_exists( 'wpdmpp_base_currency_code' ) ? wpdmpp_base_currency_code() : ''
+						) )
+					);
+				}
+			}
+
+			$count = \WPDMPP_INSTALLER::countLegacyForeignOrders();
+			if ( $count < 1 ) {
+				return;
+			}
+
+			$base = function_exists( 'wpdmpp_base_currency_code' ) ? wpdmpp_base_currency_code() : '';
+
+			$message = sprintf(
+				/* translators: 1: number of orders, 2: base currency code */
+				_n(
+					'%1$d order was placed in a currency other than %2$s. Sales reports add it at face value, so totals are not accurate until an exchange rate is recorded for it.',
+					'%1$d orders were placed in a currency other than %2$s. Sales reports add them at face value, so totals are not accurate until exchange rates are recorded for them.',
+					$count,
+					WPDMPP_TEXT_DOMAIN
+				),
+				$count,
+				esc_html( $base )
+			);
+
+			printf(
+				'<div class="notice notice-warning is-dismissible w3eden"><div class="media" style="padding:20px;line-height:22px"><div class="media-body"><strong>%1$s</strong><br/>%2$s</div></div></div>',
+				esc_html__( 'Premium Packages: mixed-currency sales history', WPDMPP_TEXT_DOMAIN ),
+				esc_html( $message )
+			);
 		}
 
 		function notice() {

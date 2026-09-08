@@ -18,6 +18,15 @@ $comission = get_option("wpdmpp_user_comission");
 ?>
 
 
+<!-- Empty-state styling, shared by the payout tabs below. -->
+<style>
+    .w3eden .wpdmpp-po-empty td { padding: 0; border: 0; background: transparent; }
+    .w3eden .wpdmpp-po-empty__inner { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 54px 20px; text-align: center; }
+    .w3eden .wpdmpp-po-empty__icon { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px; background: #f1f5f9; color: #94a3b8; }
+    .w3eden .wpdmpp-po-empty__icon svg { width: 24px; height: 24px; }
+    .w3eden .wpdmpp-po-empty__title { font-size: 15px; font-weight: 600; color: #1e293b; }
+    .w3eden .wpdmpp-po-empty__hint { font-size: 13px; color: #94a3b8; max-width: 420px; }
+</style>
 <div class="w3eden payout-entries">
     <?php
     $menus = [

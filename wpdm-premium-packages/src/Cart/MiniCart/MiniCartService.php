@@ -382,7 +382,7 @@ class MiniCartService {
 
         return [
             'item_count' => $itemCount,
-            'total_formatted' => function_exists('wpdmpp_price_format') ? wpdmpp_price_format($cartTotal) : '$' . number_format($cartTotal, 2),
+            'total_formatted' => function_exists('wpdmpp_display_price') ? wpdmpp_display_price($cartTotal) : '$' . number_format($cartTotal, 2),
             'is_empty' => empty($cartItems),
         ];
     }
@@ -478,7 +478,7 @@ class MiniCartService {
                 <?php endif; ?>
                 <?php if ($args['show_total'] === 'yes' && !empty($settings['show_subtotal'])): ?>
                     <span class="wpdmpp-mc-total">
-                        <?php echo function_exists('wpdmpp_price_format') ? wpdmpp_price_format($cartTotal) : '$' . number_format($cartTotal, 2); ?>
+                        <?php echo function_exists('wpdmpp_display_price') ? wpdmpp_display_price($cartTotal) : '$' . number_format($cartTotal, 2); ?>
                     </span>
                 <?php endif; ?>
             </button>
@@ -515,7 +515,7 @@ class MiniCartService {
                     <div class="wpdmpp-mc-panel-footer">
                         <div class="wpdmpp-mc-subtotal">
                             <span class="wpdmpp-mc-subtotal-label"><?php esc_html_e('Subtotal', 'wpdm-premium-packages'); ?></span>
-                            <span class="wpdmpp-mc-subtotal-value"><?php echo function_exists('wpdmpp_price_format') ? wpdmpp_price_format($cartTotal) : '$' . number_format($cartTotal, 2); ?></span>
+                            <span class="wpdmpp-mc-subtotal-value"><?php echo function_exists('wpdmpp_display_price') ? wpdmpp_display_price($cartTotal) : '$' . number_format($cartTotal, 2); ?></span>
                         </div>
                         <div class="wpdmpp-mc-actions">
                             <a href="<?php echo esc_url(function_exists('wpdmpp_cart_page') ? wpdmpp_cart_page() : '#'); ?>" class="wpdmpp-mc-btn wpdmpp-mc-btn--secondary">
@@ -586,7 +586,7 @@ class MiniCartService {
             }
 
             $formatPrice = function($amount) {
-                return function_exists('wpdmpp_price_format') ? wpdmpp_price_format($amount) : '$' . number_format($amount, 2);
+                return function_exists('wpdmpp_display_price') ? wpdmpp_display_price($amount) : '$' . number_format($amount, 2);
             };
 
             $html .= '<div class="wpdmpp-mc-item" data-product-id="' . esc_attr($pid) . '">';

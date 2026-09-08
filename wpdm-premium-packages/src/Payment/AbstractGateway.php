@@ -265,6 +265,62 @@ abstract class AbstractGateway implements PaymentGatewayInterface {
     }
 
     /**
+     * Render an amount as the string a payment API expects.
+     *
+     * Uses the currency's own precision rather than a fixed two decimals. Sending
+     * "1650.00" for a currency with no minor unit is rejected by some processors
+     * and silently read as a hundredfold larger amount by others, so this is a
+     * correctness issue rather than a formatting preference.
+     *
+     * @param float  $amount
+     * @param string $currency ISO code; defaults to the gateway's currency.
+     *
+     * @return string
+     */
+    protected function formatAmount(float $amount, string $currency = ''): string {
+        $currency = $currency !== '' ? $currency : $this->getCurrency();
+        $decimals = 2;
+
+        if (class_exists('\\WPDMPP\\Core\\CurrencyService')) {
+            $decimals = (int) \WPDMPP\Core\CurrencyService::getInstance()->getDecimals($currency);
+        }
+
+        return number_format($amount, $decimals, '.', '');
+    }
+
+    /**
+     * Currency to charge a specific order in.
+     *
+     * An order records the currency the shopper was quoted, and charging must use
+     * that rather than whatever the current request resolves to: a webhook, a retry
+     * or an admin-triggered capture runs in a different context where the
+     * presentment currency could be anything, or nothing at all.
+     *
+     * Deliberately a separate method rather than a parameter on getCurrency(),
+     * which gateway add-ons override with the inherited signature - widening that
+     * signature would fatal every one of them on upgrade.
+     *
+     * @param string|null $orderId
+     *
+     * @return string
+     */
+    protected function getOrderCurrency(?string $orderId = null): string {
+        if ($orderId !== null && $orderId !== '' && class_exists('\\WPDMPP\\Order\\OrderService')) {
+            $order = \WPDMPP\Order\OrderService::instance()->getOrder($orderId);
+            if ($order) {
+                $code = $order->getCurrencyCode();
+                if ($code !== '') {
+                    return $code;
+                }
+            }
+        }
+
+        // No order to read from: fall back to the gateway's own resolution, so a
+        // subclass that overrides getCurrency() still has the final say.
+        return $this->getCurrency();
+    }
+
+    /**
      * Create a redirect response
      *
      * @param string $url Redirect URL

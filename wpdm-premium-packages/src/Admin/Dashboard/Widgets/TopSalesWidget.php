@@ -91,7 +91,7 @@ class TopSalesWidget extends AbstractWidget
         $topSales = $wpdb->get_results($wpdb->prepare("
             SELECT
                 oi.pid,
-                SUM(oi.price * oi.quantity) as sales,
+                SUM(oi.base_price * oi.quantity) as sales,
                 SUM(oi.quantity) as quantities
             FROM {$wpdb->prefix}ahm_order_items oi
             INNER JOIN {$wpdb->prefix}ahm_orders o ON o.order_id = oi.oid
@@ -148,7 +148,7 @@ class TopSalesWidget extends AbstractWidget
             'products' => $processedSales,
             'max_sales' => $maxSales,
             'period_days' => $this->periodDays,
-            'currency' => wpdmpp_currency_sign(),
+            'currency' => wpdmpp_base_currency_sign(),
         ];
 
         // Cache the data
@@ -316,7 +316,7 @@ class TopSalesWidget extends AbstractWidget
         $topSales = $wpdb->get_results($wpdb->prepare("
             SELECT
                 oi.pid,
-                SUM(oi.price * oi.quantity) as sales,
+                SUM(oi.base_price * oi.quantity) as sales,
                 SUM(oi.quantity) as quantities
             FROM {$wpdb->prefix}ahm_order_items oi
             INNER JOIN {$wpdb->prefix}ahm_orders o ON o.order_id = oi.oid

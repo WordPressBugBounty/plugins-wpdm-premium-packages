@@ -175,8 +175,12 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
     'restNonce' => wp_create_nonce('wp_rest'),
     'cartUrl' => wpdmpp_cart_page(),
     'continueShoppingUrl' => wpdmpp_continue_shopping_url(),
+    // The symbol prices are shown with, and the code the payment is taken in.
+    // They are different currencies, so anything the script builds itself must
+    // use a converted amount with 'currency', never a raw one.
     'currency' => $currency,
     'currencyCode' => $currency_code,
+    'chargeSymbol' => wpdmpp_store_currency_sign(),
     'taxActive' => $tax_active,
     'collectBillingAddress' => $show_billing_address,
     'dataUrl' => WPDMPP_BASE_URL . 'assets/js/data/',
@@ -409,7 +413,7 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                     <span class="wpdmpp-checkout__submit-text">
                         <?php echo esc_html(get_wpdmpp_option('cobtn_label', __('Complete Purchase', 'wpdm-premium-packages'))); ?>
                     </span>
-                    <span class="wpdmpp-checkout__submit-price"><?php echo esc_html($currency . number_format($total_with_tax, 2)); ?></span>
+                    <span class="wpdmpp-checkout__submit-price"><?php echo esc_html(wpdmpp_display_price($total_with_tax)); ?></span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="wpdmpp-checkout__submit-icon">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                     </svg>
@@ -503,11 +507,11 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                         <span class="wpdmpp-checkout__item-price wpdmpp-checkout__item-price--trial">
                             <span style="color:#10b981;font-weight:600;font-size:13px;"><?php esc_html_e('Free', 'wpdm-premium-packages'); ?></span>
                             <?php if ($full_price > 0): ?>
-                            <span style="font-size:11px;color:#94a3b8;display:block;"><?php echo esc_html(sprintf(__('then %s', 'wpdm-premium-packages'), $currency . number_format($full_price, 2))); ?></span>
+                            <span style="font-size:11px;color:#94a3b8;display:block;"><?php echo esc_html(sprintf(__('then %s', 'wpdm-premium-packages'), wpdmpp_display_price($full_price))); ?></span>
                             <?php endif; ?>
                         </span>
                         <?php else: ?>
-                        <span class="wpdmpp-checkout__item-price"><?php echo esc_html($currency . number_format($line_total, 2)); ?></span>
+                        <span class="wpdmpp-checkout__item-price"><?php echo esc_html(wpdmpp_display_price($line_total)); ?></span>
                         <?php endif; ?>
                         <?php if (!$is_dynamic): ?>
                         <button type="button" class="wpdmpp-checkout__item-edit" title="<?php esc_attr_e('Edit', 'wpdm-premium-packages'); ?>">
@@ -593,7 +597,7 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                     <?php if ($checkout_full_price > 0): ?>
                     <div class="wpdmpp-checkout__total-row" style="font-size:13px;color:#64748b;">
                         <span><?php printf(esc_html__('After %d-day trial', 'wpdm-premium-packages'), $checkout_trial_days); ?></span>
-                        <span><?php echo esc_html($currency . number_format($checkout_full_price, 2)); ?></span>
+                        <span><?php echo esc_html(wpdmpp_display_price($checkout_full_price)); ?></span>
                     </div>
                     <?php endif; ?>
                     <div class="wpdmpp-checkout__total-row wpdmpp-checkout__total-row--total">
@@ -603,24 +607,47 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
                     <?php else: ?>
                     <div class="wpdmpp-checkout__total-row">
                         <span><?php _e('Subtotal', 'wpdm-premium-packages'); ?></span>
-                        <span id="checkout-subtotal"><?php echo esc_html($currency . number_format($subtotal, 2)); ?></span>
+                        <span id="checkout-subtotal"><?php echo esc_html(wpdmpp_display_price($subtotal)); ?></span>
                     </div>
                     <div class="wpdmpp-checkout__total-row wpdmpp-checkout__total-row--discount" id="checkout-discount-row" <?php if ($discount <= 0) echo 'style="display:none;"'; ?>>
                         <span><?php _e('Discount', 'wpdm-premium-packages'); ?></span>
-                        <span id="checkout-discount">-<?php echo esc_html($currency . number_format($discount, 2)); ?></span>
+                        <span id="checkout-discount">-<?php echo esc_html(wpdmpp_display_price($discount)); ?></span>
                     </div>
                     <?php if ($tax_active): ?>
                     <div class="wpdmpp-checkout__total-row wpdmpp-checkout__total-row--tax" id="checkout-tax-row" <?php if ($tax <= 0) echo 'style="display:none;"'; ?>>
                         <span><?php echo apply_filters('wpdmpp_checkout_tax_label', __('Tax', 'wpdm-premium-packages')); ?></span>
-                        <span id="checkout-tax"><?php echo esc_html($currency . number_format($tax, 2)); ?></span>
+                        <span id="checkout-tax"><?php echo esc_html(wpdmpp_display_price($tax)); ?></span>
                     </div>
                     <?php endif; ?>
                     <div class="wpdmpp-checkout__total-row wpdmpp-checkout__total-row--total">
                         <span><?php _e('Total', 'wpdm-premium-packages'); ?></span>
-                        <span id="checkout-total"><?php echo esc_html($currency . number_format($total_with_tax, 2)); ?></span>
+                        <span id="checkout-total"><?php echo esc_html(wpdmpp_display_price($total_with_tax)); ?></span>
                     </div>
                     <?php endif; ?>
                 </div>
+
+                <?php
+                // Selection is presentation only; the charge is taken in the store
+                // currency. Say so here, with the figure, rather than letting the
+                // gateway be the first place the shopper sees a different number.
+                $store_code = \WPDMPP\Currency\PresentmentService::getInstance()->getStoreCurrency();
+                if ( wpdmpp_presentment_currency_code() !== $store_code ) :
+                    $charged = wpdmpp_price_format(
+                        wpdmpp_round_for_currency( $total_with_tax, $store_code ),
+                        \WPDMPP\Core\CurrencyService::getInstance()->getCurrencySymbol( $store_code )
+                    );
+                    ?>
+                    <div class="wpdmpp-checkout__fx-notice">
+                        <?php
+                        printf(
+                            /* translators: 1: amount in the store currency, 2: store currency code */
+                            esc_html__( 'Prices are shown in your selected currency for convenience. Your payment will be taken as %1$s (%2$s), and your bank sets the final rate.', 'wpdm-premium-packages' ),
+                            '<strong>' . esc_html( $charged ) . '</strong>',
+                            esc_html( $store_code )
+                        );
+                        ?>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Security Badge -->
                 <div class="wpdmpp-checkout__security">

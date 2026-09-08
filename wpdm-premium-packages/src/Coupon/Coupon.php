@@ -414,26 +414,31 @@ class Coupon {
         }
 
         // Check minimum order amount
-        if ($this->minOrderAmount > 0 && $cartTotal < $this->minOrderAmount) {
+        // Thresholds are amounts in the store currency, and $cartTotal is in the
+        // cart's currency, so they must be compared on the same footing.
+        $minThreshold = $this->minOrderAmount > 0 ? $this->convertFixedDiscount($this->minOrderAmount) : 0.0;
+        $maxThreshold = $this->maxOrderAmount > 0 ? $this->convertFixedDiscount($this->maxOrderAmount) : 0.0;
+
+        if ($minThreshold > 0 && $cartTotal < $minThreshold) {
             return [
                 'valid' => false,
                 'error' => self::ERROR_MIN_AMOUNT,
                 'message' => sprintf(
                     __('Minimum order amount of %s required.', 'wpdm-premium-packages'),
-                    function_exists('wpdmpp_price_format') ? wpdmpp_price_format($this->minOrderAmount) : '$' . number_format($this->minOrderAmount, 2)
+                    function_exists('wpdmpp_price_format') ? wpdmpp_price_format($minThreshold) : '$' . number_format($minThreshold, 2)
                 ),
                 'discount' => 0,
             ];
         }
 
         // Check maximum order amount
-        if ($this->maxOrderAmount > 0 && $cartTotal > $this->maxOrderAmount) {
+        if ($maxThreshold > 0 && $cartTotal > $maxThreshold) {
             return [
                 'valid' => false,
                 'error' => self::ERROR_MAX_AMOUNT,
                 'message' => sprintf(
                     __('Maximum order amount of %s exceeded.', 'wpdm-premium-packages'),
-                    function_exists('wpdmpp_price_format') ? wpdmpp_price_format($this->maxOrderAmount) : '$' . number_format($this->maxOrderAmount, 2)
+                    function_exists('wpdmpp_price_format') ? wpdmpp_price_format($maxThreshold) : '$' . number_format($maxThreshold, 2)
                 ),
                 'discount' => 0,
             ];
@@ -508,16 +513,22 @@ class Coupon {
         $discount = 0.0;
 
         if ($this->isFixed()) {
+            // A fixed discount is an amount, so it is denominated in the store
+            // currency it was entered in and has to be converted before it can be
+            // taken off a cart priced in something else. "10 off" is otherwise
+            // worth a hundred times more against a weak currency than a strong one.
+            $fixed = $this->convertFixedDiscount($this->discount);
+
             if ($this->isProductSpecific() && isset($cartItems[$this->productId])) {
                 // Fixed discount per item
                 $quantity = (int) ($cartItems[$this->productId]['quantity'] ?? 1);
-                $discount = $this->discount * $quantity;
+                $discount = $fixed * $quantity;
             } else {
                 // Fixed discount for cart
-                $discount = $this->discount;
+                $discount = $fixed;
             }
         } else {
-            // Percentage discount
+            // A percentage is currency-neutral and needs no conversion.
             $discount = $applicableAmount * ($this->discount / 100);
         }
 
@@ -526,7 +537,29 @@ class Coupon {
             $discount = $applicableAmount;
         }
 
-        return round($discount, 2);
+        return function_exists('wpdmpp_round_for_currency')
+            ? wpdmpp_round_for_currency($discount)
+            : round($discount, 2);
+    }
+
+    /**
+     * Convert a fixed amount from the currency it was entered in into the one the
+     * cart is priced in.
+     *
+     * Coupon amounts are entered in the store currency. Returns the amount
+     * unchanged when there is no rate, which keeps the coupon usable rather than
+     * silently worthless.
+     *
+     * @param float $amount
+     *
+     * @return float
+     */
+    private function convertFixedDiscount(float $amount): float {
+        if (!function_exists('wpdmpp_present_price')) {
+            return $amount;
+        }
+
+        return (float) wpdmpp_present_price($amount);
     }
 
     /**

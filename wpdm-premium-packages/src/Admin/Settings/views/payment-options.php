@@ -20,7 +20,6 @@ if (!empty($saved_order) && is_array($saved_order)) {
     }
     $payment_methods = $sorted;
 }
-$settings['currency_position'] = isset($settings['currency_position']) ? $settings['currency_position'] : 'before';
 ?>
 
 <style>
@@ -727,278 +726,12 @@ $settings['currency_position'] = isset($settings['currency_position']) ? $settin
     </div>
 </div>
 
-<!-- Currency Configuration Card -->
-<div class="wpdmpp-pm-section">
-    <div class="wpdmpp-pm-card wpdmpp-currency-card">
-        <div class="wpdmpp-pm-card__header">
-            <div class="wpdmpp-pm-card__icon wpdmpp-pm-card__icon--currency">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </div>
-            <div>
-                <h3 class="wpdmpp-pm-card__title"><?php _e("Currency Configuration", "wpdm-premium-packages"); ?></h3>
-                <div class="wpdmpp-pm-card__subtitle"><?php _e("Set your store currency and display format", "wpdm-premium-packages"); ?></div>
-            </div>
-        </div>
 
-        <div class="wpdmpp-currency-body">
-            <!-- Currency Preview -->
-            <div class="wpdmpp-currency-preview">
-                <div class="wpdmpp-currency-preview__label"><?php _e("Preview", "wpdm-premium-packages"); ?></div>
-                <div class="wpdmpp-currency-preview__value" id="currency-preview">
-                    <?php
-                    $symbol = isset($settings['currency']) ? \WPDMPP\Core\CurrencyService::getInstance()->getCurrency($settings['currency'])['symbol'] : '$';
-                    $thousand = isset($settings['thousand_separator']) ? $settings['thousand_separator'] : ',';
-                    $decimal = isset($settings['decimal_separator']) ? $settings['decimal_separator'] : '.';
-                    $decimals = isset($settings['decimal_points']) ? $settings['decimal_points'] : '2';
-                    $position = isset($settings['currency_position']) ? $settings['currency_position'] : 'before';
-                    $sample = number_format(1234.56, (int)$decimals, $decimal, $thousand);
-                    echo $position === 'before' ? $symbol . $sample : $sample . $symbol;
-                    ?>
-                </div>
-            </div>
-
-            <!-- Currency -->
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <?php _e('Currency', 'wpdm-premium-packages'); ?>
-                </div>
-                <div class="panel-body">
-                    <?php echo \WPDMPP\Core\CurrencyService::getInstance()->getCurrencyDropdown(
-                        isset($settings['currency']) ? $settings['currency'] : '',
-                        '_wpdmpp_settings[currency]',
-                        '',
-                        'form-control wpdmpp-currecy-dropdown'
-                    ); ?>
-                </div>
-            </div>
-            <!-- Currency Fields Grid -->
-            <div class="wpdmpp-currency-grid">
-                <!-- Currency Position -->
-                <div class="wpdmpp-currency-field wpdmpp-currency-field--full">
-                    <label class="wpdmpp-currency-field__label">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                        <?php _e('Symbol Position', 'wpdm-premium-packages'); ?>
-                    </label>
-                    <div class="wpdmpp-currency-position">
-                        <label class="wpdmpp-currency-position__option <?php echo $settings['currency_position'] === 'before' ? 'is-selected' : ''; ?>">
-                            <input type="radio" name="_wpdmpp_settings[currency_position]" value="before" <?php checked($settings['currency_position'], 'before'); ?>>
-                            <span class="wpdmpp-currency-position__example">$99</span>
-                            <span class="wpdmpp-currency-position__text"><?php _e('Before', 'wpdm-premium-packages'); ?></span>
-                        </label>
-                        <label class="wpdmpp-currency-position__option <?php echo $settings['currency_position'] === 'after' ? 'is-selected' : ''; ?>">
-                            <input type="radio" name="_wpdmpp_settings[currency_position]" value="after" <?php checked($settings['currency_position'], 'after'); ?>>
-                            <span class="wpdmpp-currency-position__example">99$</span>
-                            <span class="wpdmpp-currency-position__text"><?php _e('After', 'wpdm-premium-packages'); ?></span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Separators Row -->
-                <div class="wpdmpp-currency-field">
-                    <label class="wpdmpp-currency-field__label">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                        <?php _e('Thousand Separator', 'wpdm-premium-packages'); ?>
-                    </label>
-                    <input class="form-control wpdmpp-currency-input" type="text" name="_wpdmpp_settings[thousand_separator]" value="<?php echo esc_attr(isset($settings['thousand_separator']) ? $settings['thousand_separator'] : ','); ?>" placeholder="," />
-                    <span class="wpdmpp-currency-field__hint">1,000,000</span>
-                </div>
-
-                <div class="wpdmpp-currency-field">
-                    <label class="wpdmpp-currency-field__label">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        <?php _e('Decimal Separator', 'wpdm-premium-packages'); ?>
-                    </label>
-                    <input class="form-control wpdmpp-currency-input" type="text" name="_wpdmpp_settings[decimal_separator]" value="<?php echo esc_attr(isset($settings['decimal_separator']) ? $settings['decimal_separator'] : '.'); ?>" placeholder="." />
-                    <span class="wpdmpp-currency-field__hint">99.99</span>
-                </div>
-
-                <div class="wpdmpp-currency-field">
-                    <label class="wpdmpp-currency-field__label">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                        </svg>
-                        <?php _e('Decimal Places', 'wpdm-premium-packages'); ?>
-                    </label>
-                    <input class="form-control wpdmpp-currency-input" type="number" min="0" max="4" name="_wpdmpp_settings[decimal_points]" value="<?php echo esc_attr(isset($settings['decimal_points']) ? $settings['decimal_points'] : '2'); ?>" />
-                    <span class="wpdmpp-currency-field__hint"><?php _e('0-4 digits', 'wpdm-premium-packages'); ?></span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-/* Currency Card Icon */
-.wpdmpp-pm-card__icon--currency {
-    background: #fef3c7;
-}
-
-.wpdmpp-pm-card__icon--currency svg {
-    color: #d97706;
-}
-
-/* Currency Body */
-.wpdmpp-currency-body {
-    padding: 24px;
-}
-
-/* Currency Preview */
-.wpdmpp-currency-preview {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-    margin-bottom: 24px;
-}
-
-.wpdmpp-currency-preview__label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #92400e;
-    margin-bottom: 8px;
-}
-
-.wpdmpp-currency-preview__value {
-    font-size: 32px;
-    font-weight: 700;
-    color: #78350f;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-/* Currency Grid */
-.wpdmpp-currency-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-}
-
-.wpdmpp-currency-field--full {
-    grid-column: 1 / -1;
-}
-
-.wpdmpp-currency-field__label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 8px;
-}
-
-.wpdmpp-currency-field__label svg {
-    width: 16px;
-    height: 16px;
-    color: #9ca3af;
-}
-
-.wpdmpp-currency-input {
-    width: 100%;
-    max-width: 120px;
-    text-align: center;
-    font-size: 15px;
-    font-weight: 500;
-}
-
-.wpdmpp-currency-field__hint {
-    display: block;
-    font-size: 11px;
-    color: #9ca3af;
-    margin-top: 4px;
-}
-
-/* Currency Position Toggle */
-.wpdmpp-currency-position {
-    display: flex;
-    gap: 12px;
-}
-
-.wpdmpp-currency-position__option {
-    flex: 1;
-    max-width: 180px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 16px 20px;
-    background: #f8fafc;
-    border: 2px solid #e2e8f0;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.wpdmpp-currency-position__option:hover {
-    border-color: #cbd5e1;
-    background: #f1f5f9;
-}
-
-.wpdmpp-currency-position__option.is-selected {
-    border-color: #d97706;
-    background: #fffbeb;
-}
-
-.wpdmpp-currency-position__option input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.wpdmpp-currency-position__example {
-    font-size: 20px;
-    font-weight: 700;
-    color: #1e293b;
-}
-
-.wpdmpp-currency-position__text {
-    font-size: 12px;
-    color: #64748b;
-    font-weight: 500;
-}
-
-.wpdmpp-currency-position__option.is-selected .wpdmpp-currency-position__example {
-    color: #d97706;
-}
-
-.wpdmpp-currency-position__option.is-selected .wpdmpp-currency-position__text {
-    color: #92400e;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .wpdmpp-currency-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .wpdmpp-currency-position {
-        flex-direction: column;
-    }
-
-    .wpdmpp-currency-position__option {
-        max-width: none;
-    }
-
-    .wpdmpp-currency-input {
-        max-width: none;
-    }
-}
-</style>
 <script>
     (function($) {
         // Payment options initialization function - can be called on load and after AJAX
         function initPaymentOptions() {
             var $paymentMethods = $('#wpdmpp-payment-methods');
-            var $currencyDropdown = $('.wpdmpp-currecy-dropdown');
 
             // Initialize sortable with drag handle (only if not already initialized)
             if ($paymentMethods.length && !$paymentMethods.hasClass('ui-sortable')) {
@@ -1017,32 +750,9 @@ $settings['currency_position'] = isset($settings['currency_position']) ? $settin
             // Tooltips
             $('.ttip').tooltip();
 
-            // Select2 for currency dropdowns (only if not already initialized)
-            if ($currencyDropdown.length && !$currencyDropdown.hasClass('select2-hidden-accessible')) {
-                $currencyDropdown.select2({width: '300px'});
-            }
         }
 
         // Currency preview update function
-        function updateCurrencyPreview() {
-            var $currencySelect = $('select[name="_wpdmpp_settings[currency]"]');
-            var symbol = $currencySelect.find('option:selected').text().match(/\(([^)]+)\)/);
-            symbol = symbol ? symbol[1] : '$';
-
-            var thousand = $('input[name="_wpdmpp_settings[thousand_separator]"]').val() || ',';
-            var decimal = $('input[name="_wpdmpp_settings[decimal_separator]"]').val() || '.';
-            var decimals = parseInt($('input[name="_wpdmpp_settings[decimal_points]"]').val()) || 2;
-            var position = $('input[name="_wpdmpp_settings[currency_position]"]:checked').val() || 'before';
-
-            // Format sample number
-            var num = 1234.56;
-            var parts = num.toFixed(decimals).split('.');
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousand);
-            var formatted = parts.length > 1 ? parts[0] + decimal + parts[1] : parts[0];
-
-            var preview = position === 'before' ? symbol + formatted : formatted + symbol;
-            $('#currency-preview').text(preview);
-        }
 
         // Initialize on document ready
         $(function() {
@@ -1075,12 +785,6 @@ $settings['currency_position'] = isset($settings['currency_position']) ? $settin
                 }
             });
 
-            // Currency position toggle
-            $(document).off('change.wpdmpp-currency').on('change.wpdmpp-currency', '.wpdmpp-currency-position__option input', function() {
-                $('.wpdmpp-currency-position__option').removeClass('is-selected');
-                $(this).closest('.wpdmpp-currency-position__option').addClass('is-selected');
-                updateCurrencyPreview();
-            });
 
             // Payment method status radio change - update header badge
             $(document).off('change.wpdmpp-status').on('change.wpdmpp-status', '.wpdmpp-status-radio-group input[type="radio"]', function() {
@@ -1111,9 +815,6 @@ $settings['currency_position'] = isset($settings['currency_position']) ? $settin
                 }
             });
 
-            // Bind currency preview update events with namespacing
-            $(document).off('change.wpdmpp-preview').on('change.wpdmpp-preview', 'select[name="_wpdmpp_settings[currency]"]', updateCurrencyPreview);
-            $(document).off('input.wpdmpp-preview').on('input.wpdmpp-preview', 'input[name="_wpdmpp_settings[thousand_separator]"], input[name="_wpdmpp_settings[decimal_separator]"], input[name="_wpdmpp_settings[decimal_points]"]', updateCurrencyPreview);
         });
 
         // Re-initialize when tab becomes visible (for AJAX-loaded content)

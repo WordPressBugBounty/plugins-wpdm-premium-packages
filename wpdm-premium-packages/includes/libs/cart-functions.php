@@ -853,9 +853,13 @@ function wpdmpp_get_cart_discount(){
  * @return string
  */
 function wpdmpp_get_cart_total(){
-    $coupon = wpdmpp_get_cart_coupon();
-    $subTotal = wpdmpp_get_cart_subtotal();
-    $total = $coupon?$subTotal - $coupon['discount']:$subTotal;
+    // Role discounts are applied per line, so the cart's own total is the only
+    // figure that accounts for them. Deriving the total here as subtotal minus the
+    // coupon dropped role discounts entirely: the checkout summary quoted a price
+    // the order was never built at, and the gateways that read this figure - the
+    // Braintree add-on charges it directly - billed the undiscounted amount.
+    $total = WPDMPP()->cart->cartTotal(true, false);
+
     return number_format( $total, 2, ".", "" );
 }
 

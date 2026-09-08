@@ -94,17 +94,18 @@ class DailySalesSummaryJob extends Job
         $formattedTotal = wpdmpp_price_format($totalSales);
         $table = $this->buildTable(
             [__('Type', 'wpdm-premium-packages'), __('Order ID', 'wpdm-premium-packages'), __('Amount', 'wpdm-premium-packages')],
-            $tableData
+            $tableData,
+            $formattedTotal
         );
 
-        $totalCard = $this->buildStatCard(__('Total Sales', 'wpdm-premium-packages'), $formattedTotal);
-        $newCard = $this->buildStatCard(__('New Purchases', 'wpdm-premium-packages'), (string) $orderCount);
-        $renewCard = $this->buildStatCard(__('Renewals', 'wpdm-premium-packages'), (string) $renewCount);
+        $cards = $this->buildStatCards([
+            [__('Total Sales', 'wpdm-premium-packages'), $formattedTotal, true],
+            [__('New Purchases', 'wpdm-premium-packages'), (string) $orderCount, false],
+            [__('Renewals', 'wpdm-premium-packages'), (string) $renewCount, false],
+        ]);
 
         $message = __("Here's a quick snapshot of yesterday's sales performance:", 'wpdm-premium-packages');
-        $message .= '<br/><br/>';
-        $message .= "<table style='width:100%;'><tr><td>{$totalCard}</td><td>{$newCard}</td><td>{$renewCard}</td></tr></table>";
-        $message .= '<br/>' . $table;
+        $message .= $cards . $table;
 
         // Send email
         $params = [
@@ -137,65 +138,129 @@ class DailySalesSummaryJob extends Job
     }
 
     /**
-     * Build HTML table
+     * Build the order breakdown table.
      *
-     * @param array $headers Table headers
-     * @param array $data    Table data rows
-     * @return string HTML table
+     * Written as inline-styled table markup rather than through __MailUI so the
+     * columns can be aligned and typed properly: amounts right aligned so they
+     * compare down the column, order ids in a monospaced face, and the row type
+     * as a coloured badge. Mail clients drop <style> blocks, so every rule is
+     * inline, and the markup carries no blank lines because the message is run
+     * through wpautop() before sending.
+     *
+     * @param array $headers Column headings.
+     * @param array $data    Rows of [type, order id, amount].
+     * @param string $total  Formatted total, shown in the footer row.
+     * @return string
      */
-    private function buildTable(array $headers, array $data): string
+    private function buildTable(array $headers, array $data, string $total = ''): string
     {
-        // Try to use WPDM's MailUI if available
-        if (class_exists('\WPDM\__\__MailUI')) {
-            return __MailUI::table($headers, $data, [
-                'th' => 'background: #f5f5f5;padding: 10px 5px;text-align:left;',
-                'td' => 'border-bottom: 1px solid #f5f5f5;padding:8px 5px',
-            ]);
-        }
+        $th = 'padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:0.06em;'
+            . 'text-transform:uppercase;color:#6b7280;border-bottom:1px solid #e5e7eb;';
 
-        // Fallback to basic table
-        $html = '<table style="width:100%;border-collapse:collapse;">';
+        $html = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"'
+            . ' style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;'
+            . 'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;">';
+
+        // Pin the narrow columns so the badge and the amount sit next to their
+        // neighbours instead of the browser dividing the width evenly.
+        $widths = ['18%', '', '22%'];
+
         $html .= '<tr>';
-        foreach ($headers as $header) {
-            $html .= '<th style="background:#f5f5f5;padding:10px 5px;text-align:left;">' . esc_html($header) . '</th>';
+        foreach (array_values($headers) as $i => $header) {
+            // Amount is the last column and reads better flush right.
+            $align = $i === count($headers) - 1 ? 'right' : 'left';
+            $width = isset($widths[$i]) && $widths[$i] !== '' ? 'width:' . $widths[$i] . ';' : '';
+            $html .= '<th align="' . $align . '" style="' . $th . $width . 'text-align:' . $align . ';">'
+                . esc_html($header) . '</th>';
         }
         $html .= '</tr>';
 
-        foreach ($data as $row) {
-            $html .= '<tr>';
-            foreach ($row as $cell) {
-                $html .= '<td style="border-bottom:1px solid #f5f5f5;padding:8px 5px;">' . esc_html($cell) . '</td>';
-            }
-            $html .= '</tr>';
+        foreach ($data as $n => $row) {
+            $row = array_values($row);
+            // Banding keeps long lists readable where borders alone would not.
+            $bg = $n % 2 === 1 ? 'background:#f9fafb;' : '';
+            $td = 'padding:11px 12px;font-size:14px;color:#111827;border-bottom:1px solid #f3f4f6;' . $bg;
+
+            $html .= '<tr>'
+                . '<td style="' . $td . '">' . $this->typeBadge((string) ($row[0] ?? '')) . '</td>'
+                . '<td style="' . $td . 'font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;'
+                . 'font-size:13px;color:#4b5563;">' . esc_html((string) ($row[1] ?? '')) . '</td>'
+                . '<td align="right" style="' . $td . 'text-align:right;font-weight:600;white-space:nowrap;">'
+                . esc_html((string) ($row[2] ?? '')) . '</td>'
+                . '</tr>';
         }
 
-        $html .= '</table>';
-        return $html;
+        if ($total !== '') {
+            $tf = 'padding:12px;font-size:14px;background:#f9fafb;border-top:1px solid #e5e7eb;';
+            $html .= '<tr>'
+                . '<td colspan="2" style="' . $tf . 'font-weight:600;color:#374151;">'
+                . esc_html__('Total', 'wpdm-premium-packages') . '</td>'
+                . '<td align="right" style="' . $tf . 'text-align:right;font-weight:700;color:#111827;'
+                . 'white-space:nowrap;">' . esc_html($total) . '</td>'
+                . '</tr>';
+        }
+
+        return $html . '</table>';
     }
 
     /**
-     * Build stat card HTML
+     * Coloured badge for a row's type, so New and Renew are separable at a glance.
      *
-     * @param string $label Card label
-     * @param string $value Card value
-     * @return string HTML
+     * @param string $type Already translated label.
+     * @return string
      */
-    private function buildStatCard(string $label, string $value): string
+    private function typeBadge(string $type): string
     {
-        // Try to use WPDM's MailUI if available
-        if (class_exists('\WPDM\__\__MailUI')) {
-            return __MailUI::panel($label, ["<h1 style='margin: 0'>{$value}</h1>"]);
+        // Compared against the untranslated source so the colour survives translation.
+        $isRenewal = $type === __('Renew', 'wpdm-premium-packages');
+        $colours   = $isRenewal ? ['#eef2ff', '#4338ca'] : ['#ecfdf5', '#047857'];
+
+        return '<span style="display:inline-block;padding:3px 9px;border-radius:11px;font-size:12px;'
+            . 'font-weight:600;background:' . $colours[0] . ';color:' . $colours[1] . ';">'
+            . esc_html($type) . '</span>';
+    }
+
+    /**
+     * Build the row of headline figures.
+     *
+     * Equal thirds via percentage widths on the outer cells, each holding its own
+     * bordered table - the layout mail clients render consistently, since float
+     * and flex are unavailable. The leading figure is accented to give the row a
+     * focal point instead of three identical boxes.
+     *
+     * @param array $cards List of [label, value, is_primary].
+     * @return string
+     */
+    private function buildStatCards(array $cards): string
+    {
+        $count = max(1, count($cards));
+        $width = round(100 / $count, 2);
+
+        $html = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"'
+            . ' style="width:100%;border-collapse:separate;margin:18px 0;'
+            . 'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;"><tr>';
+
+        foreach (array_values($cards) as $i => $card) {
+            [$label, $value, $primary] = array_pad((array) $card, 3, false);
+
+            $bg     = $primary ? '#eef2ff' : '#f9fafb';
+            $border = $primary ? '#c7d2fe' : '#e5e7eb';
+            $colour = $primary ? '#4f46e5' : '#111827';
+            // Gutter between cards; the last one runs to the edge.
+            $gutter = $i < $count - 1 ? 'padding-right:10px;' : '';
+
+            $html .= '<td width="' . $width . '%" valign="top" style="width:' . $width . '%;' . $gutter . '">'
+                . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"'
+                . ' style="width:100%;background:' . $bg . ';border:1px solid ' . $border . ';border-radius:8px;">'
+                . '<tr><td style="padding:14px 16px;">'
+                . '<div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;'
+                . 'color:#6b7280;">' . esc_html((string) $label) . '</div>'
+                . '<div style="font-size:26px;font-weight:700;line-height:1.25;padding-top:6px;color:'
+                . $colour . ';">' . esc_html((string) $value) . '</div>'
+                . '</td></tr></table></td>';
         }
 
-        // Fallback to basic panel
-        return sprintf(
-            '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;text-align:center;">
-                <div style="font-size:12px;color:#64748b;margin-bottom:8px;">%s</div>
-                <div style="font-size:24px;font-weight:bold;color:#1e293b;">%s</div>
-            </div>',
-            esc_html($label),
-            esc_html($value)
-        );
+        return $html . '</tr></table>';
     }
 
     /**

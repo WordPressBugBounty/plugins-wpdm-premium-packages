@@ -122,6 +122,7 @@ class CronJobService
             OrderRenewalNotificationJob::class,
             IncompleteOrderCleanupJob::class,
             DailySalesSummaryJob::class,
+            ExchangeRateRefreshJob::class,
         ];
 
         foreach ($handlers as $handler) {
@@ -166,6 +167,11 @@ class CronJobService
         // Schedule daily sales summary
         if (!$this->isJobScheduled('wpdmpp_daily_sales_summary')) {
             DailySalesSummaryJob::schedule();
+        }
+
+        // Schedule exchange rate refresh
+        if (!$this->isJobScheduled(ExchangeRateRefreshJob::CODE)) {
+            ExchangeRateRefreshJob::schedule();
         }
     }
 

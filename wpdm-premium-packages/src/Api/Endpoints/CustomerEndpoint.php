@@ -360,8 +360,9 @@ class CustomerEndpoint
         $total = $this->service->getTotalSpent($userId);
 
         $formatted = $total;
-        if (function_exists('wpdmpp_price_format')) {
-            $formatted = wpdmpp_price_format($total);
+        // Lifetime spend sums order totals, which are all in the store currency.
+        if (function_exists('wpdmpp_store_price_format')) {
+            $formatted = wpdmpp_store_price_format($total);
         }
 
         return RestApi::success([
@@ -477,8 +478,9 @@ class CustomerEndpoint
         $total = $this->service->refreshTotalSpent($id);
 
         $formatted = $total;
-        if (function_exists('wpdmpp_price_format')) {
-            $formatted = wpdmpp_price_format($total);
+        // Lifetime spend sums order totals, which are all in the store currency.
+        if (function_exists('wpdmpp_store_price_format')) {
+            $formatted = wpdmpp_store_price_format($total);
         }
 
         return RestApi::success([

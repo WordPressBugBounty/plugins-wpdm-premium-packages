@@ -264,7 +264,14 @@ abstract class AbstractWidget implements WidgetInterface
      */
     protected function formatCurrency(float $amount): string
     {
-        return wpdmpp_currency_sign() . number_format($amount, 2, '.', ',');
+        // Widgets display base-currency aggregates, so they carry the reporting
+        // currency's symbol and decimals rather than whatever this request is
+        // priced in - a euro sign on a dollar total is worse than no sign at all.
+        if (function_exists('wpdmpp_base_price_format')) {
+            return wpdmpp_base_price_format($amount);
+        }
+
+        return wpdmpp_store_currency_sign() . number_format($amount, 2, '.', ',');
     }
 
     /**

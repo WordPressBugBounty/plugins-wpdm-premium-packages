@@ -773,6 +773,29 @@ class CartService {
      * @return array
      */
     private function buildItemData(int $productId, array $data): array {
+        // The cart holds amounts in the store currency, which is also the currency
+        // the order is charged in. Conversion is presentation only and happens where
+        // a price is displayed, so everything read here must be the stored figure -
+        // capturing a converted one would bake a rate into the cart and make what is
+        // charged depend on the currency that happened to be selected at the time.
+        if (class_exists('\WPDMPP\Currency\PriceFilter')) {
+            return \WPDMPP\Currency\PriceFilter::getInstance()->withoutConversion(
+                fn() => $this->buildItemDataRaw($productId, $data)
+            );
+        }
+
+        return $this->buildItemDataRaw($productId, $data);
+    }
+
+    /**
+     * Build item data from product and request data.
+     *
+     * @param int   $productId
+     * @param array $data
+     *
+     * @return array
+     */
+    private function buildItemDataRaw(int $productId, array $data): array {
         $product = null;
         $productName = get_the_title($productId) ?: '';
         $basePrice = 0;

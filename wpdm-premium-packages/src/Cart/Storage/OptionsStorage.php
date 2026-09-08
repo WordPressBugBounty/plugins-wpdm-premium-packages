@@ -120,6 +120,7 @@ class OptionsStorage implements CartStorageInterface {
      */
     public function delete(string $cartId): bool {
         delete_option($cartId);
+        delete_option($cartId . '_currency');
         $this->deleteCoupon($cartId);
         $this->unlock($cartId);
         $this->clearRecurring($cartId);
@@ -369,6 +370,10 @@ class OptionsStorage implements CartStorageInterface {
         // Delete cart options
         $deleted = $wpdb->query(
             "DELETE FROM {$wpdb->options} WHERE option_name LIKE '%_cart'"
+        );
+
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE '%_cart_currency'"
         );
 
         // Delete coupon TempStorage entries

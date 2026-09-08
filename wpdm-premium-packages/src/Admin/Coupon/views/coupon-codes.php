@@ -122,7 +122,7 @@ if (!empty($where_values)) {
                         <td><input type="checkbox" class="allc" value="<?php echo (int) $coupon_code->ID; ?>" name="id[]"></td>
                         <td><strong <?php if($coupon_code->expire_date > 0 && $coupon_code->expire_date < time()) echo 'class="expired-coupon color-red ttip" title="Expired Coupon"'; ?>><?php echo esc_html( $coupon_code->code ); ?></strong></td>
                         <td><?php echo esc_html( $coupon_code->discount ); ?></td>
-                        <td><?php echo $coupon_code->type == 'percent' ? '%' : esc_html( wpdmpp_currency_sign() ); ?></td>
+                        <td><?php echo $coupon_code->type == 'percent' ? '%' : esc_html( wpdmpp_store_currency_sign() ); ?></td>
                         <td><?php echo $coupon_code->product > 0 ? "<a href=''>" . esc_html( get_the_title( $coupon_code->product ) ) . "</a>" : '<span class="color-purple">' . __( 'Global Coupon', WPDMPP_TEXT_DOMAIN ) . '</span>'; ?></td>
                         <td><?php echo $coupon_code->expire_date > 0 ? esc_html( wp_date( get_option( 'date_format' ) . " h:i a", $coupon_code->expire_date ) ) : __( 'Never', "wpdm-premium-packages" ); ?></td>
                         <td><a href="#" onclick="WPDM.bootAlert('<?php echo esc_js(__('Orders with coupon code', WPDMPP_TEXT_DOMAIN)); ?>: <?php echo esc_js($coupon_code->code); ?>', {url: ajaxurl+'?action=wpdmpp_get_couponed_orders&coupon_code=<?php echo esc_js(urlencode($coupon_code->code)); ?>&cononce=<?php echo esc_js(wp_create_nonce(WPDM_PRI_NONCE)); ?>'}, 500); return false;"><?php echo (int) $coupon_code->used; ?> / <?php echo $coupon_code->usage_limit > 0 ? (int) $coupon_code->usage_limit : '∞'; ?></a></td>

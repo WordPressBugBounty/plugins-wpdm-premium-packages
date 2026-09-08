@@ -103,7 +103,7 @@ interface OrderRepositoryInterface {
      * @param OrderItem[] $items   Order items
      * @return bool
      */
-    public function saveItems(string $orderId, array $items): bool;
+    public function saveItems(string $orderId, array $items, float $exchangeRate = 0.0): bool;
 
     /**
      * Delete order items
@@ -176,7 +176,15 @@ interface OrderRepositoryInterface {
      * @param string $invoice        Invoice reference
      * @return bool
      */
-    public function addRenewal(string $orderId, float $total, string $subscriptionId = '', string $invoice = '', int $date = 0): bool;
+    public function addRenewal(
+        string $orderId,
+        float $total,
+        string $subscriptionId = '',
+        string $invoice = '',
+        int $date = 0,
+        string $currency = '',
+        float $exchangeRate = 0.0
+    ): bool;
 
     /**
      * Get total orders count

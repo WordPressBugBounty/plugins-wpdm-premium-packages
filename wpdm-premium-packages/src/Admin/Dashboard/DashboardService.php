@@ -284,7 +284,7 @@ class DashboardService
                 'this_month' => $salesOverview['this_month'] ?? 0,
                 'total' => $salesOverview['total'] ?? 0,
             ],
-            'currency' => $salesOverview['currency'] ?? wpdmpp_currency_sign(),
+            'currency' => $salesOverview['currency'] ?? wpdmpp_store_currency_sign(),
             'recent_orders_count' => count($latestOrders['orders'] ?? []),
             'last_updated' => current_time('mysql'),
         ];

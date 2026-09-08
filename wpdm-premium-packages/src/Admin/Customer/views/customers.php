@@ -70,7 +70,7 @@ $where_sql = 'WHERE ' . implode( ' AND ', $where );
 // Per-customer renewal revenue, pre-aggregated to one row per uid so the LEFT
 // JOIN never multiplies order rows.
 $renew_join = "LEFT JOIN (
-		SELECT o2.uid AS uid, SUM(rr.total) AS renew_total
+		SELECT o2.uid AS uid, SUM(rr.base_total) AS renew_total
 		FROM {$base_prefix}ahm_orders o2
 		INNER JOIN {$base_prefix}ahm_order_renews rr ON o2.order_id = rr.order_id
 		GROUP BY o2.uid
@@ -121,7 +121,7 @@ if ( ! $has_filter ) {
 				COALESCE(SUM(spent), 0) AS order_revenue,
 				COALESCE(SUM(oc), 0) AS paid_orders
 			FROM (
-				SELECT uid, COUNT(DISTINCT order_id) AS oc, SUM(total) AS spent
+				SELECT uid, COUNT(DISTINCT order_id) AS oc, SUM(base_total) AS spent
 				FROM {$base_prefix}ahm_orders
 				WHERE (order_status = 'Completed' OR order_status = 'Expired') AND uid > 0
 				GROUP BY uid
@@ -129,7 +129,7 @@ if ( ! $has_filter ) {
 		);
 
 		$renew_revenue = (float) $wpdb->get_var(
-			"SELECT COALESCE(SUM(rr.total), 0)
+			"SELECT COALESCE(SUM(rr.base_total), 0)
 			FROM {$base_prefix}ahm_order_renews rr
 			INNER JOIN {$base_prefix}ahm_orders o ON o.order_id = rr.order_id
 			WHERE o.uid > 0"
@@ -610,7 +610,7 @@ $recalc_nonce = wp_create_nonce( WPDM_PRI_NONCE );
 									'avatar'      => $exists ? get_avatar_url( $email, array( 'size' => 84 ) ) : '',
 									'profile_url' => $profile_url,
 									'orders'      => number_format_i18n( $order_count ),
-									'spent'       => wpdmpp_price_format( $total_spent, true, true ),
+									'spent'       => wpdmpp_base_price_format( $total_spent ),
 									'member'      => $exists ? wp_date( $date_fmt, strtotime( $customer->user_registered ) ) : '—',
 									'last'        => $last_order ? wp_date( $date_fmt, $last_order ) : '—',
 									'exists'      => $exists,
@@ -654,7 +654,7 @@ $recalc_nonce = wp_create_nonce( WPDM_PRI_NONCE );
 										<a class="cl-orders-pill" href="edit.php?post_type=wpdmpro&page=orders&customer=<?php echo esc_attr( $uid ); ?>" title="<?php esc_attr_e( 'View this customer\'s orders', 'wpdm-premium-packages' ); ?>"><?php echo Icons::get( 'shopping-bag', 13 ); ?> <?php echo esc_html( number_format_i18n( $order_count ) ); ?></a>
 									</td>
 									<td class="cl-num" data-label="<?php esc_attr_e( 'Total Spent', 'wpdm-premium-packages' ); ?>">
-										<span class="cl-spent<?php echo $total_spent > 0 ? '' : ' cl-spent--zero'; ?>"><?php echo wp_kses_post( wpdmpp_price_format( $total_spent, true, true ) ); ?></span>
+										<span class="cl-spent<?php echo $total_spent > 0 ? '' : ' cl-spent--zero'; ?>"><?php echo wp_kses_post( wpdmpp_base_price_format( $total_spent ) ); ?></span>
 									</td>
 									<td data-label="<?php esc_attr_e( 'Last Order', 'wpdm-premium-packages' ); ?>">
 										<?php if ( $last_order ) { ?>

@@ -34,7 +34,7 @@ if ( $exists ) {
 		$uid
 	) );
 	$renew_total = (float) $wpdb->get_var( $wpdb->prepare(
-		"SELECT COALESCE(SUM(r.total), 0) FROM {$wpdb->prefix}ahm_orders o
+		"SELECT COALESCE(SUM(r.base_total), 0) FROM {$wpdb->prefix}ahm_orders o
 		 INNER JOIN {$wpdb->prefix}ahm_order_renews r ON o.order_id = r.order_id
 		 WHERE o.uid = %d",
 		$uid

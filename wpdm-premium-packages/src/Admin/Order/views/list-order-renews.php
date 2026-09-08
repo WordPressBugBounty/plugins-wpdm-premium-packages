@@ -84,21 +84,21 @@ $orders = $orderObj->getAllRenews( $qry, $s, $l );
 
 $osi = array('Pending'=>'ellipsis','Processing'=>'clock','Completed'=>'check','Cancelled'=>'close','Refunded'=>'redo','Expired' => 'times-circle','Gifted' => 'gift','Disputed'=>'info-circle');
 if(!wpdm_query_var('customer') && !wpdm_query_var('oid')) {
-	$completed  = $wpdb->get_row( "select sum(total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Completed' or payment_status='Expired'" );
-	$expired    = $wpdb->get_row( "select sum(total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Expired'" );
-	$refunded   = $wpdb->get_row( "select sum(total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Refunded'" );
-	$abandoned  = $wpdb->get_row( "select sum(total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Processing'" );
-	$allrenews  = $wpdb->get_row( "select sum(total) as sales, count(total) as orders, order_id from {$wpdb->prefix}ahm_order_renews" );
+	$completed  = $wpdb->get_row( "select SUM(base_total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Completed' or payment_status='Expired'" );
+	$expired    = $wpdb->get_row( "select SUM(base_total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Expired'" );
+	$refunded   = $wpdb->get_row( "select SUM(base_total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Refunded'" );
+	$abandoned  = $wpdb->get_row( "select SUM(base_total) as sales, count(total) as orders from {$wpdb->prefix}ahm_orders where payment_status='Processing'" );
+	$allrenews  = $wpdb->get_row( "select SUM(base_total) as sales, count(total) as orders, order_id from {$wpdb->prefix}ahm_order_renews" );
 
 	$sdatet     = strtotime( date( "Y-m-d" ) . " 00:00:00" );
 	$edatet     = strtotime( date( "Y-m-d" ) . " 23:59:59" );
 	$newtoday   = $wpdb->get_row( $wpdb->prepare(
-		"SELECT SUM(total) AS sales, COUNT(total) AS orders FROM {$wpdb->prefix}ahm_orders
+		"SELECT SUM(base_total) AS sales, COUNT(total) AS orders FROM {$wpdb->prefix}ahm_orders
 		 WHERE payment_status = 'Completed' AND `date` >= %d AND `date` <= %d",
 		$sdatet, $edatet
 	) );
 	$renewtoday = $wpdb->get_row( $wpdb->prepare(
-		"SELECT SUM(total) AS sales, COUNT(total) AS orders FROM {$wpdb->prefix}ahm_order_renews
+		"SELECT SUM(base_total) AS sales, COUNT(total) AS orders FROM {$wpdb->prefix}ahm_order_renews
 		 WHERE `date` >= %d AND `date` <= %d",
 		$sdatet, $edatet
 	) );
@@ -328,32 +328,32 @@ $show_stats = ! wpdm_query_var( 'customer' ) && ! wpdm_query_var( 'oid' );
 	<div class="wpdmpp-ol__kpis">
 		<div class="wpdmpp-ol__kpi wpdmpp-ol__kpi--success">
 			<div class="wpdmpp-ol__kpi-top"><span class="wpdmpp-ol__kpi-icon"><?php echo Icons::get('check-circle', 19); ?></span><span class="wpdmpp-ol__kpi-label"><?php echo __( "Completed", WPDMPP_TEXT_DOMAIN ); ?></span></div>
-			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_price_format($completed->sales, true, true); ?></span>
+			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_base_price_format($completed->sales); ?></span>
 			<span class="wpdmpp-ol__kpi-meta"><span class="wpdmpp-ol__kpi-dot"></span><b><?php echo (int)$completed->orders; ?></b> <?php _e("orders","wpdm-premium-packages"); ?></span>
 		</div>
 		<div class="wpdmpp-ol__kpi wpdmpp-ol__kpi--indigo">
 			<div class="wpdmpp-ol__kpi-top"><span class="wpdmpp-ol__kpi-icon"><?php echo Icons::get('sync', 19); ?></span><span class="wpdmpp-ol__kpi-label"><?php echo __( "Renewed", WPDMPP_TEXT_DOMAIN ); ?></span></div>
-			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_price_format($allrenews->sales, true, true); ?></span>
+			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_base_price_format($allrenews->sales); ?></span>
 			<span class="wpdmpp-ol__kpi-meta"><span class="wpdmpp-ol__kpi-dot"></span><b><?php echo (int)$allrenews->orders; ?></b> <?php _e("renewals","wpdm-premium-packages"); ?></span>
 		</div>
 		<div class="wpdmpp-ol__kpi wpdmpp-ol__kpi--sky">
 			<div class="wpdmpp-ol__kpi-top"><span class="wpdmpp-ol__kpi-icon"><?php echo Icons::get('plus-circle', 19); ?></span><span class="wpdmpp-ol__kpi-label"><?php echo __( "New Today", WPDMPP_TEXT_DOMAIN ); ?></span></div>
-			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_price_format($newtoday->sales, true, true); ?></span>
+			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_base_price_format($newtoday->sales); ?></span>
 			<span class="wpdmpp-ol__kpi-meta"><span class="wpdmpp-ol__kpi-dot"></span><b><?php echo (int)$newtoday->orders; ?></b> <?php _e("orders","wpdm-premium-packages"); ?></span>
 		</div>
 		<div class="wpdmpp-ol__kpi wpdmpp-ol__kpi--teal">
 			<div class="wpdmpp-ol__kpi-top"><span class="wpdmpp-ol__kpi-icon"><?php echo Icons::get('calendar', 19); ?></span><span class="wpdmpp-ol__kpi-label"><?php echo __( "Renewed Today", WPDMPP_TEXT_DOMAIN ); ?></span></div>
-			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_price_format(@$renewtoday->sales, true, true); ?></span>
+			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_base_price_format(@$renewtoday->sales); ?></span>
 			<span class="wpdmpp-ol__kpi-meta"><span class="wpdmpp-ol__kpi-dot"></span><b><?php echo (int)@$renewtoday->orders; ?></b> <?php _e("renewals","wpdm-premium-packages"); ?></span>
 		</div>
 		<div class="wpdmpp-ol__kpi wpdmpp-ol__kpi--rose">
 			<div class="wpdmpp-ol__kpi-top"><span class="wpdmpp-ol__kpi-icon"><?php echo Icons::get('redo', 19); ?></span><span class="wpdmpp-ol__kpi-label"><?php echo __( "Refunded", WPDMPP_TEXT_DOMAIN ); ?></span></div>
-			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_price_format($refunded->sales, true, true); ?></span>
+			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_base_price_format($refunded->sales); ?></span>
 			<span class="wpdmpp-ol__kpi-meta"><span class="wpdmpp-ol__kpi-dot"></span><b><?php echo (int)$refunded->orders; ?></b> <?php _e("orders","wpdm-premium-packages"); ?></span>
 		</div>
 		<div class="wpdmpp-ol__kpi wpdmpp-ol__kpi--violet">
 			<div class="wpdmpp-ol__kpi-top"><span class="wpdmpp-ol__kpi-icon"><?php echo Icons::get('clock', 19); ?></span><span class="wpdmpp-ol__kpi-label"><?php echo __( "Expired", WPDMPP_TEXT_DOMAIN ); ?></span></div>
-			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_price_format($expired->sales, true, true); ?></span>
+			<span class="wpdmpp-ol__kpi-value"><?php echo wpdmpp_base_price_format($expired->sales); ?></span>
 			<span class="wpdmpp-ol__kpi-meta"><span class="wpdmpp-ol__kpi-dot"></span><b><?php echo (int)$expired->orders; ?></b> <?php _e("orders","wpdm-premium-packages"); ?></span>
 		</div>
 	</div>
@@ -416,7 +416,7 @@ $show_stats = ! wpdm_query_var( 'customer' ) && ! wpdm_query_var( 'oid' );
 			<div class="wpdmpp-ol__resultbar">
 				<span class="ol-count"><?php echo number_format_i18n($t); ?> <?php _e("renewal(s) found","wpdm-premium-packages");?></span>
 				<?php if($show_stats) { ?>
-				<span class="ol-total"><?php _e("Total Sales:","wpdm-premium-packages");?> <b><?php echo wpdmpp_price_format($completed->sales, true, true); ?></b></span>
+				<span class="ol-total"><?php _e("Total Sales:","wpdm-premium-packages");?> <b><?php echo wpdmpp_base_price_format($completed->sales); ?></b></span>
 				<?php } ?>
 			</div>
 		</div>
@@ -510,7 +510,7 @@ $show_stats = ! wpdm_query_var( 'customer' ) && ! wpdm_query_var( 'oid' );
 						'id'             => $order->order_id,
 						'view_url'       => admin_url( 'edit.php?post_type=wpdmpro&page=orders&task=vieworder&id=' . rawurlencode( $order->order_id ) ),
 						'order_status'   => $order->order_status,
-						'total'          => wpdmpp_price_format( $order->total, true, true ),
+						'total'          => wpdmpp_order_price_format( $order->total, $order ),
 						'payment_method' => str_replace( 'WPDM_', '', $order->payment_method ),
 						'items'          => (int) $items,
 						'products'       => $product_names,
@@ -537,7 +537,7 @@ $show_stats = ! wpdm_query_var( 'customer' ) && ! wpdm_query_var( 'oid' );
 							</div>
 						</td>
 						<td class="ol-total-cell" data-label="<?php esc_attr_e('Total','wpdm-premium-packages'); ?>">
-							<span class="ol-total-amt"><?php echo wpdmpp_price_format($order->total,true, true); ?></span><span class="ol-pay-dot ol-pay-dot--<?php echo esc_attr($order->payment_status); ?> ttip" title="<?php echo esc_attr( sprintf( __('Payment: %s','wpdm-premium-packages'), $order->payment_status ) ); ?>"></span>
+							<span class="ol-total-amt"><?php echo wpdmpp_order_price_format($order->total, $order); ?></span><span class="ol-pay-dot ol-pay-dot--<?php echo esc_attr($order->payment_status); ?> ttip" title="<?php echo esc_attr( sprintf( __('Payment: %s','wpdm-premium-packages'), $order->payment_status ) ); ?>"></span>
 							<span class="ol-via"><?php _e('via','wpdm-premium-packages'); echo " ".esc_html(str_replace("WPDM_", "", $order->payment_method)); ?></span>
 						</td>
 						<td class="" data-label="<?php esc_attr_e('Customer','wpdm-premium-packages'); ?>">

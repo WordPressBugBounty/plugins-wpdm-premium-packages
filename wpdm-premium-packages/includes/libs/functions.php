@@ -94,11 +94,11 @@ function wpdmpp_total_sales( $uid = '', $pid = '', $sdate = '', $edate = '' ) {
         $params[]     = $edate_ts;
 
         $where = implode( ' AND ', $conditions );
-        $sql   = "SELECT SUM(oi.price * oi.quantity) FROM {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi WHERE {$where}";
+        $sql   = "SELECT SUM(oi.base_price * oi.quantity) FROM {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi WHERE {$where}";
         $sales = $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
     } else {
         $sales = $wpdb->get_var( $wpdb->prepare(
-                "SELECT SUM(o.total) FROM {$wpdb->prefix}ahm_orders o
+                "SELECT SUM(o.base_total) FROM {$wpdb->prefix}ahm_orders o
              WHERE o.payment_status IN ('Completed', 'Expired')
              AND o.date >= %d AND o.date <= %d",
                 $sdate_ts, $edate_ts
@@ -137,7 +137,7 @@ function wpdmpp_daily_sales( $uid = '', $pid = '', $sdate = '', $edate = '' ) {
     $params[]     = $edate_ts;
 
     $where = implode( ' AND ', $conditions );
-    $sql   = "SELECT SUM(oi.price * oi.quantity) AS daily_sale, SUM(oi.quantity) AS quantities,
+    $sql   = "SELECT SUM(oi.base_price * oi.quantity) AS daily_sale, SUM(oi.quantity) AS quantities,
             oi.date, oi.year, oi.month, oi.day
             FROM {$wpdb->prefix}ahm_orders o, {$wpdb->prefix}ahm_order_items oi
             WHERE {$where}
@@ -194,7 +194,7 @@ function wpdmpp_top_sellings_products( $uid = '', $sdate = '', $edate = '', $s =
     $where_clause = implode( ' AND ', $conditions );
 
     $sql = "
-        SELECT oi.pid, SUM(oi.price) AS sales, SUM(oi.quantity) AS quantities
+        SELECT oi.pid, SUM(oi.base_price) AS sales, SUM(oi.quantity) AS quantities
         FROM {$wpdb->prefix}ahm_order_items oi
         INNER JOIN {$wpdb->prefix}ahm_orders o ON o.order_id = oi.oid
         WHERE {$where_clause}
@@ -1324,7 +1324,7 @@ function wpdmpp_recalculate_sales() {
 
     update_post_meta( $id, '__wpdm_sales_amount', $data->sales_amount );
     update_post_meta( $id, '__wpdm_sales_count', $data->sales_quantity );
-    $data->sales_amount   = wpdmpp_currency_sign() . floatval( $data->sales_amount );
+    $data->sales_amount   = wpdmpp_store_currency_sign() . floatval( $data->sales_amount );
     $data->sales_quantity = intval( $data->sales_quantity );
     wp_send_json( $data );
 }
@@ -1371,26 +1371,29 @@ function wpdmpp_effective_price( $pid ) {
     $price       = (double) ( $sales_price ) > 0 ? $sales_price : $base_price;
     $role        = is_user_logged_in() && is_array( $current_user->roles ) && isset( $current_user->roles[0] ) ? $current_user->roles[0] : 'guest';
 
-    // Role discount switched off site wide - the sale/base price stands.
-    if ( wpdmpp_role_discount_disabled() ) {
-        return number_format( (float) $price, 2, ".", "" );
-    }
+    $discount = maybe_unserialize( get_post_meta( $pid, '__wpdm_discount', true ) );
 
-    $discount    = maybe_unserialize( get_post_meta( $pid, '__wpdm_discount', true ) );
-    if ( ! is_array( $discount ) || count( $discount ) == 0 ) {
-        return number_format( (float) $price, 2, ".", "" );
+    // Role discount is applied unless it is switched off site wide or the package
+    // has none configured. Discounts are percentages, so they apply equally in any
+    // currency and are taken before conversion.
+    if ( ! wpdmpp_role_discount_disabled() && is_array( $discount ) && count( $discount ) > 0 ) {
+        $role_pct      = isset( $discount[ $role ] ) ? (double) $discount[ $role ] : 0;
+        $user_discount = ( ( $price * $role_pct ) / 100 );
+        $price         -= $user_discount;
     }
-
-    $discount[ $role ] = isset( $discount[ $role ] ) ? $discount[ $role ] : 0;
-    $discount[ $role ] = (double) $discount[ $role ];
-    $user_discount     = ( ( $price * $discount[ $role ] ) / 100 );
-    $price             -= $user_discount;
 
     if ( ! $price ) {
         $price = 0;
     }
 
-    return number_format( $price, 2, ".", "" );
+    // Present the price in the shopper's currency. With multi-currency off this is
+    // the store currency and the amount is unchanged, so nothing moves for a store
+    // that never enables it.
+    $price = wpdmpp_present_price( $price, (int) $pid );
+
+    $decimals = \WPDMPP\Core\CurrencyService::getInstance()->getDecimals( wpdmpp_presentment_currency_code() );
+
+    return number_format( (float) $price, (int) $decimals, ".", "" );
 }
 
 /**
@@ -1480,9 +1483,44 @@ function wpdmpp_order_id() {
     return Session::get( 'orderid' );
 }
 
+/**
+ * The symbol of the currency money is actually in.
+ *
+ * For anything showing a stored amount as it stands - admin totals, order and
+ * payout figures, emails, coupon values - where converting would be wrong and
+ * labelling with the viewer's selected currency would be a lie. Shopper-facing
+ * prices use wpdmpp_currency_sign() with a converted amount instead.
+ *
+ * @return string
+ */
+/**
+ * Format a stored amount in the currency it is actually in.
+ *
+ * The counterpart to wpdmpp_display_price(): no conversion, and the store's own
+ * symbol. For order totals, lifetime spend and anything else quoting a figure as
+ * it was recorded.
+ *
+ * @param float $amount
+ *
+ * @return string
+ */
+function wpdmpp_store_price_format( $amount ) {
+    return wpdmpp_price_format( (float) $amount, wpdmpp_store_currency_sign() );
+}
+
+function wpdmpp_store_currency_sign() {
+    $code = wpdmpp_currency_code();
+
+    return class_exists( '\WPDMPP\Core\CurrencyService' )
+        ? \WPDMPP\Core\CurrencyService::getInstance()->getCurrencySymbol( $code )
+        : $code;
+}
+
 function wpdmpp_currency_sign() {
-    $settings = get_option( '_wpdmpp_settings' );
-    $currency = isset( $settings['currency'] ) ? $settings['currency'] : 'USD';
+    // Follows the shopper's selection: this is what labels a displayed price.
+    // Amounts shown alongside it must have been converted (see
+    // wpdmpp_display_price), never a raw store-currency figure.
+    $currency = wpdmpp_presentment_currency_code();
     $cdata    = \WPDMPP\Core\CurrencyService::getInstance()->getCurrency( $currency );
     $sign     = is_array( $cdata ) ? $cdata['symbol'] : '$';
     $sign     = apply_filters( "wpdmpp_currency_sign", $sign );
@@ -1498,11 +1536,36 @@ function wpdmpp_currency_sign_position() {
 }
 
 function wpdmpp_currency_code() {
-    $settings = get_option( '_wpdmpp_settings' );
-    $currency = isset( $settings['currency'] ) ? $settings['currency'] : 'USD';
-    $currency = apply_filters( "wpdmpp_currency_code", $currency );
+    // The currency money is denominated in: what orders are recorded in and what
+    // every gateway charges. Currency selection is presentation only, so it must
+    // not reach here - payment add-ons, this plugin's own and others', read this
+    // to decide what to charge, and handing them the currency a shopper happened
+    // to be browsing in would bill a store-currency amount as another currency.
+    // For the shopper's selection, use wpdmpp_presentment_currency_code().
+    if ( class_exists( '\WPDMPP\Currency\PresentmentService' ) ) {
+        $currency = \WPDMPP\Currency\PresentmentService::getInstance()->getStoreCurrency();
+    } else {
+        $settings = get_option( '_wpdmpp_settings' );
+        $currency = isset( $settings['currency'] ) ? $settings['currency'] : 'USD';
+    }
 
-    return $currency;
+    return apply_filters( "wpdmpp_currency_code", $currency );
+}
+
+/**
+ * The currency the shopper has chosen to view prices in.
+ *
+ * Display only. Nothing derived from this may be charged - see
+ * wpdmpp_currency_code() for the currency money is actually in.
+ *
+ * @return string
+ */
+function wpdmpp_presentment_currency_code() {
+    if ( class_exists( '\WPDMPP\Currency\PresentmentService' ) ) {
+        return \WPDMPP\Currency\PresentmentService::getInstance()->getCurrent();
+    }
+
+    return wpdmpp_currency_code();
 }
 
 /**
@@ -1769,6 +1832,24 @@ function wpdmpp_sanitize_alphanum( $id ) {
  *
  * @return string
  */
+/**
+ * Format a stored amount for display in the shopper's selected currency.
+ *
+ * Cart and order amounts are held in the store currency, because that is what is
+ * charged. Currency selection is presentation: this is the one seam where a stored
+ * figure becomes a displayed one, so a caller either shows money through this or
+ * shows the amount that will actually be billed - never a stored amount wearing a
+ * selected currency's symbol, which is how the two came apart before.
+ *
+ * @param float $amount        Amount in the store currency.
+ * @param bool  $currency_sign Passed through to wpdmpp_price_format().
+ *
+ * @return string
+ */
+function wpdmpp_display_price( $amount, $currency_sign = true ) {
+    return wpdmpp_price_format( wpdmpp_present_price( (float) $amount ), $currency_sign );
+}
+
 function wpdmpp_price_format( $price, $currency_sign = true, $thousand_separator = true ) {
     $ts            = $thousand_separator ? get_wpdmpp_option( 'thousand_separator' ) : '';
     $ds            = $thousand_separator ? get_wpdmpp_option( 'decimal_separator' ) : '.';
@@ -1902,4 +1983,205 @@ function wpdmpp_admin_trans_id_html( $trans_id, $payment_method = '' ) {
 
     // Untouched by every gateway: still a plain id, so escape it.
     return $filtered === $trans_id ? esc_html( $trans_id ) : $filtered;
+}
+
+/**
+ * The currency every report is expressed in.
+ *
+ * Orders are charged in whatever currency the customer picked, so a total that
+ * spans them is only meaningful once each amount has been converted to a single
+ * currency. That currency is the store's own, and it is deliberately separate
+ * from wpdmpp_currency_code() - which will become the *presentment* currency for
+ * the current request once a currency switcher exists.
+ *
+ * @return string ISO 4217 code.
+ */
+function wpdmpp_base_currency_code() {
+    $settings = get_option( '_wpdmpp_settings' );
+    $base     = isset( $settings['base_currency'] ) && $settings['base_currency'] !== ''
+        ? $settings['base_currency']
+        : ( isset( $settings['currency'] ) ? $settings['currency'] : 'USD' );
+
+    return apply_filters( 'wpdmpp_base_currency_code', $base );
+}
+
+/**
+ * Symbol for the base currency, for labelling report figures.
+ *
+ * @return string
+ */
+function wpdmpp_base_currency_sign() {
+    $code  = wpdmpp_base_currency_code();
+    $cdata = \WPDMPP\Core\CurrencyService::getInstance()->getCurrency( $code );
+    $sign  = is_array( $cdata ) && isset( $cdata['symbol'] ) ? $cdata['symbol'] : $code;
+
+    return apply_filters( 'wpdmpp_base_currency_sign', $sign, $code );
+}
+
+/**
+ * Format an amount that came out of a base-currency aggregate.
+ *
+ * Report totals must not be printed with wpdmpp_price_format(), which uses the
+ * presentment currency and would label a converted total with the wrong symbol.
+ *
+ * @param float $amount
+ * @param bool  $with_sign
+ *
+ * @return string
+ */
+function wpdmpp_base_price_format( $amount, $with_sign = true ) {
+    $code     = wpdmpp_base_currency_code();
+    $decimals = \WPDMPP\Core\CurrencyService::getInstance()->getDecimals( $code );
+    $number   = number_format( (float) $amount, $decimals, '.', ',' );
+
+    if ( ! $with_sign ) {
+        return $number;
+    }
+
+    return wpdmpp_currency_sign_position() === 'after'
+        ? $number . wpdmpp_base_currency_sign()
+        : wpdmpp_base_currency_sign() . $number;
+}
+
+/**
+ * Convert an amount into the base currency, returning the amount and the rate
+ * actually used so both can be recorded on the order.
+ *
+ * With no rate available for the pair, anything other than a same-currency
+ * conversion resolves to a rate of 1.0 unless a filter supplies one. That is
+ * intentional: a made-up rate silently corrupts the reported figures, whereas 1.0
+ * on a single-currency store is exact.
+ *
+ * @param float  $amount
+ * @param string $from Presentment currency code.
+ *
+ * @return array{amount: float, rate: float, base: string}
+ */
+function wpdmpp_to_base_currency( $amount, $from = '' ) {
+    $base = wpdmpp_base_currency_code();
+    $from = $from !== '' ? $from : wpdmpp_currency_code();
+    $rate = 1.0;
+
+    if ( $from !== $base ) {
+        $converted = \WPDMPP\Core\CurrencyService::getInstance()->convertCurrency( 1.0, $from, $base );
+        if ( is_numeric( $converted ) && (float) $converted > 0 ) {
+            $rate = (float) $converted;
+        }
+    }
+
+    return [
+        'amount' => (float) $amount * $rate,
+        'rate'   => $rate,
+        'base'   => $base,
+    ];
+}
+
+/**
+ * Round an amount to the number of decimals its currency actually uses.
+ *
+ * Getting this wrong is not cosmetic. JPY and KRW have no minor unit, so a
+ * converted ¥1234.56 is not a real price, and gateways that expect amounts in
+ * minor units would read it as ¥123456 - a hundredfold overcharge.
+ *
+ * @param float  $amount
+ * @param string $currency Defaults to the presentment currency.
+ *
+ * @return float
+ */
+function wpdmpp_round_for_currency( $amount, $currency = '' ) {
+    $currency = $currency !== '' ? $currency : wpdmpp_currency_code();
+    $decimals = \WPDMPP\Core\CurrencyService::getInstance()->getDecimals( $currency );
+
+    return round( (float) $amount, (int) $decimals );
+}
+
+/**
+ * Convert a store-currency price into what this shopper should see.
+ *
+ * Converted at the current rate and rounded to the target currency's own
+ * precision. Every price on a package - the base price, each licence tier, each
+ * extra gig - is converted the same way, so they stay in proportion to one
+ * another; per-price overrides would have to exist for all of them or none.
+ *
+ * Returns the amount unchanged when no rate is available, rather than hiding the
+ * product or showing nothing - the store currency price is still a true price.
+ *
+ * @param float  $amount    Amount in the store currency.
+ * @param int    $packageId Unused; retained so existing callers keep working.
+ * @param string $target    Target currency. Defaults to the presentment currency.
+ *
+ * @return float
+ */
+function wpdmpp_present_price( $amount, $packageId = 0, $target = '' ) {
+    $presentment = \WPDMPP\Currency\PresentmentService::getInstance();
+    $store       = $presentment->getStoreCurrency();
+    $target      = $target !== '' ? strtoupper( $target ) : wpdmpp_presentment_currency_code();
+
+    if ( $target === $store ) {
+        return wpdmpp_round_for_currency( $amount, $store );
+    }
+
+    $rate = \WPDMPP\Currency\ExchangeRateService::getInstance()->getRate( $store, $target );
+
+    if ( $rate === null ) {
+        return wpdmpp_round_for_currency( $amount, $store );
+    }
+
+    return wpdmpp_round_for_currency( (float) $amount * $rate, $target );
+}
+
+
+/**
+ * Format an amount in the currency a specific order was taken in.
+ *
+ * Order lists mix currencies by nature, so a row must not be formatted with
+ * wpdmpp_price_format(), which uses whatever the current request is priced in and
+ * would label a dollar order with a euro sign. Falls back to the presentment
+ * currency only when the order carries no currency of its own, which is true of
+ * rows written before multi-currency existed.
+ *
+ * @param float        $amount
+ * @param object|array $order  Order row or entity; needs currency_code or currency.
+ *
+ * @return string
+ */
+function wpdmpp_order_price_format( $amount, $order ) {
+    $code = '';
+
+    if ( is_object( $order ) && method_exists( $order, 'getCurrencyCode' ) ) {
+        $code = $order->getCurrencyCode();
+    }
+
+    if ( $code === '' ) {
+        $row  = is_object( $order ) ? get_object_vars( $order ) : (array) $order;
+        $code = isset( $row['currency_code'] ) ? (string) $row['currency_code'] : '';
+
+        // Older rows only have the serialised ['sign','code'] blob.
+        if ( $code === '' && isset( $row['currency'] ) ) {
+            $data = maybe_unserialize( $row['currency'] );
+            if ( is_array( $data ) && ! empty( $data['code'] ) ) {
+                $code = (string) $data['code'];
+            }
+        }
+    }
+
+    if ( $code === '' ) {
+        return wpdmpp_price_format( $amount, true, true );
+    }
+
+    $service  = \WPDMPP\Core\CurrencyService::getInstance();
+    $data     = $service->getCurrency( $code );
+    $decimals = (int) $service->getDecimals( $code );
+
+    // No symbol on record - the "Credits" pseudo-currency some stores carry, for
+    // instance. Showing the code is more useful than showing nothing, but it needs
+    // a space or it runs into the number.
+    $sign      = is_array( $data ) && ! empty( $data['symbol'] ) ? $data['symbol'] : $code . ' ';
+
+    $settings  = get_option( '_wpdmpp_settings' );
+    $thousand  = isset( $settings['thousand_separator'] ) ? $settings['thousand_separator'] : ',';
+    $separator = isset( $settings['decimal_separator'] ) ? $settings['decimal_separator'] : '.';
+    $number    = number_format( (float) $amount, $decimals, $separator, $thousand );
+
+    return wpdmpp_currency_sign_position() === 'after' ? $number . $sign : $sign . $number;
 }

@@ -49,7 +49,7 @@ global $wpdb;
                                         <label><?php _e('Discount Type:','wpdm-premium-packages'); ?></label>
                                         <select name="coupon[type]" id="dtypes" class="form-control">
                                             <option value="percent"><?php _e('Percent','wpdm-premium-packages'); ?> (%)</option>
-                                            <option value="fixed" <?php echo isset($coupon)?selected('fixed',$coupon->type, false):''; ?>><?php _e('Fixed','wpdm-premium-packages'); ?> (<?php echo wpdmpp_currency_sign(); ?>)</option>
+                                            <option value="fixed" <?php echo isset($coupon)?selected('fixed',$coupon->type, false):''; ?>><?php _e('Fixed','wpdm-premium-packages'); ?> (<?php echo wpdmpp_store_currency_sign(); ?>)</option>
                                         </select>
                                     </div>
                                 </div>
@@ -231,7 +231,7 @@ global $wpdb;
         });
 
         $('body').on('change click', '#dtypes', function () {
-            var stype = $(this).val() == 'percent' ? '%' : <?php echo wp_json_encode( wpdmpp_currency_sign() ); ?>;
+            var stype = $(this).val() == 'percent' ? '%' : <?php echo wp_json_encode( wpdmpp_store_currency_sign() ); ?>;
             $('#dtp').html(stype);
         });
         $('.ttip').tooltip();

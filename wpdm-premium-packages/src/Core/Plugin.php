@@ -269,6 +269,16 @@ class Plugin {
         // overview AJAX stay in initAdminServices().
         $this->container->get(MetaboxService::class)->registerPackageFormHooks();
 
+        // Currency switcher: shortcode plus its AJAX endpoint. Registered on both
+        // sides because the endpoint runs through admin-ajax.
+        \WPDMPP\Currency\CurrencySwitcher::getInstance()->register();
+
+        // NOTE: PriceFilter is deliberately NOT registered here. This method runs on
+        // init at priority 10, and the add to cart handlers in hooks.php are hooked
+        // on init at the same priority ahead of it, so the filter would arrive after
+        // the cart had already read an unconverted price. It is registered from the
+        // main plugin file at priority 1 instead.
+
         // NOTE: BillingInfoService is registered earlier (init priority 1, in the main
         // plugin file) rather than here. Its save hook listens on 'wpdm_update_profile',
         // which the core EditProfile fires on init priority 10 — the same priority this

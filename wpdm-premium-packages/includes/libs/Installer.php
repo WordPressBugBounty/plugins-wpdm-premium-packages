@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
         /**
          * @var float
          */
-        private $dbVersion = 586.0;
+        private $dbVersion = 589.0;
 
 
         function __construct()
@@ -401,6 +401,20 @@ if (!defined('ABSPATH')) {
                       PRIMARY KEY (`id`)
                       ) ENGINE=InnoDB ";
 
+			// Exchange rates, stored as dated snapshots rather than a single mutable
+			// row, so the rate that applied on the day of an order can be recovered and
+			// a refresh never rewrites history. One row per pair per fetch.
+			$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}wpdmpp_rates` (
+                      `id` bigint(20) NOT NULL AUTO_INCREMENT,
+                      `base_currency` varchar(8) NOT NULL,
+                      `quote_currency` varchar(8) NOT NULL,
+                      `rate` decimal(24,12) NOT NULL,
+                      `provider` varchar(60) NOT NULL DEFAULT '',
+                      `fetched_at` int(11) NOT NULL DEFAULT '0',
+                      PRIMARY KEY (`id`),
+                      KEY `idx_pair_fetched` (`base_currency`,`quote_currency`,`fetched_at`)
+                    ) ENGINE=InnoDB";
+
 			$sql[] = "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}ahm_acr_emails` (
 					  `ID` int(11) NOT NULL AUTO_INCREMENT,
 					  `order_id` varchar(100) NOT NULL,
@@ -470,6 +484,29 @@ if (!defined('ABSPATH')) {
 			$installer->addColumn('ahm_withdraws', 'execution_date', "INT NOT NULL DEFAULT '0'");
 			$installer->addColumn('ahm_withdraws', 'payment_account', "VARCHAR( 255 ) NOT NULL");
 
+			// --- Multi-currency reporting (db 587) -------------------------------
+			// Money is stored twice: the presentment amount the customer was charged,
+			// in the order's own currency, and a base-currency equivalent converted at
+			// the rate that applied when the order was placed. Reports sum the base
+			// columns, which is the only way a total spanning currencies can be
+			// meaningful. The rate is captured per order and never recalculated, so a
+			// historical figure does not move when today's rates do.
+			$installer->addColumn('ahm_orders', 'currency_code', "VARCHAR(8) NOT NULL DEFAULT ''");
+			$installer->addColumn('ahm_orders', 'base_currency', "VARCHAR(8) NOT NULL DEFAULT ''");
+			$installer->addColumn('ahm_orders', 'exchange_rate', "DOUBLE NOT NULL DEFAULT '1'");
+			$installer->addColumn('ahm_orders', 'base_total', "DOUBLE NOT NULL DEFAULT '0'");
+
+			$installer->addColumn('ahm_order_items', 'base_price', "DOUBLE NOT NULL DEFAULT '0'");
+			$installer->addColumn('ahm_order_items', 'base_site_commission', "DOUBLE NOT NULL DEFAULT '0'");
+
+			$installer->addColumn('ahm_order_renews', 'currency_code', "VARCHAR(8) NOT NULL DEFAULT ''");
+			$installer->addColumn('ahm_order_renews', 'exchange_rate', "DOUBLE NOT NULL DEFAULT '1'");
+			$installer->addColumn('ahm_order_renews', 'base_total', "DOUBLE NOT NULL DEFAULT '0'");
+
+			$installer->addColumn('ahm_withdraws', 'currency_code', "VARCHAR(8) NOT NULL DEFAULT ''");
+
+			$installer->backfillBaseAmounts();
+
 			// Add database indexes for frequently queried columns (performance optimization)
 			// ahm_orders indexes
 			$installer->addIndex( 'ahm_orders', 'uid' );
@@ -505,6 +542,9 @@ if (!defined('ABSPATH')) {
 			// ahm_withdraws indexes
 			$installer->addIndex( 'ahm_withdraws', 'uid' );
 			$installer->addIndex( 'ahm_withdraws', 'status' );
+
+			// --- Display-only currency (db 589) ----------------------------------
+			$installer->normaliseCartsToStoreCurrency();
 
 			update_option( '__wpdmpp_db_version', $installer->dbVersion, false );
 		}
@@ -546,6 +586,85 @@ if (!defined('ABSPATH')) {
 			//\WPDM\__\CronJob::create("\WPDM\__\EmailCron", $data, $execute_at);
         }
 
+
+        /**
+         * Seed the base-currency columns for rows written before db 587.
+         *
+         * Every existing row predates multi-currency, so its amount is already in
+         * whatever single currency the store was running - that is exactly what the
+         * base amount means, and rate 1.0 is the truthful record of it. Rows are only
+         * touched while their base amount is still zero, so this is safe to re-run and
+         * never overwrites a rate captured at checkout.
+         *
+         * Orders whose stored currency differs from the current store currency are
+         * deliberately left with a rate of 1.0 rather than being converted at today's
+         * rate, which would invent a number nobody was ever charged. They are reported
+         * by countLegacyForeignOrders() so an admin can correct them knowingly.
+         *
+         * @return void
+         */
+        function backfillBaseAmounts()
+        {
+            global $wpdb;
+
+            $base = function_exists('wpdmpp_base_currency_code')
+                ? wpdmpp_base_currency_code()
+                : (function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD');
+
+            $orders = "{$wpdb->prefix}ahm_orders";
+            $items  = "{$wpdb->prefix}ahm_order_items";
+            $renews = "{$wpdb->prefix}ahm_order_renews";
+
+            // ahm_orders.currency holds a serialised ['sign','code'] pair, so the code
+            // is pulled out in PHP rather than with string surgery in SQL.
+            $rows = $wpdb->get_results("SELECT order_id, currency FROM {$orders} WHERE currency_code = ''");
+            foreach ($rows as $row) {
+                $data = maybe_unserialize($row->currency);
+                $code = is_array($data) && !empty($data['code']) ? substr((string) $data['code'], 0, 8) : $base;
+                $wpdb->update($orders, ['currency_code' => $code], ['order_id' => $row->order_id]);
+            }
+
+            $wpdb->query($wpdb->prepare(
+                "UPDATE {$orders} SET base_currency = %s WHERE base_currency = ''",
+                $base
+            ));
+            $wpdb->query("UPDATE {$orders} SET base_total = total WHERE base_total = 0 AND total <> 0");
+
+            $wpdb->query("UPDATE {$items} SET base_price = price WHERE base_price = 0 AND price <> 0");
+            $wpdb->query("UPDATE {$items} SET base_site_commission = site_commission WHERE base_site_commission = 0 AND site_commission <> 0");
+
+            $wpdb->query("UPDATE {$renews} SET base_total = total WHERE base_total = 0 AND total <> 0");
+            $wpdb->query($wpdb->prepare(
+                "UPDATE {$renews} r
+                    INNER JOIN {$orders} o ON o.order_id = r.order_id
+                    SET r.currency_code = COALESCE(NULLIF(o.currency_code, ''), %s)
+                  WHERE r.currency_code = ''",
+                $base
+            ));
+
+            $wpdb->query($wpdb->prepare(
+                "UPDATE {$wpdb->prefix}ahm_withdraws SET currency_code = %s WHERE currency_code = ''",
+                $base
+            ));
+        }
+
+        /**
+         * Count orders whose recorded currency is not the base currency but which were
+         * backfilled at a rate of 1.0, so their base totals are not trustworthy.
+         *
+         * @return int
+         */
+        public static function countLegacyForeignOrders()
+        {
+            global $wpdb;
+
+            return (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}ahm_orders
+                  WHERE currency_code <> '' AND base_currency <> ''
+                    AND currency_code <> base_currency
+                    AND exchange_rate = 1"
+            );
+        }
 
         function addColumn($table, $column, $type_n_default = 'TEXT NOT NULL')
         {
@@ -626,4 +745,62 @@ if (!defined('ABSPATH')) {
 
             return false;
         }
-    }
+    
+        /**
+         * Return carts to store-currency amounts.
+         *
+         * Carts used to hold amounts already converted into whichever currency the
+         * shopper had selected, with the code kept beside them. Currency selection is
+         * presentation now and the charge is always taken in the store currency, so a
+         * cart left holding a converted figure would be read as a store-currency one
+         * and billed at the converted number - 37.84 charged as 37.84 EUR rather than
+         * the 44.00 EUR it stands for.
+         *
+         * Each such cart is converted back at the rate between its recorded currency
+         * and the store's, and the now-meaningless record removed. Carts with no
+         * record were always in the store currency and are left alone.
+         *
+         * @return void
+         */
+        function normaliseCartsToStoreCurrency()
+        {
+            global $wpdb;
+
+            if ( ! class_exists( '\\WPDMPP\\Currency\\PresentmentService' ) ) {
+                return;
+            }
+
+            $store   = \WPDMPP\Currency\PresentmentService::getInstance()->getStoreCurrency();
+            $records = $wpdb->get_col(
+                "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE '%\_cart\_currency'"
+            );
+
+            foreach ( (array) $records as $record ) {
+                $cartId = substr( $record, 0, -9 );
+                $code   = strtoupper( (string) get_option( $record, '' ) );
+                $items  = get_option( $cartId );
+
+                if ( $code !== '' && $code !== $store && is_array( $items ) && $items ) {
+                    $rate = \WPDMPP\Currency\ExchangeRateService::getInstance()->getRate( $store, $code );
+
+                    if ( is_numeric( $rate ) && (float) $rate > 0 ) {
+                        foreach ( $items as $pid => $item ) {
+                            foreach ( [ 'price', 'role_discount', 'coupon_discount' ] as $field ) {
+                                if ( isset( $item[ $field ] ) && is_numeric( $item[ $field ] ) ) {
+                                    $items[ $pid ][ $field ] = round( (float) $item[ $field ] / (float) $rate, 2 );
+                                }
+                            }
+
+                            if ( isset( $item['license']['price'] ) && is_numeric( $item['license']['price'] ) ) {
+                                $items[ $pid ]['license']['price'] = round( (float) $item['license']['price'] / (float) $rate, 2 );
+                            }
+                        }
+
+                        update_option( $cartId, $items, false );
+                    }
+                }
+
+                delete_option( $record );
+            }
+        }
+}

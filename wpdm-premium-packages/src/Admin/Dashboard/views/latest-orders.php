@@ -9,7 +9,7 @@ if(!defined('ABSPATH')) die('!');
 $orderService = \WPDMPP\Order\OrderService::instance();
 $latest_orders = $orderService->getAllOrders("where order_status='Completed' and payment_status='Completed'", 0, 5);
 
-$currency = wpdmpp_currency_sign();
+$currency = wpdmpp_store_currency_sign();
 
 // Pre-fetch all users in a single query to avoid N+1
 $user_ids = [];

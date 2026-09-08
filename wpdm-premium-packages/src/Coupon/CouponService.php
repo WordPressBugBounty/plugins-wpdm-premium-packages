@@ -143,7 +143,7 @@ class CouponService {
             'error' => null,
             'message' => null,
             'discount' => $discount,
-            'discount_formatted' => wpdmpp_currency_sign() . number_format($discount, 2),
+            'discount_formatted' => wpdmpp_display_price($discount),
         ];
     }
 
@@ -741,13 +741,13 @@ class CouponService {
             case Coupon::ERROR_MIN_AMOUNT:
                 return sprintf(
                     __('Minimum order amount for this coupon is %s.', 'wpdm-premium-packages'),
-                    wpdmpp_currency_sign() . number_format($coupon->getMinOrderAmount(), 2)
+                        wpdmpp_display_price($coupon->getMinOrderAmount())
                 );
 
             case Coupon::ERROR_MAX_AMOUNT:
                 return sprintf(
                     __('Maximum order amount for this coupon is %s.', 'wpdm-premium-packages'),
-                    wpdmpp_currency_sign() . number_format($coupon->getMaxOrderAmount(), 2)
+                        wpdmpp_display_price($coupon->getMaxOrderAmount())
                 );
 
             case Coupon::ERROR_PRODUCT_NOT_IN_CART:

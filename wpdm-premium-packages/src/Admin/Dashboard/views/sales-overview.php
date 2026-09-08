@@ -66,7 +66,7 @@ if (!$sales_data) {
             SUM(CASE WHEN date >= %d AND date < %d THEN total ELSE 0 END) as last_month,
             SUM(CASE WHEN date >= %d AND date < %d THEN total ELSE 0 END) as this_year,
             SUM(CASE WHEN date >= %d AND date < %d THEN total ELSE 0 END) as last_year,
-            SUM(total) as total_all_time
+            SUM(base_total) as total_all_time
         FROM {$wpdb->prefix}ahm_orders
         WHERE payment_status IN ('Completed', 'Expired')
         AND date >= %d
@@ -92,7 +92,7 @@ if(!\WPDM\__\Session::get('daily_sales')) {
     $daily_sales = \WPDM\__\Session::get('daily_sales');
 }
 
-$currency = wpdmpp_currency_sign();
+$currency = wpdmpp_store_currency_sign();
 $today_sales = $daily_sales['sales'][$today] ?? 0;
 $yesterday_sales = $daily_sales['sales'][$yesterday] ?? 0;
 

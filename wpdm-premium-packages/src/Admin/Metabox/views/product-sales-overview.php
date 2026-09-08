@@ -101,7 +101,7 @@ if ( false === $sales ) {
             SUM(CASE WHEN o.date >= %d AND o.date <= %d THEN oi.price * oi.quantity ELSE 0 END) as last_month_sales,
             SUM(CASE WHEN o.date >= %d AND o.date < %d THEN oi.price * oi.quantity ELSE 0 END) as this_year_sales,
             SUM(CASE WHEN o.date >= %d AND o.date <= %d THEN oi.price * oi.quantity ELSE 0 END) as last_year_sales,
-            SUM(oi.price * oi.quantity) as total_sales
+            SUM(oi.base_price * oi.quantity) as total_sales
         FROM {$orders_table} o
         INNER JOIN {$items_table} oi ON oi.oid = o.order_id
         WHERE oi.pid = %d
@@ -166,7 +166,7 @@ if (!$sales || (float)$sales->total_sales == 0) {
 $daily_sales_query = $wpdb->prepare("
     SELECT
         oi.date,
-        SUM(oi.price * oi.quantity) as daily_sale,
+        SUM(oi.base_price * oi.quantity) as daily_sale,
         SUM(oi.quantity) as quantities
     FROM {$orders_table} o
     INNER JOIN {$items_table} oi ON oi.oid = o.order_id
@@ -204,7 +204,7 @@ foreach ($daily_results as $row) {
 // Get total renews - with prepared statement and proper table prefix
 $renews_table = $wpdb->prefix . 'ahm_order_renews';
 $total_renews = $wpdb->get_var($wpdb->prepare(
-    "SELECT SUM(ori.price) as total_renews
+    "SELECT SUM(ori.base_price) as total_renews
      FROM {$renews_table} orn
      INNER JOIN {$items_table} ori ON orn.order_id = ori.oid
      WHERE ori.pid = %d",
@@ -212,7 +212,7 @@ $total_renews = $wpdb->get_var($wpdb->prepare(
 ));
 $total_renews = $total_renews ? (float)$total_renews : 0;
 
-$currency = wpdmpp_currency_sign();
+$currency = wpdmpp_store_currency_sign();
 $total_sales = (float)$sales->total_sales;
 $total_earning = $total_sales + $total_renews;
 ?>

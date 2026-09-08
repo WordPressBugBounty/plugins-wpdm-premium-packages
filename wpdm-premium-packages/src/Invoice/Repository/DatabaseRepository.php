@@ -398,12 +398,12 @@ class DatabaseRepository implements InvoiceRepositoryInterface
 
         // Total revenue
         $totalRevenue = (float) $wpdb->get_var(
-            "SELECT SUM(total) FROM {$wpdb->prefix}ahm_orders WHERE payment_status = 'Completed'"
+            "SELECT SUM(base_total) FROM {$wpdb->prefix}ahm_orders WHERE payment_status = 'Completed'"
         );
 
         // Renewal revenue
         $renewalRevenue = (float) $wpdb->get_var(
-            "SELECT SUM(total) FROM {$wpdb->prefix}ahm_order_renews"
+            "SELECT SUM(base_total) FROM {$wpdb->prefix}ahm_order_renews"
         );
 
         return [

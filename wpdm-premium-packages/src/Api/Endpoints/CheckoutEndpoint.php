@@ -427,8 +427,16 @@ class CheckoutEndpoint {
             'require_privacy' => $require_privacy,
             'privacy_url' => get_privacy_policy_url(),
             'terms_url' => get_option('wpdmpp_terms_page') ? get_permalink(get_option('wpdmpp_terms_page')) : '',
+            // What the shopper is charged in; both halves describe that currency.
             'currency' => [
                 'code' => \wpdmpp_currency_code(),
+                'symbol' => \wpdmpp_store_currency_sign(),
+                'position' => \wpdmpp_currency_sign_position(),
+            ],
+            // What prices are displayed in. Only ever pair this with a converted
+            // amount, such as the *_formatted strings this API returns.
+            'display_currency' => [
+                'code' => \wpdmpp_presentment_currency_code(),
                 'symbol' => \wpdmpp_currency_sign(),
                 'position' => \wpdmpp_currency_sign_position(),
             ],
@@ -511,7 +519,7 @@ class CheckoutEndpoint {
         $response_data = [
             'order_id' => $order_id,
             'total' => $order_total,
-            'total_formatted' => \wpdmpp_price_format($order_total),
+            'total_formatted' => \wpdmpp_store_price_format($order_total),
         ];
 
         // Route through PaymentService
@@ -915,7 +923,7 @@ class CheckoutEndpoint {
 
             // For trial subscriptions, use full price as recurring amount (not $0 order total)
             $recurringPrice = $trialDays > 0 && $fullPrice > 0 ? $fullPrice : (float) $order_total;
-            $planId = $paypal->createSubscriptionPlan($productId, $recurringPrice, $interval['count'], $interval['unit'], $trialDays);
+            $planId = $paypal->createSubscriptionPlan($productId, $recurringPrice, $interval['count'], $interval['unit'], $trialDays, (string) $order_id);
             if (!$planId) {
                 $reason = $paypal->getLastApiError();
                 $message = __('Failed to create PayPal subscription plan.', 'wpdm-premium-packages');
@@ -1160,8 +1168,8 @@ class CheckoutEndpoint {
                 'quantity' => $quantity,
                 'unit_price' => $unit_price,
                 'line_total' => $unit_price * $quantity,
-                'unit_price_formatted' => \wpdmpp_price_format($unit_price),
-                'line_total_formatted' => \wpdmpp_price_format($unit_price * $quantity),
+                'unit_price_formatted' => \wpdmpp_display_price($unit_price),
+                'line_total_formatted' => \wpdmpp_display_price($unit_price * $quantity),
                 'license' => $item['license'] ?? '',
                 'variation' => $item['variation'] ?? [],
             ];
@@ -1173,9 +1181,11 @@ class CheckoutEndpoint {
             'subtotal' => (float) \wpdmpp_get_cart_subtotal(),
             'discount' => (float) \wpdmpp_get_cart_discount(),
             'total' => (float) \wpdmpp_get_cart_total(),
-            'subtotal_formatted' => \wpdmpp_price_format(\wpdmpp_get_cart_subtotal()),
-            'discount_formatted' => \wpdmpp_price_format(\wpdmpp_get_cart_discount()),
-            'total_formatted' => \wpdmpp_price_format(\wpdmpp_get_cart_total()),
+            // The raw figures above stay in the store currency, which is what is
+            // charged; only the formatted strings are converted for display.
+            'subtotal_formatted' => \wpdmpp_display_price(\wpdmpp_get_cart_subtotal()),
+            'discount_formatted' => \wpdmpp_display_price(\wpdmpp_get_cart_discount()),
+            'total_formatted' => \wpdmpp_display_price(\wpdmpp_get_cart_total()),
             'coupon' => $coupon ? [
                 'code' => $coupon['code'] ?? '',
                 'discount' => (float) ($coupon['discount'] ?? 0),

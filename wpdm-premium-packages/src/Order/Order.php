@@ -181,6 +181,14 @@ class Order implements \Countable, \IteratorAggregate {
     private array $currency = [];
 
     /**
+     * Rate from this order's currency to the reporting base currency, captured when
+     * the order is written and never recalculated afterwards.
+     *
+     * @var float
+     */
+    private float $exchangeRate = 0.0;
+
+    /**
      * Billing information
      *
      * @var array
@@ -242,9 +250,21 @@ class Order implements \Countable, \IteratorAggregate {
         }
 
         $this->date = time();
+
+        // An order is always denominated in the store currency, which is the one
+        // the shopper is charged in. The currency they were browsing in is a
+        // display preference and never reaches the order: recording it here would
+        // label store-currency amounts with a currency they were not converted
+        // into, and the gateway would then charge that figure in that currency.
+        $storeCode = class_exists('\WPDMPP\Currency\PresentmentService')
+            ? \WPDMPP\Currency\PresentmentService::getInstance()->getStoreCurrency()
+            : (function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD');
+
         $this->currency = [
-            'sign' => function_exists('wpdmpp_currency_sign') ? wpdmpp_currency_sign() : '$',
-            'code' => function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD',
+            'sign' => class_exists('\WPDMPP\Core\CurrencyService')
+                ? \WPDMPP\Core\CurrencyService::getInstance()->getCurrencySymbol($storeCode)
+                : '$',
+            'code' => $storeCode,
         ];
     }
 
@@ -304,6 +324,10 @@ class Order implements \Countable, \IteratorAggregate {
             $currency = maybe_unserialize($currency);
         }
         $order->currency = is_array($currency) ? $currency : ['sign' => '$', 'code' => 'USD'];
+        // Reuse the rate captured at purchase; never re-convert an existing order.
+        $order->exchangeRate = isset($row['exchange_rate']) && (float) $row['exchange_rate'] > 0
+            ? (float) $row['exchange_rate']
+            : 0.0;
 
         // Handle serialized billing info
         $billing = $row['billing_info'] ?? '';
@@ -816,6 +840,41 @@ class Order implements \Countable, \IteratorAggregate {
      *
      * @return array
      */
+    /**
+     * Rate to the base currency for this order.
+     *
+     * Resolved once and cached on the instance so the order row and all of its items
+     * are converted with the same figure - re-resolving per row could straddle a rate
+     * refresh and leave the line items disagreeing with the order total.
+     *
+     * @return float
+     */
+    public function getExchangeRate(): float {
+        if ($this->exchangeRate > 0) {
+            return $this->exchangeRate;
+        }
+
+        if (function_exists('wpdmpp_to_base_currency')) {
+            $converted = wpdmpp_to_base_currency(1.0, $this->getCurrencyCode());
+            $this->exchangeRate = (float) $converted['rate'];
+        } else {
+            $this->exchangeRate = 1.0;
+        }
+
+        return $this->exchangeRate;
+    }
+
+    /**
+     * Pin the rate, for replaying an existing order without re-converting it.
+     *
+     * @param float $rate
+     * @return self
+     */
+    public function setExchangeRate(float $rate): self {
+        $this->exchangeRate = $rate > 0 ? $rate : 1.0;
+        return $this;
+    }
+
     public function toDatabase(): array {
         return [
             'order_id' => $this->orderId,
@@ -839,6 +898,12 @@ class Order implements \Countable, \IteratorAggregate {
             'payment_method' => $this->paymentMethod,
             'coupon_code' => $this->couponCode,
             'currency' => serialize($this->currency),
+            // Presentment amounts above; base-currency equivalents below. Reports sum
+            // base_total, which is the only figure comparable across currencies.
+            'currency_code' => $this->getCurrencyCode(),
+            'base_currency' => function_exists('wpdmpp_base_currency_code') ? wpdmpp_base_currency_code() : $this->getCurrencyCode(),
+            'exchange_rate' => $this->getExchangeRate(),
+            'base_total' => round($this->total * $this->getExchangeRate(), 4),
             'billing_info' => serialize($this->billingInfo),
             'cart_data' => serialize($this->cartData),
             'download' => (int) $this->download,

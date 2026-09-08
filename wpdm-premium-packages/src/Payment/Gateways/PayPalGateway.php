@@ -541,7 +541,7 @@ class PayPalGateway extends AbstractGateway {
         $apiDomain = $this->getApiDomain();
         $url = "https://{$apiDomain}/v2/checkout/orders";
 
-        $currency = function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD';
+        $currency = $this->getOrderCurrency((string) $orderId);
         $description = $description ?: sprintf(__('Order #%d', 'wpdm-premium-packages'), $orderId);
 
         $payload = [
@@ -552,7 +552,9 @@ class PayPalGateway extends AbstractGateway {
                     'description' => substr($description, 0, 127),
                     'amount' => [
                         'currency_code' => $currency,
-                        'value' => number_format($amount, 2, '.', ''),
+                        // Precision follows the currency: a zero-decimal currency
+                        // sent with decimals is rejected or misread by processors.
+                        'value' => $this->formatAmount($amount, $currency),
                     ],
                 ],
             ],
@@ -902,9 +904,12 @@ class PayPalGateway extends AbstractGateway {
      * @param float $price Subscription price
      * @param int $intervalCount Billing interval count
      * @param string $intervalUnit Billing interval unit (DAY, WEEK, MONTH, YEAR)
+     * @param int    $trialDays     Free trial length in days.
+     * @param string $orderId       Order the plan is being created for, so the plan is
+     *                              denominated in the currency that order was quoted in.
      * @return string|null Plan ID or null on failure
      */
-    public function createSubscriptionPlan(string $productId, float $price, int $intervalCount, string $intervalUnit, int $trialDays = 0): ?string {
+    public function createSubscriptionPlan(string $productId, float $price, int $intervalCount, string $intervalUnit, int $trialDays = 0, string $orderId = ''): ?string {
         $this->lastApiError = null;
 
         $accessToken = $this->getAccessToken();
@@ -916,7 +921,11 @@ class PayPalGateway extends AbstractGateway {
         $apiDomain = $this->getApiDomain();
         $url = "https://{$apiDomain}/v1/billing/plans";
 
-        $currency = function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD';
+        // A plan is a billing template that PayPal charges against for the life of
+        // the subscription, so its currency is fixed the moment it is created and
+        // every future renewal inherits it. It has to be the currency the shopper
+        // was quoted, not whatever the request that builds the plan resolves to.
+        $currency = $this->getOrderCurrency($orderId !== '' ? $orderId : null);
         $name = sprintf(__('Subscription - %s', 'wpdm-premium-packages'), get_bloginfo('name'));
 
         $billingCycles = [];
@@ -933,7 +942,7 @@ class PayPalGateway extends AbstractGateway {
                 'total_cycles' => 1,
                 'pricing_scheme' => [
                     'fixed_price' => [
-                        'value' => '0.00',
+                        'value' => $this->formatAmount(0.0, $currency),
                         'currency_code' => $currency,
                     ],
                 ],
@@ -951,7 +960,7 @@ class PayPalGateway extends AbstractGateway {
             'total_cycles' => 0,
             'pricing_scheme' => [
                 'fixed_price' => [
-                    'value' => number_format($price, 2, '.', ''),
+                    'value' => $this->formatAmount($price, $currency),
                     'currency_code' => $currency,
                 ],
             ],
@@ -1059,7 +1068,7 @@ class PayPalGateway extends AbstractGateway {
     public function getSmartButtonsConfig(int $orderId, float $amount): array {
         return [
             'client_id' => $this->getClientId(),
-            'currency' => function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD',
+            'currency' => $this->getOrderCurrency((string) $orderId),
             'mode' => $this->isSandbox() ? 'sandbox' : 'production',
             'order_id' => $orderId,
             'amount' => number_format($amount, 2, '.', ''),
@@ -1091,7 +1100,7 @@ class PayPalGateway extends AbstractGateway {
             return '';
         }
 
-        $currency = function_exists('wpdmpp_currency_code') ? wpdmpp_currency_code() : 'USD';
+        $currency = $this->getOrderCurrency($orderId);
         $createUrl = rest_url('wpdmpp/v1/checkout/paypal/create');
         $captureUrl = rest_url('wpdmpp/v1/checkout/paypal/capture');
         $nonce = wp_create_nonce('wp_rest');

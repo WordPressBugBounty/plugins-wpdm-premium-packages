@@ -86,7 +86,7 @@ class CustomerAdminService
 
         // Use the same predicate as $total (Completed OR Expired) so every counted
         // customer is actually recalculated and the progress denominator is accurate.
-        $customers = $wpdb->get_results($wpdb->prepare("SELECT uid, COUNT(order_id) AS total_orders, SUM(total) AS total_purchases FROM {$wpdb->prefix}ahm_orders WHERE (order_status = 'Completed' OR order_status = 'Expired') AND uid > 0 GROUP BY uid ORDER BY total_purchases DESC LIMIT %d, %d", $start, $items_per_page));
+        $customers = $wpdb->get_results($wpdb->prepare("SELECT uid, COUNT(order_id) AS total_orders, SUM(base_total) AS total_purchases FROM {$wpdb->prefix}ahm_orders WHERE (order_status = 'Completed' OR order_status = 'Expired') AND uid > 0 GROUP BY uid ORDER BY total_purchases DESC LIMIT %d, %d", $start, $items_per_page));
         foreach ($customers as $customer) {
             CustomerService::getInstance()->calculateTotalSpent($customer->uid);
             $user = get_user_by('id', $customer->uid);

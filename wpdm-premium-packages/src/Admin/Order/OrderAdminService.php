@@ -624,7 +624,7 @@ class OrderAdminService
 
         $orderObj = OrderService::instance();
         $l = 15;
-        $currency_sign = wpdmpp_currency_sign();
+        $currency_sign = wpdmpp_store_currency_sign();
         $p = wpdm_query_var('paged', 'int');
         $p = $p > 0 ? $p : 1;
         $s = ($p - 1) * $l;

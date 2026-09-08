@@ -8,7 +8,7 @@ if(!defined('ABSPATH')) die('!');
 
 global $wpdb;
 
-$currency = wpdmpp_currency_sign();
+$currency = wpdmpp_store_currency_sign();
 $today = wp_date("Y-m-d");
 $cache_key = 'wpdmpp_top_sales_' . $today;
 

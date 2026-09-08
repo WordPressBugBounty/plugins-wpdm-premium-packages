@@ -123,7 +123,7 @@ class RecentSalesWidget extends AbstractWidget
 
         $data = [
             'items' => $processedItems,
-            'currency' => wpdmpp_currency_sign(),
+            'currency' => wpdmpp_base_currency_sign(),
         ];
 
         // Cache the data

@@ -1095,3 +1095,14 @@ select.wpdmpp-checkout__select {
 .wpdmpp-checkout.dark-mode .wpdmpp-checkout__coupon-badge {
     background: rgba(16, 185, 129, 0.1);
 }
+
+/* Charge-currency notice: shown when the displayed currency is not the one billed. */
+.wpdmpp-checkout__fx-notice {
+    padding: 12px 20px;
+    background: var(--checkout-warning-light);
+    border-top: 1px solid var(--checkout-border);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--checkout-text-muted);
+}
+.wpdmpp-checkout__fx-notice strong { color: var(--checkout-text); }

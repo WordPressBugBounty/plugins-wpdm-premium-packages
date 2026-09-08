@@ -18,7 +18,7 @@ $latest_items = $wpdb->get_results("
     LIMIT 5
 ");
 
-$currency = wpdmpp_currency_sign();
+$currency = wpdmpp_store_currency_sign();
 $date_format = get_option('date_format');
 $time_format = get_option('time_format');
 

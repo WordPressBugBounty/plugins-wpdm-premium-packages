@@ -420,7 +420,11 @@ class OrderService {
             $this->repository->addRenewal(
                 $orderId,
                 $order->getTotal(),
-                $order->getTransactionId()
+                $order->getTransactionId(),
+                '',
+                0,
+                $order->getCurrencyCode(),
+                $order->getExchangeRate()
             );
 
             if (class_exists('\WPDMPP\Libs\Logger')) {
@@ -506,12 +510,17 @@ class OrderService {
         ], $order->getOrderId());
 
         // Add renewal record
+        // The subscription's own currency and rate, not the current request's: a
+        // renewal that fires months later must charge and report exactly as the
+        // original order did.
         $this->repository->addRenewal(
             $order->getOrderId(),
             $order->getTotal(),
             $subscriptionId,
             $invoice ?? '',
-	        $timestamp ?? time()
+	        $timestamp ?? time(),
+            $order->getCurrencyCode(),
+            $order->getExchangeRate()
         );
 
         do_action('wpdmpp_order_renewed', $order->getOrderId());
@@ -1352,7 +1361,7 @@ class OrderService {
             return;
         }
 
-        $csign = wpdmpp_currency_sign();
+        $csign = wpdmpp_store_currency_sign();
         $csign_before = wpdmpp_currency_sign_position() == 'before' ? $csign : '';
         $csign_after = wpdmpp_currency_sign_position() == 'after' ? $csign : '';
         $link = wpdm_query_var('udb_page') ? get_permalink() . "?udb_page=purchases/" : get_permalink();

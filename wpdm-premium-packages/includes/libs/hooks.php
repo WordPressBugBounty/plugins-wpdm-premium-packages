@@ -634,3 +634,35 @@ function wpdmpp_paypal_trans_id_link( $trans_id, $payment_method ) {
         __( 'View in PayPal', 'wpdm-premium-packages' )
     );
 }
+
+/**
+ * Resolve currency conversions through the rate engine.
+ *
+ * CurrencyService::convertCurrency() has always ended in this filter with a null
+ * default; from 7.2 the rate service answers it. Returning null when no rate is
+ * known is deliberate and must be preserved by anything that hooks in later — a
+ * caller has to be able to tell "cannot convert" from a conversion that happens
+ * to come back as zero.
+ */
+add_filter( 'wpdmpp_rate_providers', 'wpdmpp_register_default_rate_providers' );
+function wpdmpp_register_default_rate_providers( $providers ) {
+    // Frankfurter first: it needs no key, so it is the one that works out of the
+    // box on a fresh install.
+    $free = new \WPDMPP\Currency\Providers\FrankfurterProvider();
+    $providers[ $free->getId() ] = $free;
+
+    $remote = new \WPDMPP\Currency\Providers\ExchangeRateHostProvider();
+    $providers[ $remote->getId() ] = $remote;
+
+    return $providers;
+}
+
+add_filter( 'wpdmpp_convert_currency', 'wpdmpp_resolve_currency_conversion', 10, 4 );
+function wpdmpp_resolve_currency_conversion( $converted, $amount, $from, $to ) {
+    if ( $converted !== null ) {
+        return $converted;
+    }
+
+    return \WPDMPP\Currency\ExchangeRateService::getInstance()->convert( (float) $amount, (string) $from, (string) $to );
+}
+

@@ -771,7 +771,7 @@ class CouponEndpoint {
         if ($coupon->getType() === Coupon::TYPE_PERCENT) {
             $data['discount_formatted'] = $coupon->getDiscount() . '%';
         } else {
-            $data['discount_formatted'] = wpdmpp_currency_sign() . number_format($coupon->getDiscount(), 2);
+            $data['discount_formatted'] = wpdmpp_store_currency_sign() . number_format($coupon->getDiscount(), 2);
         }
 
         // Add status info

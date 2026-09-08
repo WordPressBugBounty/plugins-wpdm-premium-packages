@@ -56,6 +56,7 @@ class SettingsService
 
         // AJAX handler for saving settings
         add_action('wp_ajax_wpdmpp_save_settings', [$this, 'ajaxSaveSettings']);
+        add_action('wp_ajax_wpdmpp_refresh_rates', [$this, 'ajaxRefreshRates']);
     }
 
     /**
@@ -170,6 +171,13 @@ class SettingsService
             update_option('_wpdmpp_settings', $settings);
 
             // Fire action after saving
+            // The refresh interval is baked into the scheduled job's own repeat
+            // interval, so a saved change has to be pushed to it - otherwise the
+            // setting reads as changed while the job keeps its old cadence.
+            if (class_exists('\WPDMPP\Core\Jobs\ExchangeRateRefreshJob')) {
+                \WPDMPP\Core\Jobs\ExchangeRateRefreshJob::reschedule();
+            }
+
             do_action('wpdmpp_after_save_settings');
         }
 
@@ -271,4 +279,26 @@ class SettingsService
     {
         return delete_option('_wpdmpp_settings');
     }
+
+    /**
+     * Fetch rates from the configured provider on demand.
+     *
+     * @return void
+     */
+    public function ajaxRefreshRates(): void
+    {
+        if (!current_user_can(WPDMPP_ADMIN_CAP) || !check_ajax_referer('wpdmpp_rates', '_wpnonce', false)) {
+            wp_send_json_error(['message' => __('Permission denied.', 'wpdm-premium-packages')]);
+        }
+
+        $result = \WPDMPP\Currency\ExchangeRateService::getInstance()->refresh();
+
+        if (empty($result['success'])) {
+            wp_send_json_error(['message' => $result['message']]);
+        }
+
+        wp_send_json_success(['message' => $result['message'], 'stored' => $result['stored']]);
+    }
+
+
 }

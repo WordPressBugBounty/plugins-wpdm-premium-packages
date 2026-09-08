@@ -253,11 +253,11 @@ $wd_modal_inner = trim( ob_get_clean() );
 <div class="wpe-stats">
     <div class="wpe-card">
         <div class="wpe-card__label"><?php esc_html_e( "Sales", "wpdm-premium-packages" ); ?></div>
-        <div class="wpe-card__value"><?php echo wpdmpp_price_format( $total_sales, true, true ); ?></div>
+        <div class="wpe-card__value"><?php echo wpdmpp_base_price_format( $total_sales ); ?></div>
     </div>
     <div class="wpe-card" title="<?php echo esc_attr( sprintf( __( 'After %s%% site commission deducted', 'wpdm-premium-packages' ), $commission ) ); ?>">
         <div class="wpe-card__label"><?php esc_html_e( "Earning", "wpdm-premium-packages" ); ?></div>
-        <div class="wpe-card__value"><?php echo wpdmpp_price_format( $total_earning, true, true ); ?></div>
+        <div class="wpe-card__value"><?php echo wpdmpp_base_price_format( $total_earning ); ?></div>
     </div>
     <div class="wpe-card">
         <div class="wpe-card__label"><?php esc_html_e( "Withdrawn", "wpdm-premium-packages" ); ?></div>
@@ -304,16 +304,16 @@ $wd_modal_inner = trim( ob_get_clean() );
     <tfoot>
     <tr>
         <th colspan="3"></th>
-        <th><?php echo wpdmpp_price_format( $total_sales, true, true ); ?></th>
+        <th><?php echo wpdmpp_base_price_format( $total_sales ); ?></th>
         <th><?php echo wpdmpp_price_format( $total_commission, true, true ); ?></th>
-        <th><?php echo wpdmpp_price_format( $total_earning, true, true ); ?></th>
+        <th><?php echo wpdmpp_base_price_format( $total_earning ); ?></th>
     </tr>
     </tfoot>
 </table>
 
 <script>
     jQuery(function ($) {
-        var cs = '<?php echo esc_js( wpdmpp_currency_sign() ); ?>',
+        var cs = '<?php echo esc_js( wpdmpp_store_currency_sign() ); ?>',
             mb = <?php echo number_format( $matured_balance, 2, '.', '' ); ?>,
             wd = <?php echo number_format( $total_withdraws, 2, '.', '' ); ?>;
         var wdModalHtml = <?php echo wp_json_encode( $wd_modal_inner ); ?>;

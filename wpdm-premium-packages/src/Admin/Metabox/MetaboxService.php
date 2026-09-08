@@ -263,7 +263,7 @@ class MetaboxService
     {
         $totalSales = wpdmpp_total_sales('', $postId, '', '');
         $totalPurchases = wpdmpp_total_purchase($postId);
-        $currency = wpdmpp_currency_sign();
+        $currency = wpdmpp_store_currency_sign();
         ?>
         <div style="padding: 15px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
@@ -343,7 +343,7 @@ class MetaboxService
                 SUM(CASE WHEN o.date >= %d AND o.date < %d THEN oi.price * oi.quantity ELSE 0 END) as this_month_sales,
                 SUM(CASE WHEN o.date >= %d AND o.date <= %d THEN oi.price * oi.quantity ELSE 0 END) as last_month_sales,
                 SUM(CASE WHEN o.date >= %d THEN oi.price * oi.quantity ELSE 0 END) as this_year_sales,
-                SUM(oi.price * oi.quantity) as total_sales,
+                SUM(oi.base_price * oi.quantity) as total_sales,
                 COUNT(DISTINCT o.order_id) as total_orders,
                 SUM(oi.quantity) as total_quantity
             FROM {$wpdb->prefix}ahm_orders o
@@ -375,7 +375,7 @@ class MetaboxService
             'total' => (float) ($sales->total_sales ?? 0),
             'total_orders' => (int) ($sales->total_orders ?? 0),
             'total_quantity' => (int) ($sales->total_quantity ?? 0),
-            'currency' => wpdmpp_currency_sign(),
+            'currency' => wpdmpp_store_currency_sign(),
         ];
     }
 }

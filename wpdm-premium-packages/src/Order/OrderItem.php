@@ -445,6 +445,43 @@ class OrderItem {
      *
      * @return array
      */
+    /**
+     * Rate to the base currency, set by the order this item belongs to.
+     *
+     * @var float
+     */
+    private float $exchangeRate = 0.0;
+
+    /**
+     * Adopt the parent order's rate so item and order totals reconcile.
+     *
+     * @param float $rate
+     * @return self
+     */
+    public function setExchangeRate(float $rate): self {
+        $this->exchangeRate = $rate > 0 ? $rate : 1.0;
+        return $this;
+    }
+
+    /**
+     * @return float
+     */
+    public function getExchangeRate(): float {
+        if ($this->exchangeRate > 0) {
+            return $this->exchangeRate;
+        }
+
+        // Standalone save with no order context: fall back to the current rate.
+        if (function_exists('wpdmpp_to_base_currency')) {
+            $converted = wpdmpp_to_base_currency(1.0);
+            $this->exchangeRate = (float) $converted['rate'];
+        } else {
+            $this->exchangeRate = 1.0;
+        }
+
+        return $this->exchangeRate;
+    }
+
     public function toDatabase(): array {
         $now = current_time('mysql');
         $timestamp = strtotime($this->date ?: $now);
@@ -457,6 +494,8 @@ class OrderItem {
             'license' => serialize($this->license),
             'quantity' => $this->quantity,
             'price' => $this->price,
+            'base_price' => round($this->price * $this->getExchangeRate(), 4),
+            'base_site_commission' => round($this->siteCommission * $this->getExchangeRate(), 4),
             'extra_gigs' => serialize($this->extraGigs),
             'coupon' => $this->coupon,
             'coupon_discount' => $this->couponDiscount,

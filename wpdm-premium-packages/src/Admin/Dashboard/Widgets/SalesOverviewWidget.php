@@ -98,7 +98,7 @@ class SalesOverviewWidget extends AbstractWidget
                 SUM(CASE WHEN o.date >= %d AND o.date < %d THEN oi.price * oi.quantity ELSE 0 END) as this_month,
                 SUM(CASE WHEN o.date >= %d AND o.date < %d THEN oi.price * oi.quantity ELSE 0 END) as last_month,
                 SUM(CASE WHEN o.date >= %d AND o.date < %d THEN oi.price * oi.quantity ELSE 0 END) as this_year,
-                SUM(oi.price * oi.quantity) as total
+                SUM(oi.base_price * oi.quantity) as total
             FROM {$wpdb->prefix}ahm_orders o
             INNER JOIN {$wpdb->prefix}ahm_order_items oi ON oi.oid = o.order_id
             WHERE (o.payment_status = 'Completed' OR o.payment_status = 'Expired')
@@ -125,7 +125,7 @@ class SalesOverviewWidget extends AbstractWidget
             'this_year' => (float) ($sales->this_year ?? 0),
             'total' => (float) ($sales->total ?? 0),
             'daily_sales' => $dailySales,
-            'currency' => wpdmpp_currency_sign(),
+            'currency' => wpdmpp_base_currency_sign(),
         ];
 
         // Cache the data
@@ -157,7 +157,7 @@ class SalesOverviewWidget extends AbstractWidget
         $results = $wpdb->get_results($wpdb->prepare("
             SELECT
                 FROM_UNIXTIME(o.date, '%%Y-%%m-%%d') as sale_date,
-                SUM(oi.price * oi.quantity) as total
+                SUM(oi.base_price * oi.quantity) as total
             FROM {$wpdb->prefix}ahm_orders o
             INNER JOIN {$wpdb->prefix}ahm_order_items oi ON oi.oid = o.order_id
             WHERE (o.payment_status = 'Completed' OR o.payment_status = 'Expired')

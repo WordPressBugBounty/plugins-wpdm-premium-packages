@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.1.1
+Stable tag: 7.2.0
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,27 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.0 - 2026.09.07 =
+* Shoppers can now choose the currency they see prices in. Package pages, the cart and the checkout all convert at the live exchange rate, while the payment itself is taken in your store currency - the checkout says so and names the exact amount that will be billed, so nothing changes about how money reaches you
+* Fixed a failed rate refresh being reported indefinitely. Only the scheduled job cleared the recorded error, so refreshing successfully from the settings button left the warning in place - in some cases naming a provider that was no longer even selected. Any successful refresh now clears it, and a failure records the current reason
+* How often rates refresh is configurable, defaulting to every 12 hours. Most providers publish once a day, so refreshing more often returns the same figures; the setting is there for stores that want a tighter window, and is capped at a week. Prices are always shown from the stored rate and never fetched while somebody is browsing, so the interval affects how fresh a displayed price is, never what is charged
+* Exchange rates work without setting anything up. Frankfurter is the default source: no account, no API key, no quota, and 165 currencies published from central bank data. Rates refresh on a schedule, an outage leaves the previous rates in place rather than failing, and a single-currency store never fetches at all
+* Rates are kept as dated snapshots rather than one value that gets overwritten, so the rate that applied on any past day can be recovered and a bad refresh can be discarded without having destroyed what it replaced
+* Added a Currency settings tab holding everything in one place: store currency, symbol position, decimals and separators with a live preview, which currencies to offer, where rates come from, when they were last updated and how many pairs are stored. Currencies that are enabled but have no rate yet are called out, rather than silently missing from the selector
+* Three ways to offer the choice: a [wpdmpp_currency_switcher] shortcode, a "WPDM Currency Switcher" widget for any sidebar or block area, and a floating panel that sits on every page. The panel is off by default and can be placed in any of five positions with an adjustable distance from the edge, so it clears a chat button or cart tab. All three render nothing when there is only one currency to choose from
+* Reporting figures across the admin are converted into your reporting currency and labelled with it - dashboard widgets, the orders and renewals lists, the customer list, seller earnings and payout balances. Each order records the currency it was taken in and its value in the reporting currency, so totals spanning currencies are added meaningfully rather than at face value
+* Orders taken before rates existed can be restated, valuing each at the rate that applied on the day it was placed rather than one blanket rate. Only currencies with a known rate are touched; the rest stay flagged rather than converted at a guess
+* Prices, discounts and thresholds round to the number of decimals their currency actually uses. Currencies with no minor unit, such as yen and won, no longer gain decimal places - which could previously reach a gateway as an amount a hundred times too large
+* Fixed-amount coupons, and their minimum and maximum order thresholds, are converted into the currency prices are shown in. A flat "10 off" was otherwise worth a hundred times more against a weak currency than a strong one
+* Subscription renewals stay in the currency the subscription started in and are reported at the rate captured on the original order, so the same recurring charge does not report a different figure every cycle purely because rates moved. PayPal subscription plans are created in the currency the subscriber was quoted, which is fixed for the life of the plan
+* Fixed the checkout total ignoring role-based discounts. It was worked out as the subtotal minus any coupon only, so a cart with a role discount showed a subtotal, a discount beneath it, and a total that had not subtracted it. The order was always built at the correct figure, so the summary quoted a price that was never charged - but the Braintree add-on takes its amount from that same figure and did charge the undiscounted one
+* Fixed a fatal error on the currency settings screen when the saved currency is one the plugin does not recognise
+
+= 7.1.2 - 2026.09.02 =
+* Sales figures that span more than one currency are now added correctly. Every total in the plugin - the dashboard widgets, the daily sales email, customer and invoice statistics, per-product sales and, most importantly, the seller balances that decide payouts - summed the raw amount on each order with no regard for the currency it was taken in, so an order in one currency was counted at face value against orders in another. Orders and order items now also record a base-currency equivalent and the exchange rate that applied when the order was placed, and reports sum that instead. Existing rows are migrated at a rate of 1.0, which is exact for a store that has only ever used one currency; where older orders were taken in a different currency an admin notice reports how many need a rate recorded, rather than converting them at today's rate and inventing a figure nobody was charged
+* Redesigned the daily sales overview email. The three headline figures were sized by their own content, so the boxes came out uneven, and the order table left amounts unaligned with no way to tell a new sale from a renewal at a glance. The figures are now equal width with the day's total accented, and the table aligns amounts to the right, marks each row New or Renew with a coloured badge, bands alternate rows and closes with a total
+* The payout screens now explain an empty table instead of showing nothing. All Payouts and Dues each get a message when there is no payout to list, and All Payouts also says so when a status filter matches none of the existing requests - previously that filter just emptied the table with no explanation
 
 = 7.1.1 - 2026.09.02 =
 * Transaction ids on the admin orders list, order details and renewed orders screens now link to the entry in the payment gateway's own dashboard. PayPal is handled in core, and points at the billing subscription or the payment activity page depending on what the id refers to, using the sandbox dashboard for sandbox orders; the Stripe add-on links its own from version 3.0.4. Gateway add-ons can do the same by hooking wpdmpp_admin_order_details_trans_id and building the link with the new wpdmpp_trans_id_link() helper. On the renewed orders tab such links were previously escaped and shown as raw markup

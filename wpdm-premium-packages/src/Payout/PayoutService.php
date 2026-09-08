@@ -298,7 +298,11 @@ class PayoutService
             ];
         }
 
-        $salesSql = "SELECT SUM(i.price * i.quantity)
+        // Sums base_price, not price: a seller with sales in more than one currency
+        // would otherwise have unlike amounts added together and be paid the wrong
+        // figure. Base amounts were backfilled to equal price for pre-existing rows,
+        // so a single-currency store sees no change.
+        $salesSql = "SELECT SUM(i.base_price * i.quantity)
              FROM {$wpdb->prefix}ahm_orders o,
                   {$wpdb->prefix}ahm_order_items i,
                   {$wpdb->prefix}posts p
@@ -314,9 +318,12 @@ class PayoutService
         $totalEarning = $totalSales - ($totalSales * $commission / 100);
 
         // Every withdrawal row holds funds — pending requests included.
+        $baseCurrency = function_exists('wpdmpp_base_currency_code') ? wpdmpp_base_currency_code() : '';
         $totalWithdraws = (float) $wpdb->get_var($wpdb->prepare(
-            "SELECT SUM(amount) FROM {$wpdb->prefix}ahm_withdraws WHERE uid = %d",
-            $userId
+            "SELECT SUM(amount) FROM {$wpdb->prefix}ahm_withdraws
+              WHERE uid = %d AND (currency_code = '' OR currency_code = %s)",
+            $userId,
+            $baseCurrency
         ));
 
         $balance = $totalEarning - $totalWithdraws;

@@ -196,7 +196,7 @@ class OrderRenewalNotificationJob extends Job
      */
     private function sendAdminNotification(array $messages, float $totalAutoRenew, float $totalManual, string $date, string $siteName): void
     {
-        $currencySign = wpdmpp_currency_sign();
+        $currencySign = wpdmpp_store_currency_sign();
 
         $msgHtml = __('Order Expiration and Subscription reminder email sent for the following orders:', 'wpdm-premium-packages') . '<br/>';
         $msgHtml .= "<table style='width:100%' class='email' cellspacing='0'>";

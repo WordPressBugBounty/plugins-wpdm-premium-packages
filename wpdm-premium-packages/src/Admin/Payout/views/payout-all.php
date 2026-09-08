@@ -40,11 +40,36 @@ $payouts = $wpdb->get_results($sql);
             if($st == 'Completed') $sta = 'Pending';
 	        $payment_account = WPDMPP()->withdraws->getPaymentAccount($payout);
 	        $payout_method = wpdm_valueof($payment_account, 'method', 'paypal');
-	        $currency_sign = wpdmpp_currency_sign();
+	        // Reporting-currency figure; see payout-dues.php.
+	        $currency_sign = wpdmpp_base_currency_sign();
             $acc = wpdm_valueof($payment_account, 'account');
 	        $sync_icon = \WPDMPP\UI\Icons::get('sync', 16);
 	        echo "<tr class='payout-row' data-status='" . (int) $payout->status . "'><td><a href='user-edit.php?user_id={$payout->uid}' >".get_userdata($payout->uid)->display_name."</a></td><td>{$payment_account['name']} [ {$payout->payment_account} ]</td><td >{$currency_sign}{$payout->amount}</td><td ><button type='button' class='pull-right btn btn-xs btn-primary btn-payout-status ttip' title='Change Status' data-status='{$sta}' data-id='{$payout->id}'>{$sync_icon}</button><span id='pstatus-{$payout->id}'>" . __($st, "wpdm-premium-packages") . "</span></td></tr>";
         }
+
+        // Nothing has ever been requested. The filter row below covers the other
+        // empty case, where payouts exist but none match the selected status.
+        if (empty($payouts)) { ?>
+            <tr class="wpdmpp-po-empty">
+                <td colspan="4">
+                    <div class="wpdmpp-po-empty__inner">
+                        <div class="wpdmpp-po-empty__icon"><?php echo \WPDMPP\UI\Icons::get('money-bill', 24); ?></div>
+                        <div class="wpdmpp-po-empty__title"><?php _e('No payouts yet', 'wpdm-premium-packages'); ?></div>
+                        <div class="wpdmpp-po-empty__hint"><?php _e('Payout requests from sellers will appear here once they withdraw their earnings.', 'wpdm-premium-packages'); ?></div>
+                    </div>
+                </td>
+            </tr>
+        <?php } else { ?>
+            <tr class="wpdmpp-po-empty" id="payout-no-match" style="display:none">
+                <td colspan="4">
+                    <div class="wpdmpp-po-empty__inner">
+                        <div class="wpdmpp-po-empty__icon"><?php echo \WPDMPP\UI\Icons::get('filter', 24); ?></div>
+                        <div class="wpdmpp-po-empty__title"><?php _e('No payouts match this filter', 'wpdm-premium-packages'); ?></div>
+                        <div class="wpdmpp-po-empty__hint"><?php _e('Try selecting a different status.', 'wpdm-premium-packages'); ?></div>
+                    </div>
+                </td>
+            </tr>
+        <?php }
         ?>
 
         </tbody>
@@ -59,10 +84,15 @@ $payouts = $wpdb->get_results($sql);
         // (-1 = all). Rows carry data-status="0|1" (Pending|Completed).
         function filterPayouts() {
             var val = $('#payout-status-filter').val();
+            var visible = 0;
             $('.payout-row').each(function () {
                 var $row = $(this);
-                $row.toggle(val === '-1' || $row.attr('data-status') === val);
+                var show = val === '-1' || $row.attr('data-status') === val;
+                $row.toggle(show);
+                if (show) { visible++; }
             });
+            // Never leave the operator staring at an unexplained blank table.
+            $('#payout-no-match').toggle(visible === 0);
         }
         $('#apply-payout-filter').on('click', filterPayouts);
         $('#payout-status-filter').on('change', filterPayouts);
