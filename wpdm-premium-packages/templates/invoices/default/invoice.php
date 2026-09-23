@@ -161,7 +161,7 @@ $item_table         = <<<OTH
     $discount       = number_format(floatval($discount), 2);
     $item['price']  = number_format($item['price'], 2);
     $item_info = WPDMPP()->cart->itemInfo($item, false);
-    $product_name = $item['product_name'] ? $item['product_name'] : get_the_title($item['pid']);
+    $product_name = esc_html($item['product_name'] ? $item['product_name'] : get_the_title($item['pid']));
     $_ohtml .= <<<ITEM
         <tr class="item">
         <td class="text-left" style="padding-left: 1.8rem"><strong>{$product_name}</strong><br><small>{$item_info}</small></td>
@@ -180,6 +180,7 @@ $item_table         = <<<OTH
     }
 
     $item_table .= $_ohtml."</tbody></table>";
+	$billing_info = array_map(function ($v) { return is_scalar($v) ? esc_html($v) : ''; }, $billing_info);
 	$billing_info['phone'] = $billing_info['phone'] ? "<div id='phone'>".__('Phone', WPDMPP_TEXT_DOMAIN).": {$billing_info['phone']}</div>" : '';
 	$billing_info['taxid'] = $billing_info['taxid'] ? "<div id='phone'>".__('Tax ID', WPDMPP_TEXT_DOMAIN).": {$billing_info['taxid']}</div>" : '';
 $invoice['client_info'] = <<<CINF
@@ -224,7 +225,7 @@ CINF;
                     <div class="col-sm-4 content-bg">
                         <div class="invoice-logo-wrapper position-relative sidebar-bg p-4">
 	                        <?php if($settings['invoice_logo'] != ""){ ?>
-                                <img style="width: auto; height: 50px;" class="media-object" src="<?php echo $settings['invoice_logo']; ?>">
+                                <img style="width: auto; height: 50px;" class="media-object" src="<?php echo esc_url($settings['invoice_logo']); ?>">
 	                        <?php } ?>
                             <img class="corners img-fluid" style="filter: grayscale(1);" src="<?= WPDMPP_BASE_URL ?>templates/invoices/default/assets/corners.png" alt="Shape">
                         </div>
@@ -267,7 +268,7 @@ CINF;
                     <div class="col-sm-4 p-4 d-flex content-bg text-white">
                         <div class="invoice-method align-self-end">
                             <h6 class=""><?php _e('Payment Method', WPDMPP_TEXT_DOMAIN); ?>:</h6>
-                            <p><?php echo str_replace("WPDM_", "", $order->getPaymentMethod()); ?></p>
+                            <p><?php echo esc_html(str_replace("WPDM_", "", $order->getPaymentMethod())); ?></p>
                         </div>
                     </div>
 

@@ -95,7 +95,7 @@ class CartItem {
      */
     public function __construct(int $productId, array $data = []) {
         $this->productId = $productId;
-        $this->productName = $data['product_name'] ?? get_the_title($productId) ?: '';
+        $this->productName = sanitize_text_field((string) ($data['product_name'] ?? get_the_title($productId) ?: ''));
         $this->productType = $data['product_type'] ?? 'standard';
         $this->quantity = max(1, (int) ($data['quantity'] ?? 1));
         $this->price = (float) ($data['price'] ?? 0);

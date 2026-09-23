@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.2.1
+Stable tag: 7.2.2
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,13 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.2 - 2026.09.22 =
+* Security: fixed an unauthenticated stored cross-site scripting issue and cart price tampering. The legacy cart update handler merged whatever item fields a request sent into the cart, so a visitor could store script in a product name - which then ran for anyone viewing that order's invoice - or set a product's price to zero before checking out. The handler now requires a nonce and accepts only quantity and coupon, and product names are sanitized when added to the cart
+* Security: invoices now escape product names and billing details, so orders that already contain injected markup display it as text
+* Security: a logged-in customer can no longer open the invoice of an order that isn't theirs, which previously exposed other customers' names, addresses and email addresses. Administrators can still view every invoice
+* If your theme overrides invoices/default/invoice.php, compare it with the updated template and escape the product name and billing fields in your copy too
+* Reported via Wordfence
 
 = 7.2.1 - 2026.09.08 =
 * Security: PayPal webhook events are now verified with PayPal before being acted on. Both the REST endpoint and the legacy listener accepted any JSON posted to them, so an unauthenticated request could forge a payment event to mark an order paid and extend its expiry, or forge a cancellation event to stop a customer's subscription renewing. Each event is now checked against PayPal's verify-webhook-signature API using the transmission headers and the site's stored webhook id, and anything unverified is refused. Sites using PayPal should update

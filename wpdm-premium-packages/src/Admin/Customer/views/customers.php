@@ -381,7 +381,7 @@ $recalc_nonce = wp_create_nonce( WPDM_PRI_NONCE );
 			.wpdmpp-cl__act svg{width:15px;height:15px;}
 			.wpdmpp-cl__act:hover{background:rgba(var(--cl-primary-rgb),.08);border-color:rgba(var(--cl-primary-rgb),.32);color:var(--cl-primary);text-decoration:none;}
 			.wpdmpp-cl__act--primary{background:var(--cl-primary);border-color:var(--cl-primary);color:#fff;}
-			.wpdmpp-cl__act--primary:hover{background:var(--cl-primary);color:#fff;filter:brightness(1.07);}
+			.wpdmpp-cl__act--primary:hover{background:var(--cl-primary);color:#fff !important;filter:brightness(1.07);}
 
 			/* empty state */
 			.wpdmpp-cl .cl-empty td{padding:0;border:0;}

@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.2.1
+ * Version: 7.2.2
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.2.1' );
+	define( 'WPDMPP_VERSION', '7.2.2' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -439,6 +439,16 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 */
 		function invoice() {
 			if ( isset( $_GET['id'] ) && $_GET['id'] != '' && isset( $_GET['wpdminvoice'] ) ) {
+				// Logged-in users may only view their own orders (guests are
+				// bound to their session order inside the template).
+				if ( is_user_logged_in() && ! current_user_can( WPDMPP_ADMIN_CAP ) ) {
+					$order = OrderService::instance()->getOrder( sanitize_text_field( wp_unslash( $_GET['id'] ) ) );
+					if ( is_object( $order )
+					     && (int) $order->getUserId() !== get_current_user_id()
+					     && Session::get( 'guest_order' ) !== $order->getOrderId() ) {
+						wp_die( esc_html__( 'You are not allowed to view this invoice.', 'wpdm-premium-packages' ), '', array( 'response' => 403 ) );
+					}
+				}
 				ob_start();
 				wp_register_style( 'wpdm-front-bootstrap', WPDM_BASE_URL . 'assets/bootstrap/css/bootstrap.css' );
 				wp_register_style( 'wpdm-front', WPDM_BASE_URL . 'assets/css/front.css' );

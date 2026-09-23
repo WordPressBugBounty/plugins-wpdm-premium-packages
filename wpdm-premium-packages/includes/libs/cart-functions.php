@@ -486,9 +486,26 @@ function wpdmpp_update_cart(){
     if (!isset($_REQUEST['wpdmpp_update_cart']) || (isset($_REQUEST['wpdmpp_update_cart']) && $_REQUEST['wpdmpp_update_cart'] <= 0)) return;
 
 
-    $data = wpdm_query_var('cart_items');
+    if (!isset($_REQUEST['__wpdmpp_cart_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_REQUEST['__wpdmpp_cart_nonce'])), 'wpdmpp_update_cart')) {
+        wp_safe_redirect( wpdmpp_cart_page() );
+        exit;
+    }
+
+    // Only quantity and coupon are customer-editable; price, product_name,
+    // license etc. must never be taken from the request.
+    $data = isset($_REQUEST['cart_items']) && is_array($_REQUEST['cart_items']) ? wp_unslash($_REQUEST['cart_items']) : [];
     foreach ($data as $product_id => $updates) {
-        WPDMPP()->cart->updateItem($product_id, $updates);
+        if (!is_array($updates)) continue;
+        $allowed = [];
+        if (isset($updates['quantity'])) {
+            $allowed['quantity'] = max(1, (int) $updates['quantity']);
+        }
+        if (isset($updates['coupon']) && is_scalar($updates['coupon'])) {
+            $allowed['coupon'] = sanitize_text_field($updates['coupon']);
+        }
+        if ($allowed) {
+            WPDMPP()->cart->updateItem((int) $product_id, $allowed);
+        }
     }
 
 	WPDMPP()->cart->applyCoupon(wpdm_query_var('coupon_code'));
