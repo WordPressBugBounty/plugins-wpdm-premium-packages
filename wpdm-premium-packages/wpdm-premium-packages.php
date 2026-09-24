@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.2.2
+ * Version: 7.2.3
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.2.2' );
+	define( 'WPDMPP_VERSION', '7.2.3' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -599,6 +599,35 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			return false;
 		}
 
+		/**
+		 * Whether a download link was issued by license validation for a domain the license is registered to.
+		 * WordPress fetches an update package server-side with no cookies, so these links can't rely on the
+		 * order owner's session. Only the signed wpdmppd token is trusted; the plain base64 wpdmppdl can be forged.
+		 *
+		 * Only Completed orders qualify: Processing, Expired, Cancelled or Refunded orders get no license download.
+		 *
+		 * @param array                $wpdmdd Decoded download token
+		 * @param \WPDMPP\Order\Order $order  Order the token belongs to
+		 * @param int                  $PID    Product ID
+		 *
+		 * @return bool
+		 */
+		private function licenseAuthorizesDownload( $wpdmdd, $order, $PID ) {
+			if ( $order->getOrderStatus() !== 'Completed' ) {
+				return false;
+			}
+			if ( wpdm_query_var( 'wpdmppd' ) === '' || empty( $wpdmdd['domain'] ) ) {
+				return false;
+			}
+			$domain = sanitize_text_field( $wpdmdd['domain'] );
+			if ( $domain !== wpdm_query_var( 'domain' ) || ! class_exists( '\WPDMPP\License\LicenseService' ) ) {
+				return false;
+			}
+			$license = ( new \WPDMPP\License\LicenseService() )->findByOrderAndProduct( $order->getOrderId(), $PID );
+
+			return $license && $license->isActive() && $license->hasDomain( $domain );
+		}
+
 		function download() {
 
 			if ( wpdm_query_var( 'wpdmppd' ) !== '' || wpdm_query_var( 'wpdmppdl' ) !== '' ) {
@@ -621,13 +650,18 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				$settings     = get_option( '_wpdmpp_settings' );
 
 				$odata = OrderService::instance()->getOrder( $OID );
+				if ( ! $odata ) {
+					Messages::error( __( "&mdash; Invalid download link &mdash;", "wpdm-premium-packages" ), 1 );
+				}
 				$items = array_keys( $odata->getCartData() );
 
 				$odata_uid = $odata->getUserId();
 
 				$expire_date = $odata->getExpireDate() > 0 ? $odata->getExpireDate() : ( $odata->getDate() + ( get_wpdmpp_option( 'order_validity_period', 365 ) * 86400 ) );
 
-				if ( $odata_uid != $current_user->ID && ! Session::get( 'guest_order' ) ) {
+				$license_download = $this->licenseAuthorizesDownload( $wpdmdd, $odata, $PID );
+
+				if ( ! $license_download && $odata_uid != $current_user->ID && ! Session::get( 'guest_order' ) ) {
 					Messages::error( __( "Invalid Access!", "wpdm-premium-packages" ), 1 );
 				}
 				if ( $odata->getOrderStatus() === 'Expired' || time() > $expire_date ) {
@@ -679,7 +713,9 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 
                 //wpdmdd($PID);
 				//Member's Download
-				if ( @in_array( $PID, $items ) && $OID != '' && is_user_logged_in() && $current_user->ID == $odata->getUserId() && $odata->getOrderStatus() == 'Completed' ) {
+				//License download (automatic plugin update, fetched server-side without a user session)
+				$owner_download = is_user_logged_in() && $current_user->ID == $odata->getUserId();
+				if ( @in_array( $PID, $items ) && $OID != '' && ( $owner_download || $license_download ) && $odata->getOrderStatus() == 'Completed' ) {
 					//for premium item
 
 					OrderService::instance()->updateOrder( array( 'download' => 1 ), $OID );

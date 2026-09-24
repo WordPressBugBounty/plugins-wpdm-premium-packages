@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.2.2
+Stable tag: 7.2.3
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,12 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.3 - 2026.09.24 =
+* Fixed automatic updates for products sold with license keys. The download link returned by license validation only worked for the order owner's logged-in browser session, but WordPress fetches update packages from the server with no session, so every automatic update was refused with "Invalid Access!". The link now works without a session when the license is active and registered to the domain requesting it
+* License download links are honoured only while the order is Completed. A link issued earlier stops working once the order expires, is cancelled or refunded, or the license is deactivated or the domain removed from it
+* License download links are always issued as signed links, including on sites using the WPDMPPD_PERMALINK short-link format, so the domain in a link can't be altered
+* Fixed a fatal error when a download link referenced an order that no longer exists
 
 = 7.2.2 - 2026.09.22 =
 * Security: fixed an unauthenticated stored cross-site scripting issue and cart price tampering. The legacy cart update handler merged whatever item fields a request sent into the cart, so a visitor could store script in a product name - which then ran for anyone viewing that order's invoice - or set a product's price to zero before checking out. The handler now requires a nonce and accepts only quantity and coupon, and product names are sanitized when added to the cart

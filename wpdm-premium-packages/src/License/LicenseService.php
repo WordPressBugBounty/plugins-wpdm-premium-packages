@@ -327,16 +327,15 @@ class LicenseService {
             return '';
         }
 
-        // Get first file download URL
-        if (class_exists('\WPDMPP\WPDMPremiumPackage')) {
-            return \WPDMPP\WPDMPremiumPackage::customerDownloadURL(
-                $license->getProductId(),
-                $license->getOrderId(),
-                ['domain' => $domain]
-            ) . '&ind=0';
-        }
+        // Always the signed wpdmppd token, even with WPDMPPD_PERMALINK: the download handler only trusts
+        // the domain inside a token it can verify, and that is what lets the updater download without a session.
+        $token = \WPDM\__\Crypt::encrypt([
+            'domain' => $domain,
+            'ID' => $license->getProductId(),
+            'oid' => $license->getOrderId(),
+        ]);
 
-        return '';
+        return $token ? home_url("/?wpdmppd={$token}&ind=0") : '';
     }
 
     // =========================================================================
