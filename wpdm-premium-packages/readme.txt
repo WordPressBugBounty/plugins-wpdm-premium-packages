@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.2.3
+Stable tag: 7.2.4
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,11 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.4 - 2026.09.25 =
+* Fixed license keys being generated with a domain limit of 0, which the plugin treats as unlimited. The limit configured for each license type in the Premium Package settings was never applied when a key was created for an order, so a customer who bought a Standard license could activate the key on any number of sites. The license details saved with each order recorded a limit of 0 because they read a settings field that doesn't exist, and that 0 was then taken as a real value instead of falling back to the configured one. Keys are now created with the limit of the license type the customer purchased, and this applies to orders placed before the update too, since the configured limit is looked up when the key is generated
+* Keys that were already generated with a limit of 0 keep that value. Open the key from the Licenses screen in the admin and set its domain limit to correct it
+* The license types REST endpoint now returns the configured domain limit for each type instead of always 0
 
 = 7.2.3 - 2026.09.24 =
 * Fixed automatic updates for products sold with license keys. The download link returned by license validation only worked for the order owner's logged-in browser session, but WordPress fetches update packages from the server with no session, so every automatic update was refused with "Invalid Access!". The link now works without a session when the license is active and registered to the domain requesting it

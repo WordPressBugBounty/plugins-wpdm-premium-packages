@@ -452,7 +452,8 @@ class Product {
             'id' => $licenseId,
             'price' => $this->getLicensePrice($licenseId),
             'name' => $globalInfo['name'] ?? $licenseId,
-            'domain_limit' => $license['domain_limit'] ?? ($globalInfo['domain'] ?? 0),
+            // Global license types store the domain limit under `use` (see wpdmpp_get_licenses())
+            'domain_limit' => $license['domain_limit'] ?? $globalInfo['use'] ?? $globalInfo['domain'] ?? 0,
             'validity' => $license['validity'] ?? ($globalInfo['validity'] ?? 0),
         ]);
     }

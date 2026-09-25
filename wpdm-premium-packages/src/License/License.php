@@ -462,7 +462,6 @@ class License {
      */
     public static function create(array $data): self {
         $license = new self();
-
         if (isset($data['license_no'])) {
             $license->setLicenseNo($data['license_no']);
         } else {
@@ -479,7 +478,8 @@ class License {
 
         if (isset($data['domain_limit'])) {
             $license->setDomainLimit((int) $data['domain_limit']);
-        }
+        } else
+	        $license->setDomainLimit(1);
 
         if (isset($data['domains'])) {
             $license->setDomains((array) $data['domains']);

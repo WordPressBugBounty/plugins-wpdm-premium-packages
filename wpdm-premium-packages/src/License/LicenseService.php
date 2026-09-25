@@ -493,10 +493,12 @@ class LicenseService {
      * Resolve the domain limit from the license purchased with an order item
      *
      * Order items store a snapshot of the license selected at purchase time —
-     * either the flat array from Product::getLicenseInfo() (has `domain_limit`)
-     * or the legacy ['id' => ..., 'info' => ['use' => N]] shape. Falls back to
-     * the current global license type config when the snapshot lacks a limit.
-     * Unlimited-type licenses with no configured limit resolve to 999.
+     * either the flat array from Product::getLicenseInfo() (has `domain_limit`,
+     * plus the global type's `use` key merged in) or the legacy
+     * ['id' => ..., 'info' => ['use' => N]] shape. A limit of 0 is treated as
+     * "not configured", so the lookup falls through to `use` and then to the
+     * current global license type config. Unlimited-type licenses with no
+     * configured limit resolve to 999.
      *
      * @param string $orderId   Order ID
      * @param int    $productId Product ID
@@ -540,7 +542,9 @@ class LicenseService {
                 continue;
             }
             foreach (['domain_limit', 'use', 'domain'] as $key) {
-                if (isset($info[$key]) && is_numeric($info[$key])) {
+                // 0 means "not configured" here: the snapshot's domain_limit is 0 whenever the
+                // product has no per-license override, so keep looking for a real limit (e.g. `use`).
+                if (isset($info[$key]) && is_numeric($info[$key]) && (int) $info[$key] > 0) {
                     return (int) $info[$key];
                 }
             }
@@ -584,7 +588,7 @@ class LicenseService {
         }
 
         if ($domainLimit === null || (int) $domainLimit < 1) {
-            $domainLimit = $this->resolveDomainLimit($orderId, $productId) ?? 1;
+            $domainLimit = (int)$this->resolveDomainLimit($orderId, $productId)  ?: 1;
         }
 
         // Generate new license

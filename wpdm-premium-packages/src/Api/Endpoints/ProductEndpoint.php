@@ -704,7 +704,7 @@ class ProductEndpoint {
             $formatted[] = [
                 'id' => $id,
                 'name' => $type['name'] ?? $id,
-                'domain' => $type['domain'] ?? 0,
+                'domain' => (int) ($type['use'] ?? $type['domain'] ?? 0),
                 'validity' => $type['validity'] ?? 0,
             ];
         }
