@@ -531,7 +531,9 @@ class CheckoutEndpoint {
         } elseif ($gateway) {
             $result = $service->processPayment(strtolower($payment_method), [
                 'order_id' => $order_id,
-                'billing'  => $request->get_param('billing') ?: [],
+                // Gateways write this back to the order's billing_info, so pass the
+                // resolved details — checkout.js posts flat fields, not billing[].
+                'billing'  => $billingInfo,
             ]);
 
             // The gateway can fail to initiate payment (misconfigured success/

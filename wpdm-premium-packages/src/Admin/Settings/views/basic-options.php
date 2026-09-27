@@ -1097,6 +1097,11 @@ $countries = $wpdb->get_results("select * from {$wpdb->prefix}ahm_country order 
                 <div class="wpdmpp-toggle-option__info">
                     <h4 class="wpdmpp-toggle-option__label"><?php _e('Audio Preview', 'wpdm-premium-packages'); ?></h4>
                     <p class="wpdmpp-toggle-option__desc"><?php _e('Allow users to play MP3 files before purchase', 'wpdm-premium-packages'); ?></p>
+                    <p class="wpdmpp-toggle-option__desc">
+                        <?php _e('Play the first', 'wpdm-premium-packages'); ?>
+                        <input type="number" min="0" step="1" class="form-control" style="display: inline-block; width: 60px; padding: 2px 6px; height: 24px; font-size: 12px; margin: 0 4px;" name="_wpdmpp_settings[audio_preview_length]" value="<?php echo esc_attr(wpdmpp_audio_preview_length()); ?>">
+                        <?php _e('seconds of each track (0 plays the full track)', 'wpdm-premium-packages'); ?>
+                    </p>
                 </div>
                 <label class="wpdmpp-switch">
                     <input type="hidden" name="_wpdmpp_settings[audio_preview]" value="0">

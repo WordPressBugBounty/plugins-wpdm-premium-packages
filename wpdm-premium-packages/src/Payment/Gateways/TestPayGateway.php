@@ -143,11 +143,16 @@ class TestPayGateway extends AbstractGateway {
 
             // Update order with payment method
             $billingInfo = $orderData['billing'] ?? [];
-            $orderService->updateOrder([
+            $update = [
                 'payment_method' => 'TestPay',
                 'trans_id' => $transactionId,
-                'billing_info' => maybe_serialize($billingInfo),
-            ], $orderId);
+            ];
+            // Paying an existing order (renewal, pay now) passes no billing;
+            // keep what the order already holds rather than blanking it.
+            if (!empty($billingInfo)) {
+                $update['billing_info'] = maybe_serialize($billingInfo);
+            }
+            $orderService->updateOrder($update, $orderId);
 
             // Complete the order
             $orderService->completeOrder($orderId, true, 'TestPay');

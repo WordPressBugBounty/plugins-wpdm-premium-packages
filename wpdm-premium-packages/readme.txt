@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.2.4
+Stable tag: 7.2.6
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,16 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.6 - 2026.09.27 =
+* Fixed Audio Preview play buttons not playing MP3 files before purchase
+* New: Audio Preview length setting (default 30 seconds). Requires Download Manager 7.5.9+
+* Preview plays no longer count as downloads or toward download limits
+
+= 7.2.5 - 2026.09.27 =
+* Fixed billing details not being saved for orders placed through the checkout page with Test Payment, Cash, Cheque or any other redirect-based payment method. The order was created with the customer's name, email and address, but the payment step then overwrote them with an empty value, so the order showed no billing details, confirmation emails to guests failed with "You must provide at least one recipient email address", and guests could not look up their order on the Guest Order page. Custom code that copied the checkout fields into billing[] to work around this is no longer needed
+* Paying for an existing order (renewals and Pay Now) no longer clears the billing details already stored on it
+* The default Purchase Confirmation - Guest email now links to the Guest Order page with a Download button when Guest Download is enabled, instead of asking the guest to create an account. The template uses the {{guest_order_url}} tag, which you can also add to a customised version of this email. Sites that have already saved their own version of the template keep it unchanged
 
 = 7.2.4 - 2026.09.25 =
 * Fixed license keys being generated with a domain limit of 0, which the plugin treats as unlimited. The limit configured for each license type in the Premium Package settings was never applied when a key was created for an order, so a customer who bought a Standard license could activate the key on any number of sites. The license details saved with each order recorded a limit of 0 because they read a settings field that doesn't exist, and that 0 was then taken as a real value instead of falling back to the configured one. Keys are now created with the limit of the license type the customer purchased, and this applies to orders placed before the update too, since the configured limit is looked up when the key is generated

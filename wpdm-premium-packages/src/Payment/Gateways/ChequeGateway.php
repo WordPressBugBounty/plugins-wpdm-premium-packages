@@ -146,11 +146,16 @@ class ChequeGateway extends AbstractGateway {
 
             // Update order with payment method (order remains pending until cheque is received)
             $billingInfo = $orderData['billing'] ?? [];
-            $orderService->updateOrder([
+            $update = [
                 'payment_method' => 'Cheque',
                 'payment_status' => 'Pending',
-                'billing_info' => maybe_serialize($billingInfo),
-            ], $orderId);
+            ];
+            // Paying an existing order (renewal, pay now) passes no billing;
+            // keep what the order already holds rather than blanking it.
+            if (!empty($billingInfo)) {
+                $update['billing_info'] = maybe_serialize($billingInfo);
+            }
+            $orderService->updateOrder($update, $orderId);
 
             // Set session for guest orders
             Session::set('guest_order_init', uniqid(), 18000);

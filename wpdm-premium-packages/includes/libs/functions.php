@@ -1596,12 +1596,172 @@ function wpdmpp_validate_download( $package ) {
             return $package;
         }
 
+        if ( wpdmpp_is_audio_preview_request( $package ) ) {
+            // Serves the (time-limited) preview and exits. Returns only when the
+            // installed core can't cap the stream, leaving core to play it in full.
+            wpdmpp_stream_audio_preview( $package );
+            return $package;
+        }
+
         Messages::error( 'You do not have permission to download this file', 1 );
 
     }
 
     return $package;
 
+}
+
+/**
+ * Whether the request is an Audio Preview play of an unpurchased premium package.
+ *
+ * The play buttons in the premium file list link to the package's download URL
+ * with a short-lived _wpdmkey, forceplay=1 and ind=<file id>. Only let that
+ * through for an MP3 attached to the package: the download handler falls back
+ * to the first file (or the whole zip) when ind doesn't resolve, so an unknown
+ * or non-audio ind must not be allowed.
+ *
+ * @param array $package
+ *
+ * @return bool
+ */
+function wpdmpp_is_audio_preview_request( $package ) {
+    if ( get_wpdmpp_option( 'audio_preview', 0, 'int' ) !== 1 || (int) wpdm_query_var( 'forceplay', 'int' ) !== 1 ) {
+        return false;
+    }
+
+    $ind   = isset( $_GET['ind'] ) ? esc_attr( wp_unslash( $_GET['ind'] ) ) : '';
+    $files = isset( $package['files'] ) && is_array( $package['files'] ) ? $package['files'] : [];
+    if ( $ind === '' || ! isset( $files[ $ind ] ) ) {
+        return false;
+    }
+
+    $extension = strtolower( pathinfo( (string) $files[ $ind ], PATHINFO_EXTENSION ) );
+    if ( $extension !== 'mp3' ) {
+        return false;
+    }
+
+    return is_wpdmkey_valid( $package['ID'], wpdm_query_var( '_wpdmkey' ) ) === 1;
+}
+
+/**
+ * Seconds of each track an Audio Preview plays. 0 plays the full track.
+ *
+ * @return int
+ */
+function wpdmpp_audio_preview_length() {
+    $length = get_wpdmpp_option( 'audio_preview_length', 30 );
+
+    return $length === '' ? 30 : max( 0, (int) $length );
+}
+
+/**
+ * Number of bytes from the start of an MP3 that hold its first $seconds of audio.
+ *
+ * Proportional to the audio data between the leading tags and the end, which
+ * also holds for VBR files on average. 0 when the whole file should be served.
+ *
+ * @param string $path    Absolute file path
+ * @param int    $seconds Preview length
+ *
+ * @return int
+ */
+function wpdmpp_audio_preview_bytes( $path, $seconds ) {
+    $size = (int) @filesize( $path );
+    if ( $seconds <= 0 || $size <= 0 ) {
+        return 0;
+    }
+
+    // Analysing an MP3 reads its frames, so cache the result per file version
+    $cache_key = 'wpdmpp_apv_' . md5( $path . '|' . $size . '|' . @filemtime( $path ) );
+    $info      = get_transient( $cache_key );
+    if ( ! is_array( $info ) ) {
+        $info = [];
+        if ( ! class_exists( 'getID3', false ) ) {
+            require_once ABSPATH . WPINC . '/ID3/getid3.php';
+        }
+        try {
+            $analysis = ( new \getID3() )->analyze( $path );
+            $info     = [
+                'start'    => (int) ( $analysis['avdataoffset'] ?? 0 ),
+                'end'      => (int) ( $analysis['avdataend'] ?? $size ),
+                'playtime' => (float) ( $analysis['playtime_seconds'] ?? 0 ),
+            ];
+        } catch ( \Throwable $e ) {
+            $info = [];
+        }
+        set_transient( $cache_key, $info, MONTH_IN_SECONDS );
+    }
+
+    if ( ! empty( $info['playtime'] ) && $info['end'] > $info['start'] ) {
+        if ( $seconds >= $info['playtime'] ) {
+            return 0;
+        }
+        $bytes = $info['start'] + (int) ceil( ( $info['end'] - $info['start'] ) * $seconds / $info['playtime'] );
+    } else {
+        // Unreadable file: assume 320 kbps, the highest MP3 bitrate, so the
+        // preview is never shorter than configured
+        $bytes = (int) ( $info['start'] ?? 0 ) + $seconds * 40000;
+    }
+
+    return $bytes < $size ? $bytes : 0;
+}
+
+/**
+ * Stream an Audio Preview, cut to the configured length, and exit.
+ *
+ * A preview is not a download, so it is served here rather than by the core
+ * download handler: it isn't logged in the download history and doesn't count
+ * toward download limits.
+ *
+ * @param array $package
+ *
+ * @return void Returns only if the installed core can't limit the stream
+ */
+function wpdmpp_stream_audio_preview( $package ) {
+    $bytes = 0;
+    $ind   = esc_attr( wp_unslash( $_GET['ind'] ) );
+    $path  = WPDM()->fileSystem->absPath( $package['files'][ $ind ], $package['ID'] );
+
+    $statuses = apply_filters( 'wpdm_downloadable_post_status', [ 'publish', 'private' ], $package );
+    if ( ! $path || ! in_array( $package['post_status'] ?? '', $statuses, true ) ) {
+        status_header( 404 );
+        exit;
+    }
+
+    $seconds = wpdmpp_audio_preview_length();
+    if ( $seconds > 0 ) {
+        $bytes = wpdmpp_audio_preview_bytes( $path, $seconds );
+    }
+
+    $stream = new \WPDM\__\StreamMedia( $path );
+    if ( $bytes > 0 ) {
+        // Core before the StreamMedia::limit() addition can only serve the full file
+        if ( ! method_exists( $stream, 'limit' ) ) {
+            return;
+        }
+        $stream->limit( $bytes );
+    }
+    $stream->start();
+}
+
+/**
+ * Tell the player how long a premium track's preview is, so it shows the
+ * preview length rather than the full duration from the MP3 header.
+ *
+ * @param string       $button
+ * @param string       $song
+ * @param object|array $package
+ *
+ * @return string
+ */
+function wpdmpp_audio_preview_button( $button, $song, $package ) {
+    $id      = is_object( $package ) ? (int) ( $package->ID ?? 0 ) : (int) ( $package['ID'] ?? 0 );
+    $seconds = wpdmpp_audio_preview_length();
+    if ( $seconds <= 0 || ! $id || floatval( wpdmpp_effective_price( $id ) ) <= 0 ) {
+        return $button;
+    }
+
+    return preg_replace( '/^(\s*<(?:a|button)\b)/i', '$1 data-preview="' . $seconds . '"', $button, 1 );
 }
 
 function wpdmpp_download_order_note_attachment() {
@@ -1654,6 +1814,12 @@ function wpdmpp_email_template_tags( $tags ) {
 }
 
 function wpdmpp_email_templates( $templates ) {
+    // With guest download on, guests get their files from the guest order page;
+    // otherwise they need an account to reach the order.
+    $guest_access = get_wpdmpp_option( 'guest_download' ) == 1
+            ? 'You can access and download your purchased item(s) from the following link:<br/><a class="button green" style="display: block; text-align: center;" href="{{guest_order_url}}">Download</a>'
+            : 'You need to create an account to access your order and to get future updates.<br/>Please click on the following link to create your account:<br/><a class="button green" style="display: block; text-align: center;" href="{{order_url}}">Signup</a>If you already have account simply click the above url and login';
+
     $templates['purchase-confirmation-guest'] = array(
             'label'   => __( 'Purchase Confirmation - Guest', 'wpdmpro' ),
             'for'     => 'customer',
@@ -1662,7 +1828,7 @@ function wpdmpp_email_templates( $templates ) {
                     'subject'    => __( 'Thanks For Your Purchase', 'wpdmpro' ),
                     'from_name'  => get_option( 'blogname' ),
                     'from_email' => get_option( 'admin_email' ),
-                    'message'    => 'Hello ,<br/>Thanks for your order at [#sitename#].<br/>Your Order ID: [#orderid#]<br/>Purchased Items:<br/>[#items#]<br/>You need to create an account to access your order and to get future updates.<br/>Please click on the following link to create your account:<br/><a class="button green" style="display: block; text-align: center;" href="[#order_url#]">Signup</a>If you already have account simply click the above url and login<br/><br/>Best Regards,<br/>Sales Team<br/><b>[#sitename#]</b>'
+                    'message'    => 'Hello {{name}},<br/>Thanks for your order at {{sitename}}.<br/>Your Order ID: {{orderid}}<br/>Purchased Items:<br/>{{items}}<br/>' . $guest_access . '<br/><br/>Best Regards,<br/>Sales Team<br/><b>{{sitename}}</b>'
             )
     );
 

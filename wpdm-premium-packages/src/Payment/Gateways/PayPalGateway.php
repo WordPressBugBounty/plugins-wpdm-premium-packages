@@ -620,11 +620,16 @@ class PayPalGateway extends AbstractGateway {
             // Complete the order
             $orderService = OrderService::instance();
             $billingInfo = $orderData['billing'] ?? [];
-            $orderService->updateOrder([
+            $update = [
                 'payment_method' => 'PayPal',
                 'trans_id' => $capture['id'],
-                'billing_info' => maybe_serialize($billingInfo),
-            ], $orderId);
+            ];
+            // Paying an existing order (renewal, pay now) passes no billing;
+            // keep what the order already holds rather than blanking it.
+            if (!empty($billingInfo)) {
+                $update['billing_info'] = maybe_serialize($billingInfo);
+            }
+            $orderService->updateOrder($update, $orderId);
 
             $orderService->completeOrder($orderId, true, 'PayPal');
 
