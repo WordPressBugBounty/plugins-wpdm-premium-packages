@@ -1612,6 +1612,32 @@ function wpdmpp_validate_download( $package ) {
 }
 
 /**
+ * Whether a package file is attached by URL (Dropbox, S3 link, ...) rather
+ * than stored on this server.
+ *
+ * @param string $file File entry from the package's file list
+ *
+ * @return bool
+ */
+function wpdmpp_is_remote_file( $file ) {
+    return (bool) preg_match( '#^[a-z][a-z0-9+.-]*://#i', (string) $file );
+}
+
+/**
+ * Whether a package file can be played as an Audio Preview: an MP3, stored
+ * locally or attached by URL.
+ *
+ * @param string $file File entry from the package's file list
+ *
+ * @return bool
+ */
+function wpdmpp_is_audio_preview_file( $file ) {
+    $path = wpdmpp_is_remote_file( $file ) ? (string) wp_parse_url( $file, PHP_URL_PATH ) : (string) $file;
+
+    return strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) === 'mp3';
+}
+
+/**
  * Whether the request is an Audio Preview play of an unpurchased premium package.
  *
  * The play buttons in the premium file list link to the package's download URL
@@ -1635,8 +1661,7 @@ function wpdmpp_is_audio_preview_request( $package ) {
         return false;
     }
 
-    $extension = strtolower( pathinfo( (string) $files[ $ind ], PATHINFO_EXTENSION ) );
-    if ( $extension !== 'mp3' ) {
+    if ( ! wpdmpp_is_audio_preview_file( $files[ $ind ] ) ) {
         return false;
     }
 
@@ -1720,7 +1745,14 @@ function wpdmpp_audio_preview_bytes( $path, $seconds ) {
 function wpdmpp_stream_audio_preview( $package ) {
     $bytes = 0;
     $ind   = esc_attr( wp_unslash( $_GET['ind'] ) );
-    $path  = WPDM()->fileSystem->absPath( $package['files'][ $ind ], $package['ID'] );
+
+    // A file attached by URL can't be cut to the preview length here, so it
+    // plays in full: core redirects to its URL
+    if ( wpdmpp_is_remote_file( $package['files'][ $ind ] ) ) {
+        return;
+    }
+
+    $path = WPDM()->fileSystem->absPath( $package['files'][ $ind ], $package['ID'] );
 
     $statuses = apply_filters( 'wpdm_downloadable_post_status', [ 'publish', 'private' ], $package );
     if ( ! $path || ! in_array( $package['post_status'] ?? '', $statuses, true ) ) {
@@ -1751,13 +1783,26 @@ function wpdmpp_stream_audio_preview( $package ) {
  * @param string       $button
  * @param string       $song
  * @param object|array $package
+ * @param string|null  $file_id
  *
  * @return string
  */
-function wpdmpp_audio_preview_button( $button, $song, $package ) {
-    $id      = is_object( $package ) ? (int) ( $package->ID ?? 0 ) : (int) ( $package['ID'] ?? 0 );
+function wpdmpp_audio_preview_button( $button, $song, $package, $file_id = null ) {
+    $id = is_object( $package ) ? (int) ( $package->ID ?? 0 ) : (int) ( $package['ID'] ?? 0 );
+    if ( ! $id || floatval( wpdmpp_effective_price( $id ) ) <= 0 ) {
+        return $button;
+    }
+
+    // A file attached by URL plays in full; see wpdmpp_stream_audio_preview()
+    if ( $file_id !== null && $file_id !== 0 && $file_id !== '' ) {
+        $files = WPDM()->package->getFiles( $id );
+        if ( isset( $files[ $file_id ] ) && wpdmpp_is_remote_file( $files[ $file_id ] ) ) {
+            return $button;
+        }
+    }
+
     $seconds = wpdmpp_audio_preview_length();
-    if ( $seconds <= 0 || ! $id || floatval( wpdmpp_effective_price( $id ) ) <= 0 ) {
+    if ( $seconds <= 0 ) {
         return $button;
     }
 

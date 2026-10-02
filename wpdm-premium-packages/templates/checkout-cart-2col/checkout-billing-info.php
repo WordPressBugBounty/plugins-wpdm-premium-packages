@@ -20,11 +20,11 @@ if ( ! defined( 'ABSPATH' ) ) {
             <div class="controls row">
                 <div class="col-md-6">
                     <label class="control-label"><?php echo __("First Name", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
-                    <input id="f-name" value="<?php echo $billing['first_name']; ?>" name="billing[first_name]" required="required" type="text" placeholder="<?php echo __("First Name", "wpdm-premium-packages"); ?>" class="form-control">
+                    <input id="f-name" value="<?php echo esc_attr($billing['first_name']); ?>" name="billing[first_name]" required="required" type="text" placeholder="<?php echo __("First Name", "wpdm-premium-packages"); ?>" class="form-control">
                 </div>
                 <div class="col-md-6">
                     <label class="control-label"><?php echo __("Last Name", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
-                    <input id="l-name" value="<?php echo $billing['last_name']; ?>" name="billing[last_name]" type="text" required="required" placeholder="<?php echo __("Last Name", "wpdm-premium-packages"); ?>" class="form-control">
+                    <input id="l-name" value="<?php echo esc_attr($billing['last_name']); ?>" name="billing[last_name]" type="text" required="required" placeholder="<?php echo __("Last Name", "wpdm-premium-packages"); ?>" class="form-control">
                 </div>
             </div>
         </div>
@@ -32,7 +32,7 @@ if ( ! defined( 'ABSPATH' ) ) {
         <div class="form-group">
             <label class="control-label"><?php echo __("Company Name", "wpdm-premium-packages"); ?></label>
             <div class="controls">
-                <input id="address-line1" value="<?php echo $billing['company']; ?>" name="billing[company]" type="text" placeholder="<?php echo __("(Optional)", "wpdm-premium-packages"); ?>" class="form-control">
+                <input id="address-line1" value="<?php echo esc_attr($billing['company']); ?>" name="billing[company]" type="text" placeholder="<?php echo __("(Optional)", "wpdm-premium-packages"); ?>" class="form-control">
             </div>
         </div>
         <div class="form-group">
@@ -56,7 +56,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                     <label class="control-label"><?php echo __("State / Province", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
                     <div class="controls">
                         <select id="region" name="billing[state]" type="text" class="custom-select wpdm-custom-select form-control <?php echo wpdmpp_tax_active() ? 'calculate-tax' : ''; ?>"></select>
-                        <input id="region-txt" style="display:none;" name="billing[state]" value="<?php echo $billing['state']; ?>" type="text" placeholder="<?php echo __("state / province / region", "wpdm-premium-packages"); ?>" class="form-control <?php echo wpdmpp_tax_active() ? 'calculate-tax' : ''; ?>">
+                        <input id="region-txt" style="display:none;" name="billing[state]" value="<?php echo esc_attr($billing['state']); ?>" type="text" placeholder="<?php echo __("state / province / region", "wpdm-premium-packages"); ?>" class="form-control <?php echo wpdmpp_tax_active() ? 'calculate-tax' : ''; ?>">
                         <p class="help-block"></p>
                     </div>
                 </div>
@@ -67,7 +67,7 @@ if ( ! defined( 'ABSPATH' ) ) {
         <div class="form-group">
             <label class="control-label"><?php echo __("Address Line 1", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
             <div class="controls">
-                <input id="address-line1" name="billing[address_1]" value="<?php echo $billing['address_1']; ?>" type="text" required="required" placeholder="<?php echo __("address line 1", "wpdm-premium-packages"); ?>" class="form-control">
+                <input id="address-line1" name="billing[address_1]" value="<?php echo esc_attr($billing['address_1']); ?>" type="text" required="required" placeholder="<?php echo __("address line 1", "wpdm-premium-packages"); ?>" class="form-control">
 
             </div>
         </div>
@@ -75,7 +75,7 @@ if ( ! defined( 'ABSPATH' ) ) {
         <div class="form-group">
             <label class="control-label"><?php echo __("Address Line 2", "wpdm-premium-packages"); ?></label>
             <div class="controls">
-                <input id="address-line2" name="billing[address_2]" value="<?php echo $billing['address_2']; ?>" type="text" placeholder="<?php echo __("address line 2", "wpdm-premium-packages"); ?>" class="form-control">
+                <input id="address-line2" name="billing[address_2]" value="<?php echo esc_attr($billing['address_2']); ?>" type="text" placeholder="<?php echo __("address line 2", "wpdm-premium-packages"); ?>" class="form-control">
             </div>
         </div>
         <div class="form-group">
@@ -84,7 +84,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                 <div class="col-md-6">
                     <label class="control-label"><?php echo __("City / Town", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
                     <div class="controls">
-                        <input id="city" value="<?php echo $billing['city']; ?>" name="billing[city]" type="text" required="required" placeholder="<?php echo __("city", "wpdm-premium-packages"); ?>" class="form-control">
+                        <input id="city" value="<?php echo esc_attr($billing['city']); ?>" name="billing[city]" type="text" required="required" placeholder="<?php echo __("city", "wpdm-premium-packages"); ?>" class="form-control">
                         <p class="help-block"></p>
                     </div>
                 </div>
@@ -93,7 +93,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                 <div class="col-md-6">
                     <label class="control-label"><?php echo __("Zip / Postal Code", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
                     <div class="controls">
-                        <input id="postal-code" name="billing[postcode]" value="<?php echo $billing['postcode']; ?>" type="text" required="required" placeholder="<?php echo __("zip or postal code", "wpdm-premium-packages"); ?>" class="form-control">
+                        <input id="postal-code" name="billing[postcode]" value="<?php echo esc_attr($billing['postcode']); ?>" type="text" required="required" placeholder="<?php echo __("zip or postal code", "wpdm-premium-packages"); ?>" class="form-control">
                         <p class="help-block"></p>
                     </div>
                 </div>
@@ -104,11 +104,11 @@ if ( ! defined( 'ABSPATH' ) ) {
             <div class="row">
                 <div class="col-md-6">
                     <label><?php echo __("Phone", "wpdm-premium-packages"); ?></label>
-                    <input type="tel" value="<?php echo $billing['phone']; ?>" class="form-control" name="billing[phone]" id="phone_m" placeholder="<?php echo __("Valid Phone Number", "wpdm-premium-packages"); ?>">
+                    <input type="tel" value="<?php echo esc_attr($billing['phone']); ?>" class="form-control" name="billing[phone]" id="phone_m" placeholder="<?php echo __("Valid Phone Number", "wpdm-premium-packages"); ?>">
                 </div>
                 <div class="col-md-6">
                     <label><?php echo __("Enter Order Notification Email", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
-                    <input type="email" value="<?php echo $billing['email']; ?>" required="required" class="form-control" name="billing[order_email]" id="email_m" placeholder="<?php echo __("Enter Order Notification Email", "wpdm-premium-packages"); ?>">
+                    <input type="email" value="<?php echo esc_attr($billing['email']); ?>" required="required" class="form-control" name="billing[order_email]" id="email_m" placeholder="<?php echo __("Enter Order Notification Email", "wpdm-premium-packages"); ?>">
                 </div>
             </div>
         </div>

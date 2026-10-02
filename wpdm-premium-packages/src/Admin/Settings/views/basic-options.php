@@ -1605,8 +1605,8 @@ $countries = $wpdb->get_results("select * from {$wpdb->prefix}ahm_country order 
                             <span style="font-size: 12px; color: #64748b; margin-left: 12px;"><?php echo esc_html(size_format($log['size'])); ?></span>
                         </div>
                         <div>
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpdmpp-settings&action=view_log&file=' . urlencode($log['name']) . '&_wpnonce=' . wp_create_nonce('view_log'))); ?>" class="button button-small" style="margin-right: 4px;"><?php _e('View', 'wpdm-premium-packages'); ?></a>
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=wpdmpp-settings&action=download_log&file=' . urlencode($log['name']) . '&_wpnonce=' . wp_create_nonce('download_log'))); ?>" class="button button-small"><?php _e('Download', 'wpdm-premium-packages'); ?></a>
+                            <a href="<?php echo esc_url(admin_url('admin-ajax.php?action=wpdmpp_view_log&file=' . urlencode($log['name']) . '&_wpnonce=' . wp_create_nonce('wpdmpp_view_log'))); ?>" target="_blank" rel="noopener" class="button button-small" style="margin-right: 4px;"><?php _e('View', 'wpdm-premium-packages'); ?></a>
+                            <a href="<?php echo esc_url(admin_url('admin-ajax.php?action=wpdmpp_download_log&file=' . urlencode($log['name']) . '&_wpnonce=' . wp_create_nonce('wpdmpp_download_log'))); ?>" class="button button-small"><?php _e('Download', 'wpdm-premium-packages'); ?></a>
                         </div>
                     </div>
                     <?php endforeach; ?>

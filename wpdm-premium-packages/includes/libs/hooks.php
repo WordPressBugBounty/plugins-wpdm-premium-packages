@@ -69,7 +69,7 @@ if (!is_admin()) {
 }
 
 add_action('wpdm_onstart_download', 'wpdmpp_validate_download');
-add_filter('wpdm_audio_play_button', 'wpdmpp_audio_preview_button', 20, 3);
+add_filter('wpdm_audio_play_button', 'wpdmpp_audio_preview_button', 20, 4);
 
 
 add_action("wp_ajax_nopriv_update_guest_billing", "wpdmpp_update_guest_billing");

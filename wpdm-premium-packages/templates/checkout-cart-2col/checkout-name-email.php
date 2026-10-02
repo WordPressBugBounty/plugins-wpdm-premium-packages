@@ -20,17 +20,17 @@ if ( ! defined( 'ABSPATH' ) ) {
             <div class="controls row">
                 <div class="col-md-6">
                     <label class="control-label text-small"><?php echo __("First Name", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
-                    <input id="f-name" value="<?php echo isset($billing,$billing['first_name']) ? $billing['first_name'] : ''; ?>" name="billing[first_name]" required="required" type="text" placeholder="<?php echo __("First Name", "wpdm-premium-packages"); ?>" class="form-control">
+                    <input id="f-name" value="<?php echo isset($billing,$billing['first_name']) ? esc_attr($billing['first_name']) : ''; ?>" name="billing[first_name]" required="required" type="text" placeholder="<?php echo __("First Name", "wpdm-premium-packages"); ?>" class="form-control">
                 </div>
                 <div class="col-md-6">
                     <label class="control-label text-small"><?php echo __("Last Name", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
-                    <input id="l-name" value="<?php echo isset($billing,$billing['last_name']) ? $billing['last_name'] : ''; ?>" name="billing[last_name]" type="text" required="required" placeholder="<?php echo __("Last Name", "wpdm-premium-packages"); ?>" class="form-control">
+                    <input id="l-name" value="<?php echo isset($billing,$billing['last_name']) ? esc_attr($billing['last_name']) : ''; ?>" name="billing[last_name]" type="text" required="required" placeholder="<?php echo __("Last Name", "wpdm-premium-packages"); ?>" class="form-control">
                 </div>
             </div>
         </div>
         <div class="form-group mb-0">
             <label class="control-label text-small"><?php echo __("Order Notification Email", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
-            <input type="email" placeholder="To receive order confirmation mail" value="<?php echo isset($billing,$billing['email']) ? $billing['email'] : ''; ?>" required="required" class="form-control" name="billing[order_email]" id="email_m">
+            <input type="email" placeholder="To receive order confirmation mail" value="<?php echo isset($billing,$billing['email']) ? esc_attr($billing['email']) : ''; ?>" required="required" class="form-control" name="billing[order_email]" id="email_m">
         </div>
 
     </div>

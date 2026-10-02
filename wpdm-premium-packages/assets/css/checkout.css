@@ -409,6 +409,14 @@ select.wpdmpp-checkout__select {
     box-shadow: var(--checkout-shadow-lg);
 }
 
+/* Checkout button color from Settings > Button Settings, using the WPDM UI colors */
+.wpdmpp-checkout__submit--primary { background: var(--color-primary, #6366f1); }
+.wpdmpp-checkout__submit--secondary { background: var(--clr-sec, #64748b); }
+.wpdmpp-checkout__submit--info { background: var(--color-info, #0ea5e9); }
+.wpdmpp-checkout__submit--success { background: var(--color-success, #10b981); }
+.wpdmpp-checkout__submit--warning { background: var(--color-warning, #f59e0b); }
+.wpdmpp-checkout__submit--danger { background: var(--color-danger, #ef4444); }
+
 .wpdmpp-checkout__submit:disabled {
     opacity: 0.6;
     cursor: not-allowed;

@@ -117,6 +117,12 @@ if ($color_scheme === 'light') {
     $checkout_classes .= ' dark-mode';
 }
 
+// Checkout button color (Settings > Button Settings: btn-primary, btn-success, ...)
+$cobtn_color = str_replace('btn-', '', get_wpdmpp_option('cobtn_color', 'btn-success'));
+if (!in_array($cobtn_color, ['primary', 'secondary', 'info', 'success', 'warning', 'danger'], true)) {
+    $cobtn_color = 'success';
+}
+
 // Currency
 $currency = wpdmpp_currency_sign();
 $currency_code = wpdmpp_currency_code();
@@ -163,7 +169,7 @@ foreach ($cart_items as $_cid => $_citem) {
 }
 
 // Enqueue checkout assets (with cache buster for development)
-$asset_version = WPDMPP_VERSION . '.4';
+$asset_version = WPDMPP_VERSION . '.5';
 wp_enqueue_style('wpdmpp-checkout', WPDMPP_BASE_URL . 'assets/css/checkout.css', [], $asset_version);
 wp_enqueue_script('wpdmpp-checkout', WPDMPP_BASE_URL . 'assets/js/checkout.js', ['jquery'], $asset_version, true);
 
@@ -409,7 +415,7 @@ wp_localize_script('wpdmpp-checkout', 'wpdmppCheckout', [
 
             <!-- Action Buttons -->
             <div class="wpdmpp-checkout__actions" id="checkout-actions">
-                <button type="button" id="checkout-submit" class="wpdmpp-checkout__submit" <?php echo empty($payment_methods) ? 'disabled' : ''; ?>>
+                <button type="button" id="checkout-submit" class="wpdmpp-checkout__submit wpdmpp-checkout__submit--<?php echo esc_attr($cobtn_color); ?>" <?php echo empty($payment_methods) ? 'disabled' : ''; ?>>
                     <span class="wpdmpp-checkout__submit-text">
                         <?php echo esc_html(get_wpdmpp_option('cobtn_label', __('Complete Purchase', 'wpdm-premium-packages'))); ?>
                     </span>

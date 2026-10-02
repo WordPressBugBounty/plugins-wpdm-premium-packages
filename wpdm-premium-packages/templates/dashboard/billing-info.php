@@ -105,14 +105,14 @@ if ( ! defined( 'ABSPATH' ) ) {
                 <label class="control-label"><?php echo __("State / Province", "wpdm-premium-packages"); ?> <span class="required" title="<?php _e('Required', 'wpdm-premium-packages'); ?>">*</span></label>
                 <div class="controls">
                     <select id="region" name="checkout[billing][state]" type="text" class="custom-select wpdm-custom-select form-control <?php echo wpdmpp_tax_active() ? 'calculate-tax' : ''; ?>"></select>
-                    <input id="region-txt" style="display:none;" name="checkout[billing][state]" value="<?php echo $billing['state']; ?>" type="text" placeholder="<?php echo __("state / province / region", "wpdm-premium-packages"); ?>" class="form-control <?php echo wpdmpp_tax_active() ? 'calculate-tax' : ''; ?>">
+                    <input id="region-txt" style="display:none;" name="checkout[billing][state]" value="<?php if (isset($billing['state'])) echo esc_attr($billing['state']); ?>" type="text" placeholder="<?php echo __("state / province / region", "wpdm-premium-packages"); ?>" class="form-control <?php echo wpdmpp_tax_active() ? 'calculate-tax' : ''; ?>">
                     <p class="help-block"></p>
                 </div>
 
             </div>
             <div class="form-group col-md-6 ">
                 <label class="" for="billing_email"><?php _e("Email Address", "wpdm-premium-packages"); ?> <span class="wpdmpp-required">*</span></label>
-                <input type="text" value="<?php if (isset($billing['email'])) echo $billing['email']; ?>"
+                <input type="text" value="<?php if (isset($billing['email'])) echo esc_attr($billing['email']); ?>"
                        placeholder="<?php _e("Email Address", "wpdm-premium-packages"); ?>" id="billing_email" name="checkout[billing][email]"
                        class="input-text required email  form-control" required="required">
 
@@ -122,14 +122,14 @@ if ( ! defined( 'ABSPATH' ) ) {
         <div class="row row-fluid">
             <div class="form-group col-md-6 ">
                 <label class="" for="billing_phone"><?php _e("Phone", "wpdm-premium-packages"); ?></label>
-                <input type="text" value="<?php if (isset($billing['phone'])) echo $billing['phone']; ?>"
+                <input type="text" value="<?php if (isset($billing['phone'])) echo esc_attr($billing['phone']); ?>"
                        placeholder="<?php _e("Phone", "wpdm-premium-packages"); ?>" id="billing_phone" name="checkout[billing][phone]"
                        class="input-text form-control">
 
             </div>
             <div class="form-group col-md-6 ">
                 <label class="" for="billing_tin"><?php _e("Tax ID #", "wpdm-premium-packages"); ?></label>
-                <input type="text" value="<?php if (isset($billing['taxid'])) echo $billing['taxid']; ?>"
+                <input type="text" value="<?php if (isset($billing['taxid'])) echo esc_attr($billing['taxid']); ?>"
                        placeholder="<?php _e("Tax ID", "wpdm-premium-packages"); ?>" id="billing_tin" name="checkout[billing][taxid]"
                        class="form-control">
 

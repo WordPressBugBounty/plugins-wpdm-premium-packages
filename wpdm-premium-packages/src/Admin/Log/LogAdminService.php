@@ -80,28 +80,33 @@ class LogAdminService
     }
 
     /**
-     * View log file contents
+     * View the last 500 lines of a log file as plain text (opened in a new tab)
      */
     public function viewLog(): void
     {
-        check_ajax_referer('wpdmpp_view_log', '_wpnonce');
+        if (!wp_verify_nonce(wpdm_query_var('_wpnonce'), 'wpdmpp_view_log')) {
+            wp_die(__('Security check failed', 'wpdm-premium-packages'), 403);
+        }
 
         if (!current_user_can(WPDMPP_ADMIN_CAP)) {
-            wp_send_json_error(__('Permission denied', 'wpdm-premium-packages'), 403);
+            wp_die(__('Permission denied', 'wpdm-premium-packages'), 403);
         }
 
         $filename = wpdm_query_var('file', 'txt');
         if (empty($filename)) {
-            wp_send_json_error(__('No file specified', 'wpdm-premium-packages'));
+            wp_die(__('No file specified', 'wpdm-premium-packages'));
         }
 
         $contents = Logger::get_log_contents($filename, 500);
 
         if ($contents === false) {
-            wp_send_json_error(__('Log file not found', 'wpdm-premium-packages'));
+            wp_die(__('Log file not found', 'wpdm-premium-packages'));
         }
 
-        wp_send_json_success(['contents' => $contents]);
+        header('Content-Type: text/plain; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        echo $contents;
+        exit;
     }
 
     /**
