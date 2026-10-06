@@ -149,6 +149,10 @@ class OrderItem {
         if (is_string($license)) {
             $license = maybe_unserialize($license);
         }
+        // Older admin-added rows stored the bare license ID.
+        if (is_string($license) && trim($license) !== '') {
+            $license = ['id' => trim($license)];
+        }
         $this->license = is_array($license) ? $license : [];
 
         // Handle extra gigs - can be serialized string or array

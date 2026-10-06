@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.2.7
+Stable tag: 7.2.8
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,11 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.2.8 - 2026.10.06 =
+* Fixed "Invalid download link" for products added to an order from the admin order page, and removed products staying downloadable
+* Fixed changing an item's license on an order not changing the files the customer gets. Re-adding a product now replaces it instead of adding a duplicate
+* Orders edited this way before the update are repaired when opened in admin
 
 = 7.2.7 - 2026.10.02 =
 * Fixed the checkout button ignoring the color chosen in Button Settings

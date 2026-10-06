@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.2.7
+ * Version: 7.2.8
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.2.7' );
+	define( 'WPDMPP_VERSION', '7.2.8' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -653,7 +653,10 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				if ( ! $odata ) {
 					Messages::error( __( "&mdash; Invalid download link &mdash;", "wpdm-premium-packages" ), 1 );
 				}
-				$items = array_keys( $odata->getCartData() );
+				// Order items are what admins edit; cart data is the checkout snapshot and
+				// can lag behind them on orders edited before the snapshot was kept in sync.
+				// array_filter drops the 0 that older string-ID dynamic items are read as.
+				$items = array_filter( $odata->getProductIds() ) ?: array_keys( $odata->getCartData() );
 
 				$odata_uid = $odata->getUserId();
 
@@ -690,7 +693,11 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 				if ( count( $cfiles ) === 0 ) {
 					$all_licenses = wpdmpp_get_licenses();
 					$starter      = array_keys( $all_licenses )[0];
-					$_license     = wpdm_valueof( $cart, "{$PID}/license/id" );
+					$order_item   = $odata->getItem( $PID );
+					$_license     = $order_item ? wpdm_valueof( $order_item->getLicense(), 'id' ) : '';
+					if ( ! $_license ) {
+						$_license = wpdm_valueof( $cart, "{$PID}/license/id" );
+					}
 					if ( ! $_license ) {
 						$_license = $starter;
 					}

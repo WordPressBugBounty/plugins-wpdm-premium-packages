@@ -1201,6 +1201,89 @@ class OrderService {
     }
 
     /**
+     * Rebuild the order's `items` and `cart_data` columns from its order item rows
+     *
+     * Admins edit the order item rows, but download access, the customer's order
+     * page and "order again" read the cart snapshot stored on the order. Entries
+     * whose product and license are unchanged keep their purchase-time data
+     * (selected files, gigs, extras); new or re-licensed items are rebuilt from
+     * their row, and removed items are dropped.
+     *
+     * @param string $orderId    Order ID
+     * @param bool   $allowEmpty Clear the snapshot when the order has no item rows.
+     *                           Off by default so legacy orders that predate the
+     *                           order items table keep their cart data.
+     * @return bool True when the snapshot matches the item rows
+     */
+    public function syncCartDataFromItems(string $orderId, bool $allowEmpty = false): bool {
+        $order = $this->getRawOrder($orderId);
+        if (!$order) {
+            return false;
+        }
+
+        $rows = $this->getOrderItemsAsArrays($order->order_id);
+        if (empty($rows) && !$allowEmpty) {
+            return false;
+        }
+
+        $cartData = maybe_unserialize($order->cart_data);
+        $cartData = is_array($cartData) ? $cartData : [];
+
+        $synced = [];
+        foreach ($rows as $row) {
+            // Older dynamic items use string IDs such as "DP_1666828538".
+            $pid = is_numeric($row['pid']) ? (int) $row['pid'] : (string) $row['pid'];
+
+            $license = maybe_unserialize($row['license'] ?? '');
+            if (!is_array($license)) {
+                // Older admin-added rows stored the bare license ID.
+                $licenseId = is_string($license) ? trim($license) : '';
+                $license = $licenseId !== ''
+                    ? ((new \WPDMPP\Product\Product((int) $pid))->getLicenseInfo($licenseId) ?: ['id' => $licenseId])
+                    : [];
+            }
+
+            $entry = $cartData[$pid] ?? null;
+            if (is_array($entry) && (string) wpdm_valueof($entry, 'license/id') === (string) ($license['id'] ?? '')) {
+                $synced[$pid] = $entry;
+                continue;
+            }
+
+            $extraGigs = maybe_unserialize($row['extra_gigs'] ?? '');
+            $synced[$pid] = [
+                'pid' => $pid,
+                'product_id' => $pid,
+                'product_name' => $row['product_name'] ?: (is_int($pid) ? get_the_title($pid) : ''),
+                'product_type' => $row['product_type'] ?? '',
+                'quantity' => max(1, (int) $row['quantity']),
+                'price' => (float) $row['price'],
+                'license' => $license,
+                'extra_gigs' => is_array($extraGigs) ? $extraGigs : [],
+                'files' => [],
+                'role_discount' => (float) ($row['role_discount'] ?? 0),
+                'coupon' => (string) ($row['coupon'] ?? ''),
+                'coupon_discount' => (float) ($row['coupon_discount'] ?? 0),
+            ];
+        }
+
+        $productIds = array_keys($synced);
+        $currentIds = maybe_unserialize($order->items);
+        $currentIds = is_array($currentIds) ? array_map('strval', $currentIds) : [];
+        $sortedIds = array_map('strval', $productIds);
+        sort($currentIds);
+        sort($sortedIds);
+
+        if ($synced == $cartData && $currentIds === $sortedIds) {
+            return true;
+        }
+
+        return $this->updateOrder([
+            'items' => serialize($productIds),
+            'cart_data' => serialize($synced),
+        ], $order->order_id);
+    }
+
+    /**
      * Save order items from cart data
      *
      * Replaces all order items with new cart data.

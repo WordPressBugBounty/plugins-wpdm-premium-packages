@@ -13,6 +13,7 @@ namespace WPDMPP\Admin\Order;
 use WPDM\__\__;
 use WPDMPP\Admin\HasViews;
 use WPDMPP\Order\OrderService;
+use WPDMPP\Product\Product;
 
 
 defined('ABSPATH') || exit;
@@ -405,32 +406,61 @@ class OrderAdminService
 
     /**
      * Edit order (add/remove product)
+     *
+     * Re-adding a product that is already on the order replaces its row, which is
+     * how an item's license is changed.
      */
     public function editOrder(): void
     {
         __::isAuthentic('__eononce', WPDM_PRI_NONCE, WPDM_ADMIN_CAP);
 
         global $wpdb;
-        $orderId = wpdm_query_var('order');
+        $orderService = OrderService::instance();
+        $order = $orderService->getOrder(wpdm_query_var('order', 'txt'));
+        $pid = wpdm_query_var('product', 'int');
+
+        if (!$order || !$pid) {
+            wp_send_json(['success' => false, 'message' => esc_html__('Order or product not found.', 'wpdm-premium-packages')]);
+        }
+
+        $orderId = $order->getOrderId();
 
         if (wpdm_query_var('task') === 'add_product') {
-            $pid = wpdm_query_var('product', 'int');
-            $license = wpdm_query_var('license', 'txt');
-            $price = (float) get_post_meta($pid, '__wpdm_base_price', true);
+            $licenseId = wpdm_query_var('license', 'txt');
+            $product = new Product($pid);
+            $license = $licenseId !== '' ? ($product->getLicenseInfo($licenseId) ?: ['id' => $licenseId]) : [];
+            $time = $order->getDate() ?: time();
+
+            $wpdb->delete("{$wpdb->prefix}ahm_order_items", ['oid' => $orderId, 'pid' => $pid]);
             $wpdb->insert("{$wpdb->prefix}ahm_order_items", [
                 'oid' => $orderId,
                 'pid' => $pid,
-                'price' => $price,
+                'product_type' => 'standard',
+                'product_name' => get_the_title($pid),
+                'license' => serialize($license),
                 'quantity' => 1,
-                'license' => $license,
-                'date' => time(),
+                'price' => $product->getEffectivePrice($licenseId),
+                'extra_gigs' => serialize([]),
+                'coupon' => '',
+                'coupon_discount' => 0,
+                'role_discount' => 0,
+                'site_commission' => 0,
+                'date' => wp_date('Y-m-d H:i:s', $time),
+                'year' => wp_date('Y', $time),
+                'month' => wp_date('m', $time),
+                'day' => wp_date('d', $time),
+                'sid' => (int) get_post_field('post_author', $pid),
+                'cid' => $order->getUserId(),
             ]);
         }
 
         if (wpdm_query_var('task') === 'remove_product') {
-            $pid = wpdm_query_var('product', 'int');
             $wpdb->delete("{$wpdb->prefix}ahm_order_items", ['oid' => $orderId, 'pid' => $pid]);
         }
+
+        // Download access and the customer's order page read the order's cart
+        // snapshot, so it has to follow the item rows.
+        $orderService->syncCartDataFromItems($orderId, true);
 
         wp_send_json(['success' => true]);
     }
@@ -645,6 +675,13 @@ class OrderAdminService
         }
         // Bulk delete (selected orders) and delete-by-payment-status are now handled
         // asynchronously via the wp_ajax_wpdmpp_delete_orders endpoint (deleteOrders()).
+
+        // Orders whose items were edited before edits synced the cart snapshot still
+        // carry the old products there; opening the order repairs it.
+        if (wpdm_query_var('task') === 'vieworder' && is_string($order_id) && $order_id !== ''
+            && current_user_can(WPDMPP_ADMIN_CAP)) {
+            $orderObj->syncCartDataFromItems($order_id);
+        }
 
         // Include the orders template
         $this->includeView('orders', compact('orderObj', 'l', 'currency_sign', 'p', 's', 'order_id', 'msg'));
