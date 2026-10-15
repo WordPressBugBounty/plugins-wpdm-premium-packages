@@ -681,6 +681,43 @@ class OrderService {
     }
 
     /**
+     * Allowed HTML tags/attributes for order notes.
+     *
+     * Deliberately excludes every event-handler attribute (onerror, onload, ...)
+     * so a note can never carry executable script. wp_kses also enforces a safe
+     * protocol list on href/src, blocking javascript: URLs.
+     *
+     * @return array
+     */
+    public static function allowedNoteHtml(): array {
+        return [
+            'a'      => ['href' => true, 'target' => true, 'rel' => true, 'title' => true],
+            'strong' => [],
+            'b'      => [],
+            'em'     => [],
+            'i'      => [],
+            'br'     => [],
+            'img'    => ['src' => true, 'alt' => true, 'width' => true, 'height' => true, 'title' => true],
+        ];
+    }
+
+    /**
+     * Sanitize an order note for safe storage and output.
+     *
+     * stripcslashes() runs FIRST so a backslash/hex-escaped tag such as
+     * \x3cimg src=x onerror=...\x3e is decoded back into real markup BEFORE
+     * sanitization, and wp_kses() then runs as the final, attribute-aware step
+     * that strips event handlers and unsafe protocols. This closes the stored
+     * XSS where the old strip_tags() allow-list preserved <img ... onerror>.
+     *
+     * @param string $note Raw note content.
+     * @return string Sanitized HTML safe to store and echo.
+     */
+    public static function sanitizeNoteHtml(string $note): string {
+        return wp_kses(stripcslashes($note), self::allowedNoteHtml());
+    }
+
+    /**
      * Add a note to an order
      *
      * Stores the note directly in the order_notes DB column under messages[$timestamp].
@@ -699,6 +736,11 @@ class OrderService {
      */
     public function addNote(string $orderId, string $note, array $options = []) {
         global $wpdb;
+
+        // Sanitize once at the single funnel every note path (REST user/admin +
+        // legacy AJAX) passes through, so the dangerous escaped form is never
+        // stored and the render paths receive already-safe HTML.
+        $note = self::sanitizeNoteHtml($note);
 
         $data = ['note' => $note];
 

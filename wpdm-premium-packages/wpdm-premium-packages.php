@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.2.8
+ * Version: 7.3.0
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -36,7 +36,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.2.8' );
+	define( 'WPDMPP_VERSION', '7.3.0' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -123,6 +123,9 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			// Metabox hooks are now handled by MetaboxService in the new architecture
 			// Settings hooks are now handled by SettingsService in the new architecture
 			// Both services register themselves when Plugin::init() is called
+
+			// AI abilities: Download Manager 7.6+ applies this filter on WordPress 6.9+ only.
+			add_filter( 'wpdm_ability_groups', [ \WPDMPP\Abilities\Commerce::class, 'addGroup' ] );
 
 			add_action( 'wpdm_template_editor_menu', [ $this, 'template_editor_menu' ] );
 

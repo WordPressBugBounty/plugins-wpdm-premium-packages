@@ -618,7 +618,7 @@ class OrderAdminService
         ?>
         <div class="panel panel-default card mb-3">
             <div class="panel-body card-body">
-                <?php $noteHtml = wpautop(strip_tags(stripcslashes($data['note']), "<a><strong><b><img>"));
+                <?php $noteHtml = wpautop(OrderService::sanitizeNoteHtml($data['note']));
                 echo preg_replace('/((http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?)/', '<a target="_blank" href="\1">\1</a>', $noteHtml); ?>
             </div>
             <?php if (isset($data['file']) && is_array($data['file'])) { ?>

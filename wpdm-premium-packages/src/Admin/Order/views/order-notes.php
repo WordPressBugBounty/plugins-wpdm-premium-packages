@@ -25,7 +25,7 @@ if(isset($order_notes['messages'])){
             <div class="panel-body">
                 <?php
 
-                $note = wpautop(strip_tags(stripcslashes($order_note['note']),"<a><strong><b><img><br><em><i>")); echo preg_replace('/[\s]+((http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?)/', '<a target="_blank" href="\1">\1</a>', $note); ?>
+                $note = wpautop(\WPDMPP\Order\OrderService::sanitizeNoteHtml($order_note['note'])); echo preg_replace('/[\s]+((http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?)/', '<a target="_blank" href="\1">\1</a>', $note); ?>
 
             </div>
             <?php if(isset($order_note['file']) && is_array($order_note['file'])){ ?>

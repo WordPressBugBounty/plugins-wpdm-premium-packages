@@ -506,6 +506,10 @@ class CustomerService
 
         $orders = $this->getCustomerOrders($userId);
         $completedOrders = array_filter($orders, function ($order) {
+            // getUserOrders() returns Order entities, whose status is private.
+            if ($order instanceof \WPDMPP\Order\Order) {
+                return $order->getOrderStatus() === 'Completed';
+            }
             if (is_object($order)) {
                 return ($order->order_status ?? '') === 'Completed';
             }

@@ -498,7 +498,7 @@ do_action('wpdmpp_order_details_after_subscription', $order);
     ?>
     <div class="wpdmpp-od__note">
         <div class="wpdmpp-od__note-body">
-            <?php echo strip_tags(wpautop(stripslashes_deep($order_note['note'])), "<a><strong><b><img><br><p>"); ?>
+            <?php echo wpautop(\WPDMPP\Order\OrderService::sanitizeNoteHtml($order_note['note'])); ?>
         </div>
         <?php if (isset($order_note['file']) && is_array($order_note['file'])) : ?>
         <div class="wpdmpp-od__note-attachments">

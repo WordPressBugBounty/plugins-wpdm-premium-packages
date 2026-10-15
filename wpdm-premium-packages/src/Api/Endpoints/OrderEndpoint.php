@@ -537,7 +537,7 @@ class OrderEndpoint {
         ?>
         <div class="wpdmpp-od__note">
             <div class="wpdmpp-od__note-body">
-                <?php echo strip_tags(wpautop(stripslashes_deep($data['note'])), "<a><strong><b><img><br><p>"); ?>
+                <?php echo wpautop(OrderService::sanitizeNoteHtml($data['note'])); ?>
             </div>
             <?php if (isset($data['file']) && is_array($data['file'])) : ?>
             <div class="wpdmpp-od__note-attachments">
@@ -766,7 +766,7 @@ class OrderEndpoint {
         <div class="panel panel-default card mb-3">
             <div class="panel-body card-body">
                 <?php
-                $noteHtml = wpautop(strip_tags(stripcslashes($data['note']), '<a><strong><b><img>'));
+                $noteHtml = wpautop(OrderService::sanitizeNoteHtml($data['note']));
                 echo preg_replace('/((http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?)/', '<a target="_blank" href="\1">\1</a>', $noteHtml);
                 ?>
             </div>
