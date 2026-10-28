@@ -14,24 +14,18 @@ use WPDMPP\Coupon\CouponService;
 
 /**
  * @usage Shows a requested cart. Hooked to 'wp_loaded'
+ *
+ * Only loads a cart saved by the same user or browser, see CartService::readSavedCart().
  */
 function wpdmpp_load_saved_cart(){
     if( isset( $_REQUEST['savedcart'] ) ) {
-        $cartid = sanitize_text_field($_REQUEST['savedcart']);
-        $cartfile = WPDM_CACHE_DIR.'/saved-cart-'.$cartid.'.txt';
-        $saved_cart_data = '';
-
-        if(file_exists($cartfile)) $saved_cart_data = file_get_contents($cartfile);
-        $saved_cart_data = \WPDM\__\Crypt::decrypt($saved_cart_data, true);
+        $cartid = sanitize_text_field( wp_unslash( $_REQUEST['savedcart'] ) );
+        $saved_cart_data = \WPDMPP\Cart\CartService::instance()->readSavedCart( $cartid );
 
         $coupon_data = null;
-        if(is_array($saved_cart_data) && count($saved_cart_data) > 0) {
-            //wpdmdd($saved_cart_data);
-            if(isset($saved_cart_data['cartitems'])){
-                $coupon_data = $saved_cart_data['coupon'];
-                $saved_cart_data = $saved_cart_data['cartitems'];
-
-            }
+        if( $saved_cart_data ) {
+            $coupon_data = $saved_cart_data['coupon'] ?? null;
+            $saved_cart_data = $saved_cart_data['cartitems'];
             wpdmpp_update_cart_data($saved_cart_data);
 
             if($coupon_data){

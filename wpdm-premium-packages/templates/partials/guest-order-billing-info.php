@@ -9,10 +9,9 @@
  *
  * This template can be overridden by copying it to yourtheme/download-manager/partials/guest-order-billing-info.php.
  *
- * @version     2.0.0
+ * @version     2.1.0
  */
 
-use WPDM\__\Crypt;
 use WPDM\__\Session;
 
 if (!defined('ABSPATH')) {
@@ -58,7 +57,7 @@ $tax_class         = wpdmpp_tax_active() ? 'calculate-tax' : '';
 
 <script type="text/template" id="wpdmpp-billing-tpl">
     <form id="billing-info-form" method="post">
-        <input type="hidden" name="oid" value="<?php echo Crypt::encrypt( Session::get('guest_order')); ?>" />
+        <input type="hidden" name="oid" value="<?php echo esc_attr( \WPDMPP\Order\GuestOrderAccess::token( (string) Session::get('guest_order'), 'guest-billing' ) ); ?>" />
         <div class="wpdmpp-billing-fields p-3">
             <!-- name -->
             <div class="form-group">
@@ -191,6 +190,10 @@ $tax_class         = wpdmpp_tax_active() ? 'calculate-tax' : '';
                     WPDM.unblockUI('#billing-info-form');
                     WPDM.notify(`<?php echo \WPDMPP\UI\Icons::get('check-double', 16); ?> ${res}`, 'success', 'top-center', 7000);
                     closeBillingDialog();
+                },
+                error: function () {
+                    WPDM.unblockUI('#billing-info-form');
+                    WPDM.notify('<?php echo esc_js( __( 'Billing info was not saved. Look the order up again and retry.', 'wpdm-premium-packages' ) ); ?>', 'danger', 'top-center', 7000);
                 }
             });
             return false;

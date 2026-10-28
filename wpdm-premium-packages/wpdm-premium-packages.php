@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.3.0
+ * Version: 7.3.1
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -22,6 +22,7 @@ use WPDM\__\Session;
 use WPDM\Package\FileList;
 use WPDMPP\Libs\Cart;
 use WPDMPP\Libs\Withdraws;
+use WPDMPP\Order\GuestOrderAccess;
 use WPDMPP\Order\OrderService;
 use WPDMPP\Payment\PaymentService;
 
@@ -36,7 +37,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.3.0' );
+	define( 'WPDMPP_VERSION', '7.3.1' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -1470,18 +1471,36 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		}
 
 		/**
+		 * The guest order a login or signup form asks to link, if this session owns it.
+		 *
+		 * The form's invoice field is only a request. The order is linked only when this
+		 * browser completed it or looked it up with its email (the guest_order session).
+		 *
+		 * @return \WPDMPP\Order\Order|null
+		 */
+		private function invoice_to_associate() {
+			if ( empty( $_POST['invoice'] ) || ! is_string( $_POST['invoice'] ) ) {
+				return null;
+			}
+			$order = OrderService::instance()->getOrder( sanitize_text_field( wp_unslash( $_POST['invoice'] ) ) );
+			if ( ! $order || $order->getUserId() !== 0 || ! GuestOrderAccess::sessionOwns( $order->getOrderId() ) ) {
+				return null;
+			}
+
+			return $order;
+		}
+
+		/**
 		 * Link Guest Order when user logging in
 		 *
 		 * @param $user_login
 		 * @param $user
 		 */
 		function wpdmpp_associate_invoice( $user_login, $user ) {
-			if ( isset( $_POST['invoice'] ) ) {
-				$orderdata = OrderService::instance()->getOrder( sanitize_text_field( $_POST['invoice'] ) );
-				if ( $orderdata && intval( $orderdata->getUserId() ) == 0 ) {
-					OrderService::instance()->updateOrder( array( 'uid' => $user->ID ), sanitize_text_field( $_POST['invoice'] ) );
-					do_action("wpdm_associate_invoice", $user->ID, $orderdata);
-				}
+			$orderdata = $this->invoice_to_associate();
+			if ( $orderdata ) {
+				OrderService::instance()->updateOrder( array( 'uid' => $user->ID ), $orderdata->getOrderId() );
+				do_action("wpdm_associate_invoice", $user->ID, $orderdata);
 			}
 		}
 
@@ -1491,32 +1510,50 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 		 * @param $user_id
 		 */
 		function wpdmpp_associate_invoice_signup( $user_id ) {
-			if ( isset( $_POST['invoice'] ) ) {
-				$orderdata = OrderService::instance()->getOrder( sanitize_text_field( $_POST['invoice'] ) );
-				if ( $orderdata && intval( $orderdata->getUserId() ) == 0 ) {
-					OrderService::instance()->updateOrder( array( 'uid' => $user_id ), sanitize_text_field( $_POST['invoice'] ) );
-					\WPDMPP\Customer\CustomerService::getInstance()->addCustomer( $user_id );
-					do_action("wpdm_associate_invoice", $user_id, $orderdata);
-				}
+			$orderdata = $this->invoice_to_associate();
+			if ( $orderdata ) {
+				OrderService::instance()->updateOrder( array( 'uid' => $user_id ), $orderdata->getOrderId() );
+				\WPDMPP\Customer\CustomerService::getInstance()->addCustomer( $user_id );
+				do_action("wpdm_associate_invoice", $user_id, $orderdata);
 			}
 		}
 
 		/**
 		 * Resolve unassigned Order
+		 *
+		 * Links a guest order to the signed-in account. The user must prove they placed
+		 * it: by giving the order email, or from the session that completed or looked
+		 * up the order. The order ID alone is not enough.
 		 */
 		function wpdmpp_resolveorder() {
+			if ( ! check_ajax_referer( 'wpdmpp_resolve_order', '__wpdmpp_resolve_nonce', false ) ) {
+				wp_send_json_error( array( 'message' => __( 'Your session has expired. Reload the page and try again.', 'wpdm-premium-packages' ) ) );
+			}
+
+			$rate_limit = \WPDMPP\Security\RateLimiter::check( 'resolve_order', 5, 900 );
+			if ( $rate_limit['limited'] ) {
+				wp_send_json_error( array( 'message' => sprintf(
+					/* translators: %d: minutes to wait */
+					__( 'Too many attempts. Try again in %d minutes.', 'wpdm-premium-packages' ),
+					max( 1, (int) ceil( $rate_limit['retry_after'] / 60 ) )
+				) ) );
+			}
+
 			$current_user = wp_get_current_user();
-			$data         = OrderService::instance()->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
-			if ( ! $data ) {
-				wp_send_json_error( array( 'message' => __( 'Order not found!', 'wpdm-premium-packages' ) ) );
+			$order_id     = isset( $_REQUEST['orderid'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['orderid'] ) ) : '';
+			$order_email  = isset( $_REQUEST['order_email'] ) ? sanitize_email( wp_unslash( $_REQUEST['order_email'] ) ) : '';
+			$data         = $order_id !== '' ? OrderService::instance()->getOrder( $order_id ) : null;
+
+			if ( $data && $data->getUserId() === (int) $current_user->ID ) {
+				wp_send_json_error( array( 'message' => __( 'The order is already linked to your account!', 'wpdm-premium-packages' ) ) );
 			}
-			if ( $data->getUserId() != 0 ) {
-				if ( $data->getUserId() == $current_user->ID ) {
-					wp_send_json_error( array( 'message' => __( 'The order is already linked to your account!', 'wpdm-premium-packages' ) ) );
-				} else {
-					wp_send_json_error( array( 'message' => __( 'The order is already linked to an account!', 'wpdm-premium-packages' ) ) );
-				}
+
+			// Unknown orders, orders of other accounts and a wrong email all get the same answer.
+			if ( ! $data || ! GuestOrderAccess::canClaim( $data, $order_email ) ) {
+				wp_send_json_error( array( 'message' => __( 'No unlinked order matches this order ID and email.', 'wpdm-premium-packages' ) ) );
 			}
+
+			\WPDMPP\Security\RateLimiter::clear( 'resolve_order' );
 			OrderService::instance()->updateOrder( array( 'uid' => $current_user->ID ), $data->getOrderId() );
 			\WPDMPP\Customer\CustomerService::getInstance()->addCustomer( $current_user->ID );
 			wp_send_json_success( array( 'message' => __( 'Order linked successfully!', 'wpdm-premium-packages' ) ) );

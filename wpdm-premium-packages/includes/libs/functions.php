@@ -1271,8 +1271,24 @@ function wpdmpp_delete_frontend_order() {
 
 /**
  * Update Guest Billing Info
+ *
+ * Only the session that holds the guest order (it completed checkout or looked the
+ * order up with its email) may change its billing info. The posted order reference
+ * must match that session's order.
  */
 function wpdmpp_update_guest_billing() {
+    $token = wpdm_query_var( 'oid' );
+    $token = is_string( $token ) ? $token : '';
+    $oid   = \WPDMPP\Order\GuestOrderAccess::tokenOrderId( $token, 'guest-billing' );
+    if ( $oid === '' ) {
+        // Billing templates overridden in a theme before 7.3.1 post the bare encrypted order ID
+        $legacy = \WPDM\__\Crypt::decrypt( $token );
+        $oid    = is_string( $legacy ) ? $legacy : '';
+    }
+    if ( ! \WPDMPP\Order\GuestOrderAccess::sessionOwns( $oid ) ) {
+        wp_die( esc_html__( 'You can only edit the billing info of your own order. Look the order up again and retry.', 'wpdm-premium-packages' ), '', array( 'response' => 403 ) );
+    }
+
     $billinginfo  = array
     (
             'first_name'  => '',
@@ -1300,7 +1316,6 @@ function wpdmpp_update_guest_billing() {
         $billinginfo[ $email_field ] = is_email( $clean_email ) ? $clean_email : '';
     }
 
-    $oid          = \WPDM\__\Crypt::decrypt( wpdm_query_var( 'oid' ) );
     \WPDMPP\Order\OrderService::instance()->updateOrder( array( 'billing_info' => maybe_serialize( $billinginfo ) ), $oid );
     wp_die( esc_html__( 'Billing info saved successfully!', 'wpdm-premium-packages' ) );
 }

@@ -655,6 +655,8 @@ class CartService {
     /**
      * Save cart to file for later retrieval
      *
+     * The cart is bound to the user and browser that saved it, see readSavedCart().
+     *
      * @return string|false Saved cart ID or false on failure
      */
     public function saveCartToFile() {
@@ -667,6 +669,7 @@ class CartService {
         $cartInfo = [
             'cartitems' => $cart->toLegacy(),
             'coupon' => $cart->getCoupon(),
+            'owner' => self::savedCartOwner(),
         ];
 
         if (!class_exists('\WPDM\__\Crypt')) {
@@ -674,7 +677,7 @@ class CartService {
         }
 
         $encrypted = \WPDM\__\Crypt::encrypt($cartInfo);
-        $id = uniqid();
+        $id = wp_generate_password(32, false);
 
         if (!defined('WPDM_CACHE_DIR')) {
             return false;
@@ -696,24 +699,13 @@ class CartService {
      * @return bool
      */
     public function loadSavedCart(string $savedCartId): bool {
-        if (!defined('WPDM_CACHE_DIR') || !class_exists('\WPDM\__\Crypt')) {
+        $savedCartData = $this->readSavedCart($savedCartId);
+
+        if ($savedCartData === null) {
             return false;
         }
 
-        $cartFile = WPDM_CACHE_DIR . 'saved-cart-' . $savedCartId . '.txt';
-
-        if (!file_exists($cartFile)) {
-            return false;
-        }
-
-        $encrypted = file_get_contents($cartFile);
-        $savedCartData = \WPDM\__\Crypt::decrypt($encrypted, true);
-
-        if (!is_array($savedCartData) || empty($savedCartData)) {
-            return false;
-        }
-
-        $cartItems = $savedCartData['cartitems'] ?? $savedCartData;
+        $cartItems = $savedCartData['cartitems'];
         $couponData = $savedCartData['coupon'] ?? null;
 
         $cart = Cart::fromLegacy($cartItems, $this->getCartId());
@@ -731,6 +723,53 @@ class CartService {
         $this->saveCart($cart);
 
         return true;
+    }
+
+    /**
+     * Read a saved cart, if the current visitor saved it.
+     *
+     * A saved cart holds the shopper's items and any custom field data they
+     * entered, so it is only returned to the user or browser that saved it.
+     * Carts saved before 7.3.1 have no owner and are not returned.
+     *
+     * @since 7.3.1
+     *
+     * @param string $savedCartId Saved cart ID.
+     * @return array|null ['cartitems' => array, 'coupon' => array|null, 'owner' => array], or null.
+     */
+    public function readSavedCart(string $savedCartId): ?array {
+        if (!preg_match('/^[A-Za-z0-9]{8,64}$/', $savedCartId) || !defined('WPDM_CACHE_DIR') || !class_exists('\WPDM\__\Crypt')) {
+            return null;
+        }
+
+        $cartFile = WPDM_CACHE_DIR . 'saved-cart-' . $savedCartId . '.txt';
+        if (!is_file($cartFile)) {
+            return null;
+        }
+
+        $data = \WPDM\__\Crypt::decrypt((string) file_get_contents($cartFile), true);
+        if (!is_array($data) || !is_array($data['cartitems'] ?? null) || !is_array($data['owner'] ?? null)) {
+            return null;
+        }
+
+        $owner = $data['owner'];
+        $me = self::savedCartOwner();
+        $sameUser = (int) ($owner['user'] ?? 0) > 0 && (int) $owner['user'] === $me['user'];
+        $sameDevice = is_string($owner['device'] ?? null) && $owner['device'] !== '' && $me['device'] !== '' && hash_equals($owner['device'], $me['device']);
+
+        return $sameUser || $sameDevice ? $data : null;
+    }
+
+    /**
+     * The user and browser a saved cart belongs to.
+     *
+     * @return array{user: int, device: string}
+     */
+    private static function savedCartOwner(): array {
+        return [
+            'user' => get_current_user_id(),
+            'device' => class_exists('\WPDM\__\Session') ? (string) Session::deviceID() : '',
+        ];
     }
 
     // -------------------------------------------------------------------------

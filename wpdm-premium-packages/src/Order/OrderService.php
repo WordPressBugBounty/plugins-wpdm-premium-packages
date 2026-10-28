@@ -1533,8 +1533,10 @@ class OrderService {
             $orderId
         ));
 
-        // Assign guest order to current user if applicable
-        if ($order->getUserId() == 0 && is_user_logged_in()) {
+        // Link a guest order to this account only when this session proved it placed
+        // the order (checkout or email lookup). Others link it with the order email
+        // through the "If you do not see your order" form.
+        if ($order->getUserId() === 0 && is_user_logged_in() && GuestOrderAccess::sessionOwns($order->getOrderId())) {
             $this->updateOrder(['uid' => $current_user->ID], $orderId);
             $order = $this->getOrder($orderId);
         }

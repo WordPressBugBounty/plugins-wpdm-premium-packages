@@ -20,6 +20,7 @@ namespace WPDMPP\Api\Endpoints;
 
 use WPDMPP\Api\RestApi;
 use WPDMPP\Libs\Logger;
+use WPDMPP\Order\GuestOrderAccess;
 use WPDMPP\Order\OrderService;
 use WPDMPP\Payment\PaymentService;
 use WPDMPP\Payment\Gateways\PayPalGateway;
@@ -166,7 +167,7 @@ class CheckoutEndpoint {
         register_rest_route($namespace, '/checkout/order/(?P<id>[a-zA-Z0-9_-]+)', [
             'methods' => \WP_REST_Server::READABLE,
             'callback' => [$this, 'getOrderStatus'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'checkOrderStatusAccess'],
             'args' => [
                 'id' => [
                     'required' => true,
@@ -948,19 +949,51 @@ class CheckoutEndpoint {
     /**
      * PayPal: Activate subscription after approval
      *
+     * Completes an order only with the subscription PayPal created on that order's
+     * own plan. paypalCreateSubscription() makes a plan per order, at the order's
+     * price, and stores its ID on the order, so matching the plan binds the payment
+     * to this order and its amount, as the one-time capture route does with the
+     * stored PayPal order ID. An ACTIVE subscription alone proves nothing: any
+     * buyer of the cheapest plan, or of a free trial, holds one.
+     *
      * @param \WP_REST_Request $request
      * @return \WP_REST_Response
      */
     public function paypalActivateSubscription(\WP_REST_Request $request): \WP_REST_Response {
-        $subscription_id = $request->get_param('subscription_id');
-        $order_id = $request->get_param('order_id');
+        $subscription_id = (string) $request->get_param('subscription_id');
+        $order_id = (string) $request->get_param('order_id');
 
-        // Verify order exists
         $orderService = OrderService::instance();
-        $order = $orderService->getOrder($order_id);
+        $order = $order_id !== '' ? $orderService->getOrder($order_id) : null;
 
-        if (!$order) {
+        // Missing orders and other buyers' orders get the same answer.
+        if (!$order || !$this->isCheckoutBuyer($order)) {
             return RestApi::error(__('Order not found.', 'wpdm-premium-packages'), 404);
+        }
+
+        // PayPal subscription IDs look like I-BW452GLLEP1G. Anything else could
+        // point the verification request at another PayPal API path.
+        $plan_id = (string) $order->getMeta('paypal_plan_id', '');
+        if (!preg_match('/^[A-Za-z0-9-]{3,64}$/', $subscription_id) || $plan_id === '') {
+            return RestApi::error(__('Invalid PayPal subscription.', 'wpdm-premium-packages'), 400);
+        }
+
+        // A retried request for an order this subscription already paid for.
+        if ($order->isCompleted() && $order->getTransactionId() === $subscription_id) {
+            return RestApi::success([
+                'order_id' => $order_id,
+                'subscription_id' => $subscription_id,
+                'redirect_url' => \wpdmpp_orders_page('id=' . $order_id),
+            ], __('Subscription activated successfully!', 'wpdm-premium-packages'));
+        }
+
+        if (!$order->isProcessing()) {
+            return RestApi::error(__('This order is not awaiting payment.', 'wpdm-premium-packages'), 409);
+        }
+
+        $linked = $orderService->getOrderByTransactionId($subscription_id);
+        if ($linked && $linked->getOrderId() !== $order_id) {
+            return RestApi::error(__('Invalid PayPal subscription.', 'wpdm-premium-packages'), 400);
         }
 
         try {
@@ -969,6 +1002,17 @@ class CheckoutEndpoint {
 
             if (!$subscription || !isset($subscription['status'])) {
                 return RestApi::error(__('Failed to verify subscription.', 'wpdm-premium-packages'), 400);
+            }
+
+            if ((string) ($subscription['id'] ?? '') !== $subscription_id
+                || !hash_equals($plan_id, (string) ($subscription['plan_id'] ?? ''))) {
+                Logger::warning('PayPal subscription does not belong to the order', [
+                    'order_id' => $order_id,
+                    'subscription_id' => $subscription_id,
+                    'subscription_plan' => (string) ($subscription['plan_id'] ?? ''),
+                    'order_plan' => $plan_id,
+                ]);
+                return RestApi::error(__('Invalid PayPal subscription.', 'wpdm-premium-packages'), 400);
             }
 
             if ($subscription['status'] !== 'ACTIVE') {
@@ -1005,6 +1049,54 @@ class CheckoutEndpoint {
     }
 
     /**
+     * Whether the current visitor is the buyer checking out this order.
+     *
+     * A user's order belongs to that signed-in user. A guest order belongs to the
+     * session that created it (OrderService::createFromCart() stores it as the
+     * session's `orderid`), or that holds it once paid (`guest_order`).
+     * Abandoned-cart recovery links also set `orderid`, so this is never enough
+     * on its own; it guards routes that also verify the payment against the order.
+     *
+     * @since 7.3.1
+     *
+     * @param \WPDMPP\Order\Order $order
+     * @return bool
+     */
+    private function isCheckoutBuyer(\WPDMPP\Order\Order $order): bool {
+        $userId = $order->getUserId();
+        if ($userId > 0) {
+            return is_user_logged_in() && $userId === get_current_user_id();
+        }
+        $sessionOrder = Session::get('orderid');
+        if (is_string($sessionOrder) && $sessionOrder !== '' && hash_equals($sessionOrder, $order->getOrderId())) {
+            return true;
+        }
+        return GuestOrderAccess::sessionOwns($order->getOrderId());
+    }
+
+    /**
+     * Permission check for the order status route.
+     *
+     * A guest order is readable only by the session that placed or looked it up,
+     * never by anyone who knows its ID. Missing and foreign orders get the same
+     * answer, so the route can't be used to test which order IDs exist.
+     *
+     * @since 7.3.1
+     *
+     * @param \WP_REST_Request $request
+     * @return true|\WP_Error
+     */
+    public function checkOrderStatusAccess(\WP_REST_Request $request) {
+        $order = OrderService::instance()->getOrder((string) $request->get_param('id'));
+
+        if ($order && GuestOrderAccess::canView($order)) {
+            return true;
+        }
+
+        return new \WP_Error('rest_forbidden', __('Access denied.', 'wpdm-premium-packages'), ['status' => 403]);
+    }
+
+    /**
      * Get order status
      *
      * @param \WP_REST_Request $request
@@ -1017,15 +1109,6 @@ class CheckoutEndpoint {
 
         if (!$order) {
             return RestApi::error(__('Order not found.', 'wpdm-premium-packages'), 404);
-        }
-
-        // Security check
-        $current_user_id = get_current_user_id();
-        if ($order->getUserId() != $current_user_id && !current_user_can('manage_options')) {
-            $session_order_id = Session::get('wpdmpp_last_order_id');
-            if ($session_order_id != $order_id) {
-                return RestApi::error(__('Access denied.', 'wpdm-premium-packages'), 403);
-            }
         }
 
         return RestApi::success([
