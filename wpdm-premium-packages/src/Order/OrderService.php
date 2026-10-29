@@ -372,6 +372,12 @@ class OrderService {
             return false;
         }
 
+        // Let the guest who placed the order see it. Before clearing the carts, which
+        // also ends the checkout session that identifies the buyer.
+        if (!is_user_logged_in()) {
+            GuestOrderAccess::grant($orderId, (string) $order->getBillingEmail());
+        }
+
         // Clear carts
         if (function_exists('wpdmpp_clear_user_cart')) {
             wpdmpp_clear_user_cart($order->getUserId());
@@ -399,13 +405,7 @@ class OrderService {
 
         $this->repository->update($updateData, $orderId);
 
-        // Handle guest session
-        if (!is_user_logged_in()) {
-            if (class_exists('\WPDM\__\Session')) {
-                Session::set('guest_order', $orderId, 18000);
-                Session::set('order_email', $order->getBillingEmail(), 18000);
-            }
-        } else {
+        if (is_user_logged_in()) {
             // Add user as customer
             $customerService = \WPDMPP\Customer\CustomerService::getInstance();
             $customerService->addCustomer($order->getUserId());

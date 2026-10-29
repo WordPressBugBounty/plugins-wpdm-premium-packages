@@ -967,7 +967,7 @@ class CheckoutEndpoint {
         $order = $order_id !== '' ? $orderService->getOrder($order_id) : null;
 
         // Missing orders and other buyers' orders get the same answer.
-        if (!$order || !$this->isCheckoutBuyer($order)) {
+        if (!$order || !GuestOrderAccess::isBuyer($order)) {
             return RestApi::error(__('Order not found.', 'wpdm-premium-packages'), 404);
         }
 
@@ -1028,9 +1028,8 @@ class CheckoutEndpoint {
             // Complete the order
             $orderService->completeOrder($order_id, true, 'PayPal');
 
-            // Set session for guest orders
-            Session::set('guest_order_init', uniqid(), 18000);
-            Session::set('guest_order', $order_id, 18000);
+            // Let the guest who placed the order see it
+            GuestOrderAccess::grant($order_id);
 
             // Clear cart
             WPDMPP()->cart->clear();
@@ -1046,32 +1045,6 @@ class CheckoutEndpoint {
         } catch (\Exception $e) {
             return RestApi::error($e->getMessage(), 500);
         }
-    }
-
-    /**
-     * Whether the current visitor is the buyer checking out this order.
-     *
-     * A user's order belongs to that signed-in user. A guest order belongs to the
-     * session that created it (OrderService::createFromCart() stores it as the
-     * session's `orderid`), or that holds it once paid (`guest_order`).
-     * Abandoned-cart recovery links also set `orderid`, so this is never enough
-     * on its own; it guards routes that also verify the payment against the order.
-     *
-     * @since 7.3.1
-     *
-     * @param \WPDMPP\Order\Order $order
-     * @return bool
-     */
-    private function isCheckoutBuyer(\WPDMPP\Order\Order $order): bool {
-        $userId = $order->getUserId();
-        if ($userId > 0) {
-            return is_user_logged_in() && $userId === get_current_user_id();
-        }
-        $sessionOrder = Session::get('orderid');
-        if (is_string($sessionOrder) && $sessionOrder !== '' && hash_equals($sessionOrder, $order->getOrderId())) {
-            return true;
-        }
-        return GuestOrderAccess::sessionOwns($order->getOrderId());
     }
 
     /**

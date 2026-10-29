@@ -351,7 +351,7 @@ class AbandonedOrderService {
     private function sendRecoveryEmailToCustomer(object $emailRecord, Order $order, int $stage, array $activityLog): bool {
         global $wpdb;
 
-        $checkoutUrl = home_url("/acr/{$emailRecord->order_id}/");
+        $checkoutUrl = $this->getRecoveryUrl($emailRecord->order_id);
 
         $params = [
             'name' => $emailRecord->name,
@@ -405,9 +405,15 @@ class AbandonedOrderService {
 
         $orderId = $matches[0];
         $order = OrderService::instance()->getOrder($orderId);
+        $cartUrl = function_exists('wpdmpp_cart_url') ? wpdmpp_cart_url() : home_url('/cart/');
 
-        if (!$order) {
-            wp_safe_redirect(home_url('/'));
+        // Only the buyer gets the order back: the signed-in owner, or whoever has the key
+        // from the recovery email. Links without a valid key, including ones sent before
+        // 7.3.2, open the cart without loading anything, the same as for a missing order.
+        $key = isset($_GET['key']) ? sanitize_text_field(wp_unslash($_GET['key'])) : '';
+        $owner = $order && $order->getUserId() > 0 && $order->getUserId() === get_current_user_id();
+        if (!$order || !($owner || hash_equals($this->recoveryKey($orderId), $key))) {
+            wp_safe_redirect($cartUrl);
             exit;
         }
 
@@ -426,7 +432,6 @@ class AbandonedOrderService {
         $this->logRecoveryAttempt($orderId);
 
         // Redirect to cart
-        $cartUrl = function_exists('wpdmpp_cart_url') ? wpdmpp_cart_url() : home_url('/cart/');
         wp_safe_redirect($cartUrl);
         exit;
     }
@@ -631,6 +636,18 @@ class AbandonedOrderService {
      * @return string
      */
     public function getRecoveryUrl(string $orderId): string {
-        return home_url("/acr/{$orderId}/");
+        return add_query_arg('key', $this->recoveryKey($orderId), home_url("/acr/{$orderId}/"));
+    }
+
+    /**
+     * The key that proves a recovery link came from this site's recovery email
+     *
+     * @since 7.3.2
+     *
+     * @param string $orderId Order ID
+     * @return string
+     */
+    private function recoveryKey(string $orderId): string {
+        return wp_hash('order-recovery|' . $orderId);
     }
 }

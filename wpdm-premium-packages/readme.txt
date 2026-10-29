@@ -4,7 +4,7 @@ Donate link:
 Tags: ecommerce, digital downloads, sell digital products, shopping cart, wordpress store, digital store, online shop, payment gateway, paypal, license management
 Requires at least: 5.3
 Tested up to: 7.1
-Stable tag: 7.3.1
+Stable tag: 7.3.2
 
 Premium Packages is a free, full-featured WordPress eCommerce plugin to sell digital products easily and securely.
 
@@ -216,6 +216,10 @@ Yes, Premium Packages includes multiple invoice templates with customization opt
 8. License Management
 
 == Changelog ==
+
+= 7.3.2 - 2026.10.29 =
+* Fixed Pay Now and Renew acting on any order by ID; they now need the buyer and a nonce, and paying never grants another buyer's guest order ( Reported via WPScan )
+* Fixed abandoned cart recovery links loading any order's cart; links are now signed, so older links open an empty cart
 
 = 7.3.1 - 2026.10.28 =
 * Fixed PayPal subscription activation accepting any active subscription to complete an order; it must now be the order's own ( Reported by Enrico Marcolini, Claudio Marchesini and Dottor Marc )

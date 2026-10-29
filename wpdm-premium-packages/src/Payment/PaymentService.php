@@ -469,10 +469,21 @@ class PaymentService {
     public function payNow($post_data = []): void {
         global $current_user;
         $current_user = wp_get_current_user();
-        if (!$post_data || count($post_data) == 0) $post_data = wpdm_sanitize_array($_POST);
-        $corder = \WPDMPP\Order\OrderService::instance()->getOrder(sanitize_text_field($post_data['order_id']));
-        if (!$corder) {
-            wp_die(esc_html__('Order not found', 'wpdm-premium-packages'));
+        if (!$post_data || count($post_data) == 0) {
+            // Paying changes the order's payment method and status, so the request must come from the order page
+            if (!check_ajax_referer('wpdmpp_payment_intent', '__wpdmpp_pi_nonce', false)) {
+                wp_die(esc_html__('Your session has expired. Reload the page and try again.', 'wpdm-premium-packages'), '', ['response' => 403]);
+            }
+            $post_data = wpdm_sanitize_array($_POST);
+        }
+        $corder = \WPDMPP\Order\OrderService::instance()->getOrder(sanitize_text_field($post_data['order_id'] ?? ''));
+        // Only the buyer pays an order. Missing and other people's orders get the same answer.
+        if (!$corder || !\WPDMPP\Order\GuestOrderAccess::canView($corder)) {
+            wp_die(esc_html__('Order not found', 'wpdm-premium-packages'), '', ['response' => 404]);
+        }
+        // Pay Now and Renew are only offered for orders that aren't completed
+        if ($corder->isCompleted()) {
+            wp_die(esc_html__('This order is already paid.', 'wpdm-premium-packages'));
         }
 
         wpdmpp_empty_cart();

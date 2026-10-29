@@ -1032,7 +1032,11 @@ function wpdmpp_update_ps(){
 
 function wpdmpp_pay_now($post_data){
     $orderService = \WPDMPP\Order\OrderService::instance();
-    $corder = $orderService->getOrder($post_data['order_id']);
+    $corder = $orderService->getOrder($post_data['order_id'] ?? '');
+    // Only the buyer pays their own unpaid order
+    if (!$corder || !\WPDMPP\Order\GuestOrderAccess::canView($corder) || $corder->isCompleted()) {
+        return;
+    }
     $method = !empty($post_data['payment_method']) ? $post_data['payment_method'] : ($corder->getPaymentMethod() ?: 'PayPal');
 
     $result = \WPDMPP\Payment\PaymentService::instance()->processPayment(strtolower($method), [

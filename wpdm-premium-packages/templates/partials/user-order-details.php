@@ -4,7 +4,7 @@
  *
  * This template can be overridden by copying it to yourtheme/download-manager/user-dashboard/order-details.php.
  *
- * @version     3.0.0
+ * @version     3.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -447,7 +447,7 @@ do_action('wpdmpp_order_details_after_subscription', $order);
     <script>
     function proceed2payment_<?php echo $order_id; ?>(ob){
         jQuery('#proceed_<?php echo $order_id; ?>').html('<?php echo \WPDMPP\UI\Icons::spinner(16); ?> <?php _e("Processing...", "wpdm-premium-packages"); ?>');
-        jQuery.post(wpdm_url.ajax,{action:'wpdmpp_payment_intent', order_id:'<?php echo $order_id; ?>'},function(res){
+        jQuery.post(wpdm_url.ajax,{action:'wpdmpp_payment_intent', order_id:'<?php echo $order_id; ?>', __wpdmpp_pi_nonce:'<?php echo esc_js(wp_create_nonce('wpdmpp_payment_intent')); ?>'},function(res){
             jQuery('#proceed_<?php echo $order_id; ?>').html(res);
         });
         return false;

@@ -12,7 +12,7 @@ namespace WPDMPP\Payment\Gateways;
 
 use WPDMPP\Payment\AbstractGateway;
 use WPDMPP\Order\OrderService;
-use WPDM\__\Session;
+use WPDMPP\Order\GuestOrderAccess;
 
 defined('ABSPATH') || exit;
 
@@ -157,12 +157,8 @@ class ChequeGateway extends AbstractGateway {
             }
             $orderService->updateOrder($update, $orderId);
 
-            // Set session for guest orders
-            Session::set('guest_order_init', uniqid(), 18000);
-            Session::set('guest_order', $orderId, 18000);
-            if (!empty($billingInfo['order_email'])) {
-                Session::set('order_email', $billingInfo['order_email'], 18000);
-            }
+            // Let the guest who placed the order see it
+            GuestOrderAccess::grant($orderId, (string) ($billingInfo['order_email'] ?? ''));
 
             // Clear cart
             if (function_exists('wpdmpp_empty_cart')) {

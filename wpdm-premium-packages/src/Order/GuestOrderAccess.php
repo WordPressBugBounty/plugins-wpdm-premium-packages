@@ -90,6 +90,60 @@ class GuestOrderAccess {
     }
 
     /**
+     * Whether the current visitor is the order's buyer.
+     *
+     * A user's order belongs to that signed-in user. A guest order belongs to the
+     * session that created it at checkout (the `orderid` session value, set when the
+     * order is created) or that already holds it.
+     *
+     * @since 7.3.2
+     *
+     * @param Order $order Order.
+     * @return bool
+     */
+    public static function isBuyer(Order $order): bool {
+        $userId = $order->getUserId();
+        if ($userId > 0) {
+            return is_user_logged_in() && $userId === get_current_user_id();
+        }
+        $created = class_exists(Session::class) ? Session::get('orderid') : '';
+        if (is_string($created) && $created !== '' && hash_equals($created, $order->getOrderId())) {
+            return true;
+        }
+        return self::sessionOwns($order->getOrderId());
+    }
+
+    /**
+     * Let this session hold a guest order its visitor has just placed or paid for.
+     *
+     * Every place that sets the `guest_order` session value goes through here, except
+     * the guest orders page, where the visitor proves ownership with the order email.
+     * The order ID alone is never enough: orders that belong to an account, and guest
+     * orders this session didn't create, are refused.
+     *
+     * @since 7.3.2
+     *
+     * @param string $orderId Order ID.
+     * @param string $email   Order email, prefilled on the guest orders page.
+     * @return bool Whether the session now holds the order.
+     */
+    public static function grant(string $orderId, string $email = ''): bool {
+        if (!class_exists(Session::class)) {
+            return false;
+        }
+        $order = OrderService::instance()->getOrder($orderId);
+        if (!$order || $order->getUserId() !== 0 || !self::isBuyer($order)) {
+            return false;
+        }
+        Session::set('guest_order_init', uniqid(), 18000);
+        Session::set('guest_order', $order->getOrderId(), 18000);
+        if ($email !== '') {
+            Session::set('order_email', $email, 18000);
+        }
+        return true;
+    }
+
+    /**
      * Whether the signed-in user may link a guest order to their account.
      *
      * @param Order  $order Order.
