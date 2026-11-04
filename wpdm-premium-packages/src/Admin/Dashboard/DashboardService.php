@@ -14,6 +14,7 @@ use WPDMPP\Admin\Dashboard\Widgets\SalesOverviewWidget;
 use WPDMPP\Admin\Dashboard\Widgets\LatestOrdersWidget;
 use WPDMPP\Admin\Dashboard\Widgets\RecentSalesWidget;
 use WPDMPP\Admin\Dashboard\Widgets\TopSalesWidget;
+use WPDMPP\Admin\Dashboard\Widgets\UnrepliedNotesWidget;
 
 defined('ABSPATH') || exit;
 
@@ -66,6 +67,7 @@ class DashboardService
         $this->addWidget(new LatestOrdersWidget());
         $this->addWidget(new RecentSalesWidget());
         $this->addWidget(new TopSalesWidget());
+        $this->addWidget(new UnrepliedNotesWidget());
 
         // Allow extensions to add custom widgets
         do_action('wpdmpp_register_dashboard_widgets', $this);

@@ -776,6 +776,9 @@ class OrderService {
             return false;
         }
 
+        // Tells the Order Notes Awaiting Reply dashboard widget its cached list is out of date
+        update_option('_wpdmpp_order_notes_updated', $time, false);
+
         // Email a copy of the note to the selected recipients. Restores behavior
         // lost when the legacy Order::add_note() was removed in the OrderService
         // migration. All note paths (REST user/admin + legacy AJAX) funnel here.
