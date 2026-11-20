@@ -64,6 +64,39 @@ class CheckoutEndpoint {
     }
 
     /**
+     * The order a PayPal create call pays for, when the button names one.
+     *
+     * Pay Now and Renew on the order page render the button for an order that
+     * already exists and send its ID. The cart has nothing to do with that
+     * payment (it is emptied before the button loads), so the order is billed
+     * as it stands. Checkout and Buy Now send no order ID and get null.
+     *
+     * Only the buyer pays an order: missing and other people's orders get the
+     * same answer, as in PaymentService::payNow().
+     *
+     * @param \WP_REST_Request $request
+     * @return \WPDMPP\Order\Order|\WP_REST_Response|null
+     */
+    private function resolveExistingOrder(\WP_REST_Request $request) {
+        $orderId = sanitize_text_field((string) $request->get_param('order_id'));
+        if ($orderId === '') {
+            return null;
+        }
+
+        $order = OrderService::instance()->getOrder($orderId);
+        if (!$order || !GuestOrderAccess::canView($order)) {
+            return RestApi::error(__('Order not found.', 'wpdm-premium-packages'), 404);
+        }
+
+        // Unpaid and expired orders only
+        if (!$order->canBeCompleted()) {
+            return RestApi::error(__('This order is not awaiting payment.', 'wpdm-premium-packages'), 409);
+        }
+
+        return $order;
+    }
+
+    /**
      * Register checkout routes
      */
     public function register(): void {
@@ -660,40 +693,53 @@ class CheckoutEndpoint {
      * @return \WP_REST_Response
      */
     public function paypalCreateOrder(\WP_REST_Request $request): \WP_REST_Response {
-        // Validate billing
-        $validation = $this->validateBillingData($request);
-        if (is_wp_error($validation)) {
-            return RestApi::error(
-                $validation->get_error_message(),
-                400,
-                ['errors' => $validation->get_error_data()]
-            );
-        }
-
-        // Buy Now bills the product it sits on; checkout bills the cart.
-        $resolved   = $this->resolveOrderItems($request);
-        $cart_items = $resolved['items'];
-        if (empty($cart_items)) {
-            return RestApi::error(__('Your cart is empty.', 'wpdm-premium-packages'), 400);
-        }
-
-        // Create local order via OrderService
-        $billingInfo = $this->buildBillingInfo($request);
         $orderService = OrderService::instance();
-        $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal', [
-            'use_cart_coupon' => !$resolved['direct'],
-        ]);
+
+        // Pay Now / Renew: bill the order the button was rendered for
+        $order = $this->resolveExistingOrder($request);
+        if ($order instanceof \WP_REST_Response) {
+            return $order;
+        }
 
         if (!$order) {
-            return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
+            // Validate billing
+            $validation = $this->validateBillingData($request);
+            if (is_wp_error($validation)) {
+                return RestApi::error(
+                    $validation->get_error_message(),
+                    400,
+                    ['errors' => $validation->get_error_data()]
+                );
+            }
+
+            // Buy Now bills the product it sits on; checkout bills the cart.
+            $resolved   = $this->resolveOrderItems($request);
+            $cart_items = $resolved['items'];
+            if (empty($cart_items)) {
+                return RestApi::error(__('Your cart is empty.', 'wpdm-premium-packages'), 400);
+            }
+
+            // Create local order via OrderService
+            $billingInfo = $this->buildBillingInfo($request);
+            $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal', [
+                'use_cart_coupon' => !$resolved['direct'],
+            ]);
+
+            if (!$order) {
+                return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
+            }
         }
 
         $order_id = $order->getOrderId();
         $order_total = $order->getTotal();
 
+        if ((float) $order_total <= 0) {
+            return RestApi::error(__('This order has no amount to pay.', 'wpdm-premium-packages'), 400);
+        }
+
         try {
             $paypal = new PayPalGateway();
-            $paypal_order = $paypal->createOrder((int) $order_id, (float) $order_total);
+            $paypal_order = $paypal->createOrder((string) $order_id, (float) $order_total);
 
             if (isset($paypal_order['id'])) {
                 // Store PayPal order ID in order meta
@@ -849,32 +895,45 @@ class CheckoutEndpoint {
      * @return \WP_REST_Response
      */
     public function paypalCreateSubscription(\WP_REST_Request $request): \WP_REST_Response {
-        // Validate billing
-        $validation = $this->validateBillingData($request);
-        if (is_wp_error($validation)) {
-            return RestApi::error(
-                $validation->get_error_message(),
-                400,
-                ['errors' => $validation->get_error_data()]
-            );
-        }
-
-        // Buy Now bills the product it sits on; checkout bills the cart.
-        $resolved   = $this->resolveOrderItems($request);
-        $cart_items = $resolved['items'];
-        if (empty($cart_items)) {
-            return RestApi::error(__('Your cart is empty.', 'wpdm-premium-packages'), 400);
-        }
-
-        // Create local order via OrderService
-        $billingInfo = $this->buildBillingInfo($request);
         $orderService = OrderService::instance();
-        $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal', [
-            'use_cart_coupon' => !$resolved['direct'],
-        ]);
 
-        if (!$order) {
-            return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
+        // Pay Now / Renew: bill the order the button was rendered for
+        $order = $this->resolveExistingOrder($request);
+        if ($order instanceof \WP_REST_Response) {
+            return $order;
+        }
+        $existing = (bool) $order;
+
+        if ($existing) {
+            // The items as they were bought, with their membership details
+            $cart_items = $order->getCartData();
+        } else {
+            // Validate billing
+            $validation = $this->validateBillingData($request);
+            if (is_wp_error($validation)) {
+                return RestApi::error(
+                    $validation->get_error_message(),
+                    400,
+                    ['errors' => $validation->get_error_data()]
+                );
+            }
+
+            // Buy Now bills the product it sits on; checkout bills the cart.
+            $resolved   = $this->resolveOrderItems($request);
+            $cart_items = $resolved['items'];
+            if (empty($cart_items)) {
+                return RestApi::error(__('Your cart is empty.', 'wpdm-premium-packages'), 400);
+            }
+
+            // Create local order via OrderService
+            $billingInfo = $this->buildBillingInfo($request);
+            $order = $orderService->createFromCart($cart_items, $billingInfo, 'PayPal', [
+                'use_cart_coupon' => !$resolved['direct'],
+            ]);
+
+            if (!$order) {
+                return RestApi::error(__('Failed to create order.', 'wpdm-premium-packages'), 500);
+            }
         }
 
         $order_id = $order->getOrderId();
@@ -926,6 +985,16 @@ class CheckoutEndpoint {
 
             // For trial subscriptions, use full price as recurring amount (not $0 order total)
             $recurringPrice = $trialDays > 0 && $fullPrice > 0 ? $fullPrice : (float) $order_total;
+
+            // An order that is being paid again has had its trial: bill from the first cycle
+            if ($existing) {
+                $trialDays = 0;
+            }
+
+            if ($recurringPrice <= 0) {
+                return RestApi::error(__('This order has no amount to pay.', 'wpdm-premium-packages'), 400);
+            }
+
             $planId = $paypal->createSubscriptionPlan($productId, $recurringPrice, $interval['count'], $interval['unit'], $trialDays, (string) $order_id);
             if (!$planId) {
                 $reason = $paypal->getLastApiError();
@@ -987,7 +1056,8 @@ class CheckoutEndpoint {
             ], __('Subscription activated successfully!', 'wpdm-premium-packages'));
         }
 
-        if (!$order->isProcessing()) {
+        // Unpaid orders, and expired ones renewed from the order page
+        if (!$order->canBeCompleted()) {
             return RestApi::error(__('This order is not awaiting payment.', 'wpdm-premium-packages'), 409);
         }
 

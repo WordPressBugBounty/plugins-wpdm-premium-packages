@@ -666,7 +666,7 @@ class PayPalGateway extends AbstractGateway {
      * @return array PayPal order data
      * @throws \Exception
      */
-    public function createOrder(int $orderId, float $amount, string $description = ''): array {
+    public function createOrder(string $orderId, float $amount, string $description = ''): array {
         $accessToken = $this->getAccessToken();
         if (!$accessToken) {
             throw new \Exception(__('Failed to authenticate with PayPal.', 'wpdm-premium-packages'));
@@ -675,8 +675,8 @@ class PayPalGateway extends AbstractGateway {
         $apiDomain = $this->getApiDomain();
         $url = "https://{$apiDomain}/v2/checkout/orders";
 
-        $currency = $this->getOrderCurrency((string) $orderId);
-        $description = $description ?: sprintf(__('Order #%d', 'wpdm-premium-packages'), $orderId);
+        $currency = $this->getOrderCurrency($orderId);
+        $description = $description ?: sprintf(__('Order #%s', 'wpdm-premium-packages'), $orderId);
 
         $payload = [
             'intent' => 'CAPTURE',
@@ -1214,7 +1214,7 @@ class PayPalGateway extends AbstractGateway {
             'mode' => $this->isSandbox() ? 'sandbox' : 'production',
             'order_id' => $orderId,
             'amount' => number_format($amount, 2, '.', ''),
-            'create_order_url' => rest_url('wpdmpp/v1/checkout/paypal/create'),
+            'create_order_url' => rest_url('wpdmpp/v1/checkout/paypal/create-order'),
             'capture_url' => rest_url('wpdmpp/v1/checkout/paypal/capture'),
         ];
     }
@@ -1243,7 +1243,7 @@ class PayPalGateway extends AbstractGateway {
         }
 
         $currency = $this->getOrderCurrency($orderId);
-        $createUrl = rest_url('wpdmpp/v1/checkout/paypal/create');
+        $createUrl = rest_url('wpdmpp/v1/checkout/paypal/create-order');
         $captureUrl = rest_url('wpdmpp/v1/checkout/paypal/capture');
         $nonce = wp_create_nonce('wp_rest');
 
