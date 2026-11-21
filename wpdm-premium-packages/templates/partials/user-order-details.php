@@ -639,7 +639,7 @@ jQuery(function($){
 
         var $btn = $(this);
         $btn.attr('disabled','disabled').html('<?php echo \WPDMPP\UI\Icons::spinner(14); ?>');
-        $.post(wpdm_url.ajax, {action: 'wpdmpp_cancel_subscription', __cansub: '<?php echo wp_create_nonce(NONCE_KEY) ?>', orderid: '<?php echo $order_id ?>'}, function(res){
+        $.post(wpdm_url.ajax, {action: 'wpdmpp_cancel_subscription', __cansub: '<?php echo wp_create_nonce('wpdmpp_cancel_sub_' . $order_id) ?>', orderid: '<?php echo esc_js($order_id) ?>'}, function(res){
             $btn.html('<?php echo esc_js(__('Canceled', 'wpdm-premium-packages')); ?>');
             $('#wpdmpp-csstatus').removeClass('wpdmpp-renew-badge--active').addClass('wpdmpp-renew-badge--inactive').html('<?php echo \WPDMPP\UI\Icons::get('toggle-off', 12); ?> <?php echo esc_js(__('Inactive', 'wpdm-premium-packages')); ?>');
         });

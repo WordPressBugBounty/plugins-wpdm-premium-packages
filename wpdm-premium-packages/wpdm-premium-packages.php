@@ -3,7 +3,7 @@
  * Plugin Name:  Premium Packages - Sell Digital Products Securely
  * Plugin URI: https://www.wpdownloadmanager.com/download/premium-package-complete-digital-store-solution/
  * Description: Complete solution for selling digital products securely and easily
- * Version: 7.3.4
+ * Version: 7.3.5
  * Author: WordPress Download Manager
  * Text Domain: wpdm-premium-packages
  * Author URI: https://www.wpdownloadmanager.com/
@@ -37,7 +37,7 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 	 * @class WPDMPremiumPackage
 	 */
 
-	define( 'WPDMPP_VERSION', '7.3.4' );
+	define( 'WPDMPP_VERSION', '7.3.5' );
 	define( 'WPDMPP_BASE_DIR', dirname( __FILE__ ) . '/' );
 	define( 'WPDMPP_BASE_URL', plugins_url( 'wpdm-premium-packages/' ) );
 	define( 'WPDMPP_TEXT_DOMAIN', 'wpdm-premium-packages' );
@@ -1584,58 +1584,82 @@ if ( ! class_exists( 'WPDMPremiumPackage' ) ):
 			endif;
 		}
 
+		/**
+		 * Toggle auto-renew on an order. Admin orders screen only.
+		 */
 		function toggleAutoRenew() {
-			if ( isset( $_REQUEST['__arnonce'] ) && wp_verify_nonce( $_REQUEST['__arnonce'], NONCE_KEY ) ) {
-				$order = OrderService::instance()->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
-				$renew = (int)$order->hasAutoRenew() === 1 ? 0 : 1;
-				OrderService::instance()->updateOrder( array( 'auto_renew' => $renew ), $order->getOrderId() );
-				$dt = array( 'renew' => $renew );
-				if ( $renew == 0 ) {
-					$dt['payment_method'] = $order->getPaymentMethod();
-					if ( PaymentService::instance()->cancelSubscription( $order->getOrderId() ) ) {
-						$dt['canceled'] = 1;
-					}
-				}
-				wp_send_json( $dt );
-			} else {
+			if ( ! isset( $_REQUEST['__arnonce'] ) || ! wp_verify_nonce( $_REQUEST['__arnonce'], 'wpdmpp_toggle_auto_renew' ) ) {
 				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
 			}
-		}
-
-		function toggleManualRenew() {
-			if ( isset( $_REQUEST['__mrnonce'] ) && wp_verify_nonce( $_REQUEST['__mrnonce'], NONCE_KEY ) ) {
-				$orderID = sanitize_text_field( $_REQUEST['orderid'] );
-				$mrenew  = (int) OrderService::instance()->getMeta( $orderID, 'manual_renew' );
-				$mrenew  = $mrenew ? 0 : 1;
-				OrderService::instance()->updateMeta( $orderID, 'manual_renew', $mrenew );
-				wp_send_json_success( array( 'mrenew' => $mrenew ) );
-			} else {
-				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
+			if ( ! current_user_can( WPDMPP_ADMIN_CAP ) ) {
+				wp_send_json_error( array( 'message' => __( 'You are not allowed to do this.', 'wpdm-premium-packages' ) ), 403 );
 			}
-		}
-
-		function cancel_subscription() {
-			if ( isset( $_REQUEST['__cansub'] ) && wp_verify_nonce( $_REQUEST['__cansub'], NONCE_KEY ) ) {
-				$order = OrderService::instance()->getOrder( sanitize_text_field( $_REQUEST['orderid'] ) );
-				$renew = 0;
-				OrderService::instance()->updateOrder( array( 'auto_renew' => $renew ), $order->getOrderId() );
-				$dt = array( 'renew' => $renew );
+			$order = OrderService::instance()->getOrder( sanitize_text_field( wp_unslash( $_REQUEST['orderid'] ?? '' ) ) );
+			if ( ! $order ) {
+				wp_send_json_error( array( 'message' => __( 'Order not found!', 'wpdm-premium-packages' ) ), 404 );
+			}
+			$renew = (int) $order->hasAutoRenew() === 1 ? 0 : 1;
+			OrderService::instance()->updateOrder( array( 'auto_renew' => $renew ), $order->getOrderId() );
+			$dt = array( 'renew' => $renew );
+			if ( $renew == 0 ) {
 				$dt['payment_method'] = $order->getPaymentMethod();
 				if ( PaymentService::instance()->cancelSubscription( $order->getOrderId() ) ) {
 					$dt['canceled'] = 1;
 				}
-				$oid     = $order->getOrderId();
-				$message = "Subscription Canceled For Order# {$oid}<br/><a style='background-color:#19B999;border:none;border-radius:3px;color:#ffffff !important;display:inline-block;font-size:14px;font-weight:bold;outline:none!important;padding:5px 15px;margin:10px auto;text-decoration:none;' href='" . admin_url( "/edit.php?post_type=wpdmpro&page=orders&task=vieworder&id={$oid}" ) . "'>View Order</a>";
-				$params  = array(
-					'subject'  => "Subscription Canceled: Order# {$oid}",
-					'to_email' => get_option( "admin_email" ),
-					'message'  => $message
-				);
-				\WPDM\__\Email::send( 'default', $params );
-				wp_send_json( $dt );
-			} else {
+			}
+			wp_send_json( $dt );
+		}
+
+		/**
+		 * Toggle the manual-renew flag on an order. Admin orders screen only.
+		 */
+		function toggleManualRenew() {
+			if ( ! isset( $_REQUEST['__mrnonce'] ) || ! wp_verify_nonce( $_REQUEST['__mrnonce'], 'wpdmpp_toggle_manual_renew' ) ) {
 				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
 			}
+			if ( ! current_user_can( WPDMPP_ADMIN_CAP ) ) {
+				wp_send_json_error( array( 'message' => __( 'You are not allowed to do this.', 'wpdm-premium-packages' ) ), 403 );
+			}
+			$order = OrderService::instance()->getOrder( sanitize_text_field( wp_unslash( $_REQUEST['orderid'] ?? '' ) ) );
+			if ( ! $order ) {
+				wp_send_json_error( array( 'message' => __( 'Order not found!', 'wpdm-premium-packages' ) ), 404 );
+			}
+			$orderID = $order->getOrderId();
+			$mrenew  = (int) OrderService::instance()->getMeta( $orderID, 'manual_renew' );
+			$mrenew  = $mrenew ? 0 : 1;
+			OrderService::instance()->updateMeta( $orderID, 'manual_renew', $mrenew );
+			wp_send_json_success( array( 'mrenew' => $mrenew ) );
+		}
+
+		/**
+		 * Cancel a subscription. Only the order's own user or a store admin may do it;
+		 * the nonce is scoped to the order.
+		 */
+		function cancel_subscription() {
+			$orderId = sanitize_text_field( wp_unslash( $_REQUEST['orderid'] ?? '' ) );
+			if ( $orderId === '' || ! isset( $_REQUEST['__cansub'] ) || ! wp_verify_nonce( $_REQUEST['__cansub'], 'wpdmpp_cancel_sub_' . $orderId ) ) {
+				wp_send_json_error( array( 'message' => __( 'Session Expired!', 'wpdm-premium-packages' ) ) );
+			}
+			$order = OrderService::instance()->getOrder( $orderId );
+			if ( ! $order || ! GuestOrderAccess::canView( $order ) ) {
+				wp_send_json_error( array( 'message' => __( 'You are not allowed to do this.', 'wpdm-premium-packages' ) ), 403 );
+			}
+			$renew = 0;
+			OrderService::instance()->updateOrder( array( 'auto_renew' => $renew ), $order->getOrderId() );
+			$dt = array( 'renew' => $renew );
+			$dt['payment_method'] = $order->getPaymentMethod();
+			if ( PaymentService::instance()->cancelSubscription( $order->getOrderId() ) ) {
+				$dt['canceled'] = 1;
+			}
+			$oid     = $order->getOrderId();
+			$message = "Subscription Canceled For Order# {$oid}<br/><a style='background-color:#19B999;border:none;border-radius:3px;color:#ffffff !important;display:inline-block;font-size:14px;font-weight:bold;outline:none!important;padding:5px 15px;margin:10px auto;text-decoration:none;' href='" . admin_url( "/edit.php?post_type=wpdmpro&page=orders&task=vieworder&id={$oid}" ) . "'>View Order</a>";
+			$params  = array(
+				'subject'  => "Subscription Canceled: Order# {$oid}",
+				'to_email' => get_option( "admin_email" ),
+				'message'  => $message
+			);
+			\WPDM\__\Email::send( 'default', $params );
+			wp_send_json( $dt );
 		}
 
 

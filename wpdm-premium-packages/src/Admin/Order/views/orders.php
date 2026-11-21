@@ -189,7 +189,7 @@ use WPDMPP\UI\Icons;
                 $.get(ajaxurl, {
                     orderid: $(this).data('order'),
                     action: 'wpdmpp_toggle_manual_renew',
-                    '__mrnonce': '<?php echo wp_create_nonce( NONCE_KEY ); ?>'
+                    '__mrnonce': '<?php echo wp_create_nonce( 'wpdmpp_toggle_manual_renew' ); ?>'
                 }, function (res) {
                     console.log(res.mrenew);
                     if (res.mrenew !== undefined) {
@@ -220,7 +220,7 @@ use WPDMPP\UI\Icons;
                 $.get(ajaxurl, {
                     orderid: $link.data('order'),
                     action: 'wpdmpp_toggle_auto_renew',
-                    '__arnonce': '<?php echo wp_create_nonce( NONCE_KEY ); ?>'
+                    '__arnonce': '<?php echo wp_create_nonce( 'wpdmpp_toggle_auto_renew' ); ?>'
                 }, function (res) {
                     $link.data('busy', false);
                     if (res && res.renew !== undefined) {
