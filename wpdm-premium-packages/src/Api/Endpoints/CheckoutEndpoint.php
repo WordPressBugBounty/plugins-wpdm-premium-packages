@@ -531,9 +531,14 @@ class CheckoutEndpoint {
             }
         }
 
+        // Refuse a gateway this buyer may not use before an order is raised for it
+        $payment_method = (string) $request->get_param('payment_method');
+        if (!PaymentService::instance()->isAvailable(strtolower($payment_method))) {
+            return RestApi::error(__('Payment gateway is not available.', 'wpdm-premium-packages'), 400);
+        }
+
         // Create order via OrderService
         $billingInfo = $this->buildBillingInfo($request);
-        $payment_method = $request->get_param('payment_method');
         $orderService = OrderService::instance();
         $order = $orderService->createFromCart($cart_items, $billingInfo, $payment_method);
 
@@ -693,6 +698,10 @@ class CheckoutEndpoint {
      * @return \WP_REST_Response
      */
     public function paypalCreateOrder(\WP_REST_Request $request): \WP_REST_Response {
+        if (!PaymentService::instance()->isAvailable('paypal')) {
+            return RestApi::error(__('Payment gateway is not available.', 'wpdm-premium-packages'), 400);
+        }
+
         $orderService = OrderService::instance();
 
         // Pay Now / Renew: bill the order the button was rendered for
@@ -833,7 +842,7 @@ class CheckoutEndpoint {
 
         $paymentService = PaymentService::instance();
         $gateway = $paymentService->getGateway(strtolower($method));
-        if (!$gateway || !$gateway->isEnabled()) {
+        if (!$gateway || !$paymentService->isAvailable($gateway)) {
             return RestApi::error(__('Payment gateway is not available.', 'wpdm-premium-packages'), 400);
         }
 
@@ -895,6 +904,10 @@ class CheckoutEndpoint {
      * @return \WP_REST_Response
      */
     public function paypalCreateSubscription(\WP_REST_Request $request): \WP_REST_Response {
+        if (!PaymentService::instance()->isAvailable('paypal')) {
+            return RestApi::error(__('Payment gateway is not available.', 'wpdm-premium-packages'), 400);
+        }
+
         $orderService = OrderService::instance();
 
         // Pay Now / Renew: bill the order the button was rendered for

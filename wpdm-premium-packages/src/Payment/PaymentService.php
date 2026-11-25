@@ -143,10 +143,38 @@ class PaymentService {
             return $this->gateways;
         }
 
-        // Filter to enabled only
+        // Filter to the gateways the current visitor may pay with
         return array_filter($this->gateways, function (PaymentGatewayInterface $gateway) {
-            return $gateway->isEnabled();
+            return $this->isAvailable($gateway);
         });
+    }
+
+    /**
+     * Whether the current visitor may pay with a gateway.
+     *
+     * A gateway's status is 0 (disabled), 1 (enabled) or 2 (admin only). Gateways
+     * report 2 as enabled, so the admin-only rule is enforced here, in one place,
+     * for built-in and add-on gateways alike.
+     *
+     * @since 7.3.6
+     *
+     * @param PaymentGatewayInterface|string $gateway Gateway instance or ID
+     * @return bool
+     */
+    public function isAvailable($gateway): bool {
+        if (is_string($gateway)) {
+            $gateway = $this->getGateway($gateway);
+        }
+        if (!$gateway instanceof PaymentGatewayInterface || !$gateway->isEnabled()) {
+            return false;
+        }
+
+        $key = method_exists($gateway, 'getSettingsKey') ? $gateway->getSettingsKey() : $gateway->getId();
+        if ((int) get_wpdmpp_option($key . '/enabled', 0) === 2) {
+            return current_user_can(WPDMPP_ADMIN_CAP);
+        }
+
+        return true;
     }
 
     /**
@@ -192,7 +220,7 @@ class PaymentService {
             ];
         }
 
-        if (!$gateway->isEnabled()) {
+        if (!$this->isAvailable($gateway)) {
             return [
                 'success' => false,
                 'message' => __('Payment gateway is not available.', 'wpdm-premium-packages'),
@@ -492,6 +520,9 @@ class PaymentService {
 
         $total = $corder->getTotal();
         $method = sanitize_text_field($post_data['payment_method'] ?? $corder->getPaymentMethod());
+        if (!$this->isAvailable(strtolower($method))) {
+            wp_die(esc_html__('Payment gateway is not available.', 'wpdm-premium-packages'), '', ['response' => 400]);
+        }
 
         ob_start();
         $billing_required = $this->needsBillingForm($method);

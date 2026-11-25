@@ -20,10 +20,17 @@ if((int)get_wpdmpp_option('show_buynow') === 1 && $wpdmpp_buynow_supported){
 	$pp = new \WPDMPP\Payment\Gateways\PayPalGateway();
 	// Pass the product and licence so the order is built from what this page
 	// is selling, not from whatever happens to be in the shopper's cart.
-	$buynow['PayPal'] = $pp->isEnabled()
+	$buynow['PayPal'] = \WPDMPP\Payment\PaymentService::instance()->isAvailable('paypal')
 		? $pp->renderCheckoutButton('', $price, (int) $product_id, (string) $license)
 		: '';
 	$buynow = apply_filters("wpdmpp_buynow_options", $buynow, $product_id, $license);
+	// Drop buttons for gateways this visitor may not use (disabled or admin only)
+	foreach ($buynow as $pm => $buynow_html) {
+		$pm_gateway = \WPDMPP\Payment\PaymentService::instance()->getGateway((string) $pm);
+		if ($pm_gateway && !\WPDMPP\Payment\PaymentService::instance()->isAvailable($pm_gateway)) {
+			unset($buynow[$pm]);
+		}
+	}
 	foreach ($buynow as $pm => $buynow_html){
 		if($buynow_html) {
 			$_buynow_html .= "<div class='buynow-btn' id='buynow-{$pm}'>";
